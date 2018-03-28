@@ -27,7 +27,8 @@ sealed abstract class TransactionOutPoint extends NetworkElement {
  */
 case object EmptyTransactionOutPoint extends TransactionOutPoint {
   def txId = DoubleSha256Digest(
-    BitcoinSUtil.decodeHex("0000000000000000000000000000000000000000000000000000000000000000"))
+    BitcoinSUtil.decodeHex("0000000000000000000000000000000000000000000000000000000000000000")
+  )
   def vout = UInt32("ffffffff")
 }
 

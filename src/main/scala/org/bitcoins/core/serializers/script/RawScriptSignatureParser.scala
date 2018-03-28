@@ -20,7 +20,8 @@ sealed abstract class RawScriptSignatureParser extends RawBitcoinSerializer[Scri
       //TODO: Figure out a better way to do this, we can theoretically have numbers larger than Int.MaxValue,
       val scriptSigBytes = bytes.slice(
         compactSizeUInt.size.toInt,
-        compactSizeUInt.num.toInt + compactSizeUInt.size.toInt)
+        compactSizeUInt.num.toInt + compactSizeUInt.size.toInt
+      )
       val scriptTokens: List[ScriptToken] = ScriptParser.fromBytes(scriptSigBytes)
       ScriptSignature.fromAsm(scriptTokens)
     }
