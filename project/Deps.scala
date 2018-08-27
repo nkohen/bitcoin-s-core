@@ -34,6 +34,7 @@ object Deps {
     val spray = "io.spray" %% "spray-json" % V.spray  % "test"
     val akkaHttp = "com.typesafe.akka" %% "akka-http-testkit" % V.akkav % "test"
     val akkaStream = "com.typesafe.akka" %% "akka-stream-testkit" % V.akkaStreamv % "test"
+    val playJson = "com.typesafe.play" %% "play-json" % V.playv % "test"
   }
 
   val core = List(
@@ -52,7 +53,8 @@ object Deps {
     Test.junitInterface,
     Test.logback,
     Test.scalaTest,
-    Test.spray
+    Test.spray,
+    Test.playJson
   )
 
   val zmq = List(

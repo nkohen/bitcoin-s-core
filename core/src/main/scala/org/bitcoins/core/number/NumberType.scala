@@ -254,7 +254,7 @@ object UInt64 extends Factory[UInt64] with BaseNumbers[UInt64] {
   lazy val max = UInt64(BigInt("18446744073709551615"))
 
   override def fromBytes(bytes: ByteVector): UInt64 = {
-    require(bytes.size <= 8)
+    require(bytes.size <= 8, s"Too big for UInt64, got ${bytes}")
     val res: BigInt = NumberUtil.toUnsignedInt(bytes)
     if (res > max.underlying || res < min.underlying) {
       throw new IllegalArgumentException("Out of bounds for a UInt64, got: " + res)
