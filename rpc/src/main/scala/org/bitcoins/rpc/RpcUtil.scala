@@ -10,13 +10,13 @@ import org.bitcoins.core.util.BitcoinSLogger
 import org.bitcoins.rpc.client.RpcClient
 import org.bitcoins.rpc.config.{ AuthCredentials, DaemonInstance }
 
-import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ Await, Future, Promise }
 import scala.util.Try
 
-trait TestUtil extends BitcoinSLogger {
+trait RpcUtil extends BitcoinSLogger {
 
-  implicit val system = ActorSystem()
+  implicit val system = ActorSystem("TestUtil_ActorSystem")
   implicit val m = ActorMaterializer()
   implicit val ec = m.executionContext
 
@@ -91,6 +91,24 @@ trait TestUtil extends BitcoinSLogger {
     }
   }
 
+  def retryUntilSatisfied(condition: => Boolean, duration: Int = 100, counter: Int = 0): Future[Unit] = {
+    def retryRunnable(promise: Promise[Future[Unit]]): Runnable = new Runnable {
+      override def run(): Unit = {
+        promise.success(retryUntilSatisfied(condition, duration, counter + 1))
+      }
+    }
+
+    if (counter == 50) {
+      throw new RuntimeException("Condition timed out")
+    } else if (condition) {
+      Future.successful(Unit)
+    } else {
+      val promise = Promise[Future[Unit]]()
+      system.scheduler.scheduleOnce(duration.milliseconds, retryRunnable(promise))
+      promise.future.flatMap(f => f)
+    }
+  }
+
   def awaitCondition(
     condition: => Boolean,
     duration: Int = 100,
@@ -101,7 +119,7 @@ trait TestUtil extends BitcoinSLogger {
       Unit
     } else {
       Thread.sleep(duration)
-      awaitCondition(condition, counter = counter + 1)
+      awaitCondition(condition, duration, counter + 1)
     }
   }
 
@@ -166,8 +184,8 @@ trait TestUtil extends BitcoinSLogger {
     rpcPort1: Int = randomPort,
     port2: Int = randomPort,
     rpcPort2: Int = randomPort): Future[(RpcClient, RpcClient)] = {
-    val client1: RpcClient = new RpcClient(TestUtil.instance(port1, rpcPort1))
-    val client2: RpcClient = new RpcClient(TestUtil.instance(port2, rpcPort2))
+    val client1: RpcClient = new RpcClient(RpcUtil.instance(port1, rpcPort1))
+    val client2: RpcClient = new RpcClient(RpcUtil.instance(port2, rpcPort2))
     client1.start()
     client2.start()
     val try1 = Try(awaitServer(client1))
@@ -205,4 +223,4 @@ trait TestUtil extends BitcoinSLogger {
   }
 }
 
-object TestUtil extends TestUtil
+object RpcUtil extends RpcUtil
