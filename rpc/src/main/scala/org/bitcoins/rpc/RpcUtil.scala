@@ -113,14 +113,8 @@ trait RpcUtil extends BitcoinSLogger {
     condition: => Boolean,
     duration: Int = 100,
     counter: Int = 0): Unit = {
-    if (counter == 50) {
-      throw new RuntimeException("Condition timed out")
-    } else if (condition) {
-      Unit
-    } else {
-      Thread.sleep(duration)
-      awaitCondition(condition, duration, counter + 1)
-    }
+    // The timeout is set high so that the user can specify the timeout of the Future freely
+    Await.result(retryUntilSatisfied(condition, duration, counter), 1.hour)
   }
 
   def awaitServer(
