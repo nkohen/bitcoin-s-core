@@ -99,7 +99,7 @@ trait RpcUtil extends BitcoinSLogger {
     }
 
     if (counter == 50) {
-      throw new RuntimeException("Condition timed out")
+      Future.failed(new RuntimeException("Condition timed out"))
     } else if (condition) {
       Future.successful(Unit)
     } else {
