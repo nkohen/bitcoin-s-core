@@ -173,6 +173,7 @@ trait RpcUtil extends BitcoinSLogger {
       counter)
   }
 
+  /** Returns a pair of RpcClients that are connected with 100 blocks in the chain */
   def createNodePair(
     port1: Int = randomPort,
     rpcPort1: Int = randomPort,
