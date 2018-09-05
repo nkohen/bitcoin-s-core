@@ -2,14 +2,17 @@ package org.bitcoins.rpc
 
 import java.io.File
 
-import org.scalatest.AsyncFlatSpec
+import akka.actor.ActorSystem
+import org.scalatest.{ AsyncFlatSpec, BeforeAndAfterAll }
 
-import scala.concurrent.Future
+import scala.concurrent.{ Await, Future }
+import scala.concurrent.duration.DurationInt
 import scala.util.Success
 
-class RpcUtilTest extends AsyncFlatSpec {
+class RpcUtilTest extends AsyncFlatSpec with BeforeAndAfterAll {
 
-  implicit val ec = RpcUtil.system.dispatcher
+  implicit val system = ActorSystem("RpcUtilTest_ActorSystem")
+  implicit val ec = system.dispatcher
 
   private def trueLater(delay: Int = 1000): Future[Boolean] = Future {
     Thread.sleep(delay)
@@ -23,15 +26,6 @@ class RpcUtilTest extends AsyncFlatSpec {
     boolLaterDoneAnd(true, trueLater)
 
   behavior of "RpcUtil"
-
-  it should "create a temp bitcoin directory when creating a DaemonInstance, and then delete it" in {
-    val instance = RpcUtil.instance(RpcUtil.randomPort, RpcUtil.randomPort)
-    val dir = instance.authCredentials.datadir
-    assert(dir.isDirectory)
-    assert(dir.listFiles.contains(new File(dir.getAbsolutePath + "/bitcoin.conf")))
-    RpcUtil.deleteTmpDir(dir)
-    assert(!dir.exists)
-  }
 
   it should "complete immediately if condition is true" in {
     RpcUtil.retryUntilSatisfied(condition = true, duration = 0).map { _ =>
@@ -85,8 +79,17 @@ class RpcUtilTest extends AsyncFlatSpec {
     }
   }
 
-  it should "be able to create a connected node pair with 100 blocks and then delete them" in {
-    RpcUtil.createNodePair().flatMap {
+  "TestUtil" should "create a temp bitcoin directory when creating a DaemonInstance, and then delete it" in {
+    val instance = TestUtil.instance(TestUtil.randomPort, TestUtil.randomPort)
+    val dir = instance.authCredentials.datadir
+    assert(dir.isDirectory)
+    assert(dir.listFiles.contains(new File(dir.getAbsolutePath + "/bitcoin.conf")))
+    TestUtil.deleteTmpDir(dir)
+    assert(!dir.exists)
+  }
+
+  "TestUtil" should "be able to create a connected node pair with 100 blocks and then delete them" in {
+    TestUtil.createNodePair().flatMap {
       case (client1, client2) =>
         assert(client1.getDaemon.authCredentials.datadir.isDirectory)
         assert(client2.getDaemon.authCredentials.datadir.isDirectory)
@@ -100,12 +103,16 @@ class RpcUtilTest extends AsyncFlatSpec {
             client2.getBlockCount.map { count2 =>
               assert(count2 == 100)
 
-              RpcUtil.deleteNodePair(client1, client2)
+              TestUtil.deleteNodePair(client1, client2)
               assert(!client1.getDaemon.authCredentials.datadir.exists)
               assert(!client2.getDaemon.authCredentials.datadir.exists)
             }
           }
         }
     }
+  }
+
+  override def afterAll(): Unit = {
+    Await.result(system.terminate(), 10.seconds)
   }
 }

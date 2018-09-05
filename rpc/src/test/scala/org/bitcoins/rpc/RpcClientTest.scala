@@ -38,19 +38,19 @@ class RpcClientTest
   extends AsyncFlatSpec
   with BeforeAndAfterAll
   with BeforeAndAfter {
-  implicit val system = ActorSystem()
+  implicit val system = ActorSystem("RpcClientTest_ActorSystem")
   implicit val m = ActorMaterializer()
   implicit val ec = m.executionContext
-  implicit val networkParam = RpcUtil.network
+  implicit val networkParam = TestUtil.network
 
-  val client = new RpcClient(RpcUtil.instance())
+  val client = new RpcClient(TestUtil.instance())
 
-  val otherClient = new RpcClient(RpcUtil.instance())
+  val otherClient = new RpcClient(TestUtil.instance())
 
   // This client's wallet is encrypted
-  val walletClient = new RpcClient(RpcUtil.instance())
+  val walletClient = new RpcClient(TestUtil.instance())
 
-  val pruneClient = new RpcClient(RpcUtil.instance(pruneMode = true))
+  val pruneClient = new RpcClient(TestUtil.instance(pruneMode = true))
 
   val logger = BitcoinSLogger.logger
 
@@ -146,7 +146,7 @@ class RpcClientTest
 
     val servers = Vector(walletClient, client, otherClient, pruneClient)
     logger.info("Bitcoin servers starting")
-    RpcUtil.startServers(servers)
+    TestUtil.startServers(servers)
 
     client.addNode(otherClient.getDaemon.uri, "add")
 
@@ -166,7 +166,7 @@ class RpcClientTest
     Await.result(client.generate(200), 3.seconds)
     Await.result(pruneClient.generate(3000), 60.seconds)
 
-    RpcUtil.awaitConnection(client, otherClient)
+    TestUtil.awaitConnection(client, otherClient)
   }
 
   behavior of "RpcClient"
@@ -265,7 +265,7 @@ class RpcClientTest
 
   it should "be able to ban and clear the ban of a subnet" in {
     val loopBack = URI.create("http://127.0.0.1")
-    RpcUtil.createNodePair().flatMap {
+    TestUtil.createNodePair().flatMap {
       case (client1, client2) =>
         client1.setBan(loopBack, "add").flatMap { _ =>
           client1.listBanned.flatMap { list =>
@@ -276,7 +276,7 @@ class RpcClientTest
 
             client1.setBan(loopBack, "remove").flatMap { _ =>
               client1.listBanned.flatMap { newList =>
-                RpcUtil.deleteNodePair(client1, client2)
+                TestUtil.deleteNodePair(client1, client2)
                 assert(newList.isEmpty)
               }
             }
@@ -286,7 +286,7 @@ class RpcClientTest
   }
 
   it should "be able to clear banned subnets" in {
-    RpcUtil.createNodePair().flatMap {
+    TestUtil.createNodePair().flatMap {
       case (client1, client2) =>
         client1.setBan(URI.create("http://127.0.0.1"), "add").flatMap { _ =>
           client1.setBan(URI.create("http://127.0.0.2"), "add").flatMap { _ =>
@@ -295,7 +295,7 @@ class RpcClientTest
 
               client1.clearBanned().flatMap { _ =>
                 client1.listBanned.flatMap { newList =>
-                  RpcUtil.deleteNodePair(client1, client2)
+                  TestUtil.deleteNodePair(client1, client2)
                   assert(newList.isEmpty)
                 }
               }
@@ -306,10 +306,10 @@ class RpcClientTest
   }
 
   it should "be able to submit a new block" in {
-    RpcUtil.createNodePair().flatMap {
+    TestUtil.createNodePair().flatMap {
       case (client1, client2) =>
         client1.disconnectNode(client2.getDaemon.uri).flatMap { _ =>
-          RpcUtil.awaitDisconnected(client1, client2)
+          TestUtil.awaitDisconnected(client1, client2)
           client2.generate(1).flatMap { hash =>
             client2.getBlockRaw(hash.head).flatMap { block =>
               client1.submitBlock(block).flatMap { _ =>
@@ -318,7 +318,7 @@ class RpcClientTest
                     assert(count == count2)
                     client1.getBlockHash(count).flatMap { hash1 =>
                       client2.getBlockHash(count).flatMap { hash2 =>
-                        RpcUtil.deleteNodePair(client1, client2)
+                        TestUtil.deleteNodePair(client1, client2)
                         assert(hash1 == hash2)
                       }
                     }
@@ -332,10 +332,10 @@ class RpcClientTest
   }
 
   it should "be able to mark a block as precious" in {
-    RpcUtil.createNodePair().flatMap {
+    TestUtil.createNodePair().flatMap {
       case (client1, client2) =>
         client1.disconnectNode(client2.getDaemon.uri).flatMap { _ =>
-          RpcUtil.awaitDisconnected(client1, client2)
+          TestUtil.awaitDisconnected(client1, client2)
           client1.generate(1).flatMap { blocks1 =>
             client2.generate(1).flatMap { blocks2 =>
               client1.getBestBlockHash.flatMap { bestHash1 =>
@@ -350,7 +350,7 @@ class RpcClientTest
                           2.seconds)).isSuccess)
 
                       client2.getBestBlockHash.map { newBestHash =>
-                        RpcUtil.deleteNodePair(client1, client2)
+                        TestUtil.deleteNodePair(client1, client2)
                         assert(newBestHash == blocks1.head)
                       }
                   }
@@ -1672,7 +1672,7 @@ class RpcClientTest
 
   it should "be able to add and remove a node" in {
     otherClient.addNode(walletClient.getDaemon.uri, "add").flatMap { _ =>
-      RpcUtil.awaitConnection(otherClient, walletClient)
+      TestUtil.awaitConnection(otherClient, walletClient)
       otherClient.getAddedNodeInfo(walletClient.getDaemon.uri).flatMap { info =>
         assert(info.length == 1)
         assert(info.head.addednode == walletClient.getDaemon.uri)
@@ -1689,12 +1689,12 @@ class RpcClientTest
 
   it should "be able to add and disconnect a node" in {
     otherClient.addNode(walletClient.getDaemon.uri, "add").flatMap { _ =>
-      RpcUtil.awaitConnection(otherClient, walletClient)
+      TestUtil.awaitConnection(otherClient, walletClient)
       otherClient.getAddedNodeInfo(walletClient.getDaemon.uri).flatMap { info =>
         assert(info.head.connected.contains(true))
 
         otherClient.disconnectNode(walletClient.getDaemon.uri).flatMap { _ =>
-          RpcUtil.awaitDisconnected(otherClient, walletClient)
+          TestUtil.awaitDisconnected(otherClient, walletClient)
           otherClient.getAddedNodeInfo(walletClient.getDaemon.uri).map {
             newInfo =>
               assert(newInfo.head.connected.contains(false))
@@ -1709,13 +1709,15 @@ class RpcClientTest
     otherClient.stop().map(logger.info)
     walletClient.stop().map(logger.info)
     pruneClient.stop().map(logger.info)
-    if (RpcUtil.deleteTmpDir(client.getDaemon.authCredentials.datadir))
+    if (TestUtil.deleteTmpDir(client.getDaemon.authCredentials.datadir))
       logger.info("Temp bitcoin directory deleted")
-    if (RpcUtil.deleteTmpDir(otherClient.getDaemon.authCredentials.datadir))
+    if (TestUtil.deleteTmpDir(otherClient.getDaemon.authCredentials.datadir))
       logger.info("Temp bitcoin directory deleted")
-    if (RpcUtil.deleteTmpDir(walletClient.getDaemon.authCredentials.datadir))
+    if (TestUtil.deleteTmpDir(walletClient.getDaemon.authCredentials.datadir))
       logger.info("Temp bitcoin directory deleted")
-    if (RpcUtil.deleteTmpDir(pruneClient.getDaemon.authCredentials.datadir))
+    if (TestUtil.deleteTmpDir(pruneClient.getDaemon.authCredentials.datadir))
       logger.info("Temp bitcoin directory deleted")
+
+    Await.result(system.terminate(), 10.seconds)
   }
 }
