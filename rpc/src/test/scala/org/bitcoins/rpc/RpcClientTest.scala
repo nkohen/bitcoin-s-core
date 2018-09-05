@@ -179,6 +179,13 @@ class RpcClientTest
     }
   }
 
+  it should "be able to get the first block" in {
+    getFirstBlock().flatMap { block =>
+      assert(block.tx.nonEmpty)
+      assert(block.height == 1)
+    }
+  }
+
   it should "be able to import funds without rescan and then remove them" in {
     client.getNewAddress().flatMap { address =>
       client.dumpPrivKey(address).flatMap { privKey =>
@@ -342,11 +349,6 @@ class RpcClientTest
                           client2.preciousBlock(bestHash1),
                           2.seconds)).isSuccess)
 
-                      RpcUtil.awaitCondition(
-                        Try(Await.result(
-                          client2.getBestBlockHash.map(hash =>
-                            hash != bestHash2),
-                          2.seconds)).isSuccess)
                       client2.getBestBlockHash.map { newBestHash =>
                         RpcUtil.deleteNodePair(client1, client2)
                         assert(newBestHash == blocks1.head)
