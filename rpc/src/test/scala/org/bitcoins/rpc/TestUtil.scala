@@ -11,7 +11,7 @@ import org.bitcoins.rpc.client.RpcClient
 import org.bitcoins.rpc.config.{ AuthCredentials, DaemonInstance }
 
 import scala.concurrent.{ Await, Future }
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{ DurationInt, FiniteDuration }
 import scala.util.Try
 
 trait TestUtil extends BitcoinSLogger {
@@ -90,7 +90,7 @@ trait TestUtil extends BitcoinSLogger {
   def awaitConnection(
     from: RpcClient,
     to: RpcClient,
-    duration: Int = 100,
+    duration: FiniteDuration = 100.milliseconds,
     counter: Int = 0)(implicit system: ActorSystem): Unit = {
     implicit val ec = system.dispatcher
     RpcUtil.awaitCondition(
@@ -106,7 +106,7 @@ trait TestUtil extends BitcoinSLogger {
   def awaitSynced(
     client1: RpcClient,
     client2: RpcClient,
-    duration: Int = 100,
+    duration: FiniteDuration = 100.milliseconds,
     counter: Int = 0)(implicit system: ActorSystem): Unit = {
     implicit val ec = system.dispatcher
     RpcUtil.awaitCondition(Await.result(client1.getBlockCount.flatMap { count1 =>
@@ -119,7 +119,7 @@ trait TestUtil extends BitcoinSLogger {
   def awaitDisconnected(
     from: RpcClient,
     to: RpcClient,
-    duration: Int = 100,
+    duration: FiniteDuration = 100.milliseconds,
     counter: Int = 0)(implicit system: ActorSystem): Unit = {
     implicit val ec = system.dispatcher
     RpcUtil.awaitCondition(
