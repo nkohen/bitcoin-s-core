@@ -144,24 +144,24 @@ trait TestUtil extends BitcoinSLogger {
     val client2: RpcClient = new RpcClient(instance(port2, rpcPort2))
     client1.start()
     client2.start()
-    val try1 = Try(RpcUtil.awaitServer(client1))
+    val try1 = Try(RpcUtil.awaitServer(client1, 1.second))
     if (try1.isFailure) {
       deleteNodePair(client1, client2)
       throw try1.failed.get
     }
-    val try2 = Try(RpcUtil.awaitServer(client2))
+    val try2 = Try(RpcUtil.awaitServer(client2, 1.second))
     if (try2.isFailure) {
       deleteNodePair(client1, client2)
       throw try2.failed.get
     }
     client1.addNode(client2.getDaemon.uri, "add").flatMap { _ =>
-      val try3 = Try(awaitConnection(client1, client2))
+      val try3 = Try(awaitConnection(client1, client2, 1.second))
       if (try3.isFailure) {
         deleteNodePair(client1, client2)
         throw try3.failed.get
       }
       client1.generate(100).map { _ =>
-        val try4 = Try(awaitSynced(client1, client2))
+        val try4 = Try(awaitSynced(client1, client2, 1.second))
         if (try4.isFailure) {
           deleteNodePair(client1, client2)
           throw try4.failed.get
