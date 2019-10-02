@@ -48,17 +48,27 @@ object NonStandardScriptSignature
   * P2PKH scriptSigs follow this format
   * <sig> <pubkey>
   */
-case class P2PKHScriptSignature(override val asm: Vector[ScriptToken])
+case class P2PKHScriptSignature(
+    signature: ECDigitalSignature,
+    publicKey: ECPublicKey)
     extends ScriptSignature {
 
-  /** P2PKH scriptSigs only have one signature */
-  def signature: ECDigitalSignature = signatures.head
+  override val asm: Vector[ScriptToken] = {
+    val signatureBytesToPushOntoStack =
+      BitcoinScriptUtil.calculatePushOp(signature.bytes)
+    val pubKeyBytesToPushOntoStack =
+      BitcoinScriptUtil.calculatePushOp(publicKey.bytes)
+    val tokens: Seq[ScriptToken] =
+      signatureBytesToPushOntoStack ++
+        Seq(ScriptConstant(signature.hex)) ++
+        pubKeyBytesToPushOntoStack ++
+        Seq(ScriptConstant(publicKey.hex))
 
-  /** Gives us the public key inside of a p2pkh script signature */
-  def publicKey: ECPublicKey = ECPublicKey(asm.last.bytes)
+    tokens.toVector
+  }
 
   override def signatures: Seq[ECDigitalSignature] = {
-    Seq(ECDigitalSignature(asm(1).hex))
+    Vector(signature)
   }
 
   override def toString: String = "P2PKHScriptSignature(" + hex + ")"
@@ -68,29 +78,13 @@ case class P2PKHScriptSignature(override val asm: Vector[ScriptToken])
 object P2PKHScriptSignature extends ScriptFactory[P2PKHScriptSignature] {
 
   override def fromAsm(asm: Seq[ScriptToken]): P2PKHScriptSignature = {
-    buildScript(
-      asm = asm.toVector,
-      constructor = P2PKHScriptSignature.apply,
-      invariant = isP2PKHScriptSig,
-      errorMsg = s"Given asm was not a P2PKHScriptSignature, got: $asm"
-    )
-  }
-
-  /**
-    * Builds a script signature from a digital signature and a public key
-    * this is a pay to public key hash script sig
-    */
-  def apply(
-      signature: ECDigitalSignature,
-      pubKey: ECPublicKey): P2PKHScriptSignature = {
-    val signatureBytesToPushOntoStack =
-      BitcoinScriptUtil.calculatePushOp(signature.bytes)
-    val pubKeyBytesToPushOntoStack =
-      BitcoinScriptUtil.calculatePushOp(pubKey.bytes)
-    val asm: Seq[ScriptToken] = signatureBytesToPushOntoStack ++ Seq(
-      ScriptConstant(signature.hex)) ++
-      pubKeyBytesToPushOntoStack ++ Seq(ScriptConstant(pubKey.hex))
-    fromAsm(asm)
+    if (isP2PKHScriptSig(asm)) {
+      P2PKHScriptSignature(signature = ECDigitalSignature(asm(1).hex),
+                           publicKey = ECPublicKey(asm.last.bytes))
+    } else {
+      throw new IllegalArgumentException(
+        s"Given asm was not a P2PKHScriptSignature, got: $asm")
+    }
   }
 
   /** Determines if the given asm matches a [[P2PKHScriptSignature]] */

@@ -22,14 +22,14 @@ abstract class Script extends NetworkElement {
     * The byte representation of [[asm]], this does NOT have the bytes
     * for the [[org.bitcoins.core.protocol.CompactSizeUInt]] in the script
     */
-  val asmBytes: ByteVector = {
+  lazy val asmBytes: ByteVector = {
     asm.foldLeft(ByteVector.empty)(_ ++ _.bytes)
   }
 
   /** The size of the script, this is used for network serialization */
-  val compactSizeUInt: CompactSizeUInt = CompactSizeUInt.calc(asmBytes)
+  lazy val compactSizeUInt: CompactSizeUInt = CompactSizeUInt.calc(asmBytes)
 
   /** The full byte serialization for a script on the network */
-  override val bytes: ByteVector = compactSizeUInt.bytes ++ asmBytes
+  override lazy val bytes: ByteVector = compactSizeUInt.bytes ++ asmBytes
 
 }
