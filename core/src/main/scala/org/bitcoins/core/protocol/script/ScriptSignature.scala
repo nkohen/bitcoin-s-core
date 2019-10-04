@@ -231,9 +231,9 @@ object P2SHScriptSignature extends ScriptFactory[P2SHScriptSignature] {
       case Success(redeemScript) =>
         redeemScript match {
           case _: P2PKHScriptPubKey | _: MultiSignatureScriptPubKey |
-              _: P2SHScriptPubKey | _: P2PKScriptPubKey | _: CLTVScriptPubKey |
-              _: CSVScriptPubKey | _: WitnessScriptPubKeyV0 |
-              _: UnassignedWitnessScriptPubKey =>
+              _: MultiSignatureWithTimeoutScriptPubKey | _: P2SHScriptPubKey |
+              _: P2PKScriptPubKey | _: CLTVScriptPubKey | _: CSVScriptPubKey |
+              _: WitnessScriptPubKeyV0 | _: UnassignedWitnessScriptPubKey =>
             true
           case _: NonStandardScriptPubKey | _: WitnessCommitment => false
           case EmptyScriptPubKey                                 => false
@@ -432,6 +432,81 @@ object CSVScriptSignature extends ScriptFactory[CSVScriptSignature] {
   }
 }
 
+sealed trait MultiSignatureWithTimeoutScriptSignature extends ScriptSignature {
+  require(isMultiSignature || isTimeout,
+          "First ScriptToken must be TRUE or FALSE")
+  require(!isMultiSignature || multiSignatureScriptSignature.isDefined,
+          "Began with OP_TRUE but is not valid MultiSignatureScriptSignature")
+  require(!isTimeout || timeoutScriptSignature.isDefined,
+          "Began with OP_FALSE but is not valid LockTimeScriptSignature")
+
+  def isMultiSignature: Boolean = asm.lastOption.contains(OP_TRUE)
+  def isTimeout: Boolean = asm.lastOption.contains(OP_FALSE)
+
+  def multiSignatureScriptSignature: Option[MultiSignatureScriptSignature] = {
+    if (isMultiSignature) {
+      Try(MultiSignatureScriptSignature.fromAsm(asm.dropRight(1))).toOption
+    } else {
+      None
+    }
+  }
+
+  def timeoutScriptSignature: Option[ScriptSignature] = {
+    if (isTimeout) {
+      Some(ScriptSignature(hex))
+    } else {
+      None
+    }
+  }
+
+  override def signatures: Seq[ECDigitalSignature] = {
+    if (isMultiSignature) {
+      multiSignatureScriptSignature.get.signatures
+    } else if (isTimeout) {
+      timeoutScriptSignature.get.signatures
+    } else {
+      Vector.empty
+    }
+  }
+}
+
+object MultiSignatureWithTimeoutScriptSignature
+    extends ScriptFactory[MultiSignatureWithTimeoutScriptSignature] {
+  private case class MultiSignatureWithTimeoutScriptSignatureImpl(
+      override val asm: Vector[ScriptToken])
+      extends MultiSignatureWithTimeoutScriptSignature
+
+  override def fromAsm(
+      asm: Seq[ScriptToken]): MultiSignatureWithTimeoutScriptSignature = {
+    buildScript(asm = asm.toVector,
+                constructor = MultiSignatureWithTimeoutScriptSignatureImpl(_),
+                invariant = { _ =>
+                  true
+                },
+                errorMsg = "")
+  }
+
+  def fromMultiSignatureScriptSignature(
+      multiSignatureScriptSignature: MultiSignatureScriptSignature): MultiSignatureWithTimeoutScriptSignature = {
+    fromAsm(Seq(OP_TRUE) ++ multiSignatureScriptSignature.asm)
+  }
+
+  def fromLockTimeScriptSignature(
+      lockTimeScriptSignature: LockTimeScriptSignature): MultiSignatureWithTimeoutScriptSignature = {
+    fromAsm(Seq(OP_FALSE) ++ lockTimeScriptSignature.asm)
+  }
+
+  def isMultiSignatureWithTimeoutScriptSignature(
+      asm: Seq[ScriptToken]): Boolean = {
+    asm.headOption match {
+      case Some(OP_TRUE) =>
+        MultiSignatureScriptSignature.isMultiSignatureScriptSignature(asm.tail)
+      case Some(OP_FALSE) => true
+      case Some(_) | None => false
+    }
+  }
+}
+
 /** Represents the empty script signature */
 case object EmptyScriptSignature extends ScriptSignature {
   override def asm: Seq[ScriptToken] = Vector.empty
@@ -454,6 +529,10 @@ object ScriptSignature extends ScriptFactory[ScriptSignature] {
         if (MultiSignatureScriptSignature.isMultiSignatureScriptSignature(
           tokens)) =>
       MultiSignatureScriptSignature.fromAsm(tokens)
+    case _
+        if MultiSignatureWithTimeoutScriptSignature
+          .isMultiSignatureWithTimeoutScriptSignature(tokens) =>
+      MultiSignatureWithTimeoutScriptSignature.fromAsm(tokens)
     case _ if P2PKHScriptSignature.isP2PKHScriptSig(tokens) =>
       P2PKHScriptSignature.fromAsm(tokens)
     case _ if P2PKScriptSignature.isP2PKScriptSignature(tokens) =>
@@ -475,6 +554,8 @@ object ScriptSignature extends ScriptFactory[ScriptSignature] {
     case _: P2PKScriptPubKey  => Try(P2PKScriptSignature.fromAsm(tokens))
     case _: MultiSignatureScriptPubKey =>
       Try(MultiSignatureScriptSignature.fromAsm(tokens))
+    case _: MultiSignatureWithTimeoutScriptPubKey =>
+      Try(MultiSignatureWithTimeoutScriptSignature.fromAsm(tokens))
     case _: NonStandardScriptPubKey =>
       Try(NonStandardScriptSignature.fromAsm(tokens))
     case s: CLTVScriptPubKey => fromScriptPubKey(tokens, s.nestedScriptPubKey)
