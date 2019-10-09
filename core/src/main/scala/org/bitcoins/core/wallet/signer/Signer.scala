@@ -163,17 +163,18 @@ sealed abstract class P2PKSigner extends BitcoinSigner {
               }
 
             case _: P2PKHScriptPubKey | _: MultiSignatureScriptPubKey |
-                _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
-                _: P2WSHWitnessSPKV0 | _: NonStandardScriptPubKey |
-                _: CLTVScriptPubKey | _: CSVScriptPubKey |
-                _: WitnessCommitment | EmptyScriptPubKey |
+                _: MultiSignatureWithTimeoutScriptPubKey | _: P2SHScriptPubKey |
+                _: P2WPKHWitnessSPKV0 | _: P2WSHWitnessSPKV0 |
+                _: NonStandardScriptPubKey | _: CLTVScriptPubKey |
+                _: CSVScriptPubKey | _: WitnessCommitment | EmptyScriptPubKey |
                 _: UnassignedWitnessScriptPubKey =>
               Future.fromTry(TxBuilderError.WrongSigner)
           }
         case _: P2PKHScriptPubKey | _: MultiSignatureScriptPubKey |
-            _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
-            _: NonStandardScriptPubKey | _: WitnessCommitment |
-            EmptyScriptPubKey | _: UnassignedWitnessScriptPubKey =>
+            _: MultiSignatureWithTimeoutScriptPubKey | _: P2SHScriptPubKey |
+            _: P2WPKHWitnessSPKV0 | _: NonStandardScriptPubKey |
+            _: WitnessCommitment | EmptyScriptPubKey |
+            _: UnassignedWitnessScriptPubKey =>
           Future.fromTry(TxBuilderError.WrongSigner)
       }
       signed
@@ -240,6 +241,7 @@ sealed abstract class P2PKHSigner extends BitcoinSigner {
                         Future.successful(P2WSHWitnessV0(lock, p2pkhScriptSig))
                       }
                     case _: P2PKScriptPubKey | _: MultiSignatureScriptPubKey |
+                        _: MultiSignatureWithTimeoutScriptPubKey |
                         _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
                         _: P2WSHWitnessSPKV0 | _: NonStandardScriptPubKey |
                         _: CLTVScriptPubKey | _: CSVScriptPubKey |
@@ -248,6 +250,7 @@ sealed abstract class P2PKHSigner extends BitcoinSigner {
                       Future.fromTry(TxBuilderError.WrongSigner)
                   }
                 case _: P2PKScriptPubKey | _: MultiSignatureScriptPubKey |
+                    _: MultiSignatureWithTimeoutScriptPubKey |
                     _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
                     _: P2WSHWitnessSPKV0 | _: NonStandardScriptPubKey |
                     _: WitnessCommitment | EmptyScriptPubKey |
@@ -333,17 +336,18 @@ sealed abstract class P2PKHSigner extends BitcoinSigner {
                 }
               }
             case _: P2PKScriptPubKey | _: MultiSignatureScriptPubKey |
-                _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
-                _: P2WSHWitnessSPKV0 | _: NonStandardScriptPubKey |
-                _: CLTVScriptPubKey | _: CSVScriptPubKey |
-                _: WitnessCommitment | EmptyScriptPubKey |
+                _: MultiSignatureWithTimeoutScriptPubKey | _: P2SHScriptPubKey |
+                _: P2WPKHWitnessSPKV0 | _: P2WSHWitnessSPKV0 |
+                _: NonStandardScriptPubKey | _: CLTVScriptPubKey |
+                _: CSVScriptPubKey | _: WitnessCommitment | EmptyScriptPubKey |
                 _: UnassignedWitnessScriptPubKey =>
               Future.fromTry(TxBuilderError.WrongSigner)
           }
         case _: P2PKScriptPubKey | _: MultiSignatureScriptPubKey |
-            _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
-            _: NonStandardScriptPubKey | _: WitnessCommitment |
-            EmptyScriptPubKey | _: UnassignedWitnessScriptPubKey =>
+            _: MultiSignatureWithTimeoutScriptPubKey | _: P2SHScriptPubKey |
+            _: P2WPKHWitnessSPKV0 | _: NonStandardScriptPubKey |
+            _: WitnessCommitment | EmptyScriptPubKey |
+            _: UnassignedWitnessScriptPubKey =>
           Future.fromTry(TxBuilderError.WrongSigner)
       }
       signed
@@ -397,6 +401,8 @@ sealed abstract class MultiSigSigner extends BitcoinSigner {
                   lock.nestedScriptPubKey match {
                     case m: MultiSignatureScriptPubKey =>
                       Future.successful((m, lock))
+                    case _: MultiSignatureWithTimeoutScriptPubKey =>
+                      ???
                     case _: P2PKScriptPubKey | _: P2PKHScriptPubKey |
                         _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
                         _: P2WSHWitnessSPKV0 | _: WitnessCommitment |
@@ -407,6 +413,8 @@ sealed abstract class MultiSigSigner extends BitcoinSigner {
                       Future.fromTry(TxBuilderError.WrongSigner)
                   }
                 case m: MultiSignatureScriptPubKey => Future.successful((m, m))
+                case _: MultiSignatureWithTimeoutScriptPubKey =>
+                  ???
                 case _: P2PKScriptPubKey | _: P2PKHScriptPubKey |
                     _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
                     _: P2WSHWitnessSPKV0 | _: WitnessCommitment |
@@ -481,6 +489,8 @@ sealed abstract class MultiSigSigner extends BitcoinSigner {
         val nested = lock.nestedScriptPubKey
         val multiSigSPK = nested match {
           case m: MultiSignatureScriptPubKey => Future.successful(m)
+          case _: MultiSignatureWithTimeoutScriptPubKey =>
+            ???
           case _: P2PKScriptPubKey | _: P2PKHScriptPubKey |
               _: MultiSignatureScriptPubKey | _: P2SHScriptPubKey |
               _: P2WPKHWitnessSPKV0 | _: P2WSHWitnessSPKV0 |
@@ -526,6 +536,8 @@ sealed abstract class MultiSigSigner extends BitcoinSigner {
           }
           signedTxSigComp
         }
+      case _: MultiSignatureWithTimeoutScriptPubKey =>
+        ???
       case _: P2PKScriptPubKey | _: P2PKHScriptPubKey | _: P2SHScriptPubKey |
           _: P2WPKHWitnessSPKV0 | _: NonStandardScriptPubKey |
           _: WitnessCommitment | _: UnassignedWitnessScriptPubKey |
@@ -574,7 +586,8 @@ sealed abstract class P2WPKHSigner extends BitcoinSigner {
                 Future.fromTry(TxBuilderError.WrongPublicKey)
               } else Future.successful(p2wpkh)
             case _: P2PKScriptPubKey | _: P2PKHScriptPubKey |
-                _: MultiSignatureScriptPubKey | _: P2SHScriptPubKey |
+                _: MultiSignatureScriptPubKey |
+                _: MultiSignatureWithTimeoutScriptPubKey | _: P2SHScriptPubKey |
                 _: P2WSHWitnessSPKV0 | _: NonStandardScriptPubKey |
                 _: CLTVScriptPubKey | _: CSVScriptPubKey |
                 _: WitnessCommitment | EmptyScriptPubKey |

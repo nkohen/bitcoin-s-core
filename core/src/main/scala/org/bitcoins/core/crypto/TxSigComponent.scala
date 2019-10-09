@@ -104,7 +104,8 @@ sealed abstract class WitnessTxSigComponentP2SH extends WitnessTxSigComponent {
     scriptSignature.redeemScript match {
       case w: WitnessScriptPubKey => Success(w)
       case x @ (_: P2PKScriptPubKey | _: P2PKHScriptPubKey |
-          _: MultiSignatureScriptPubKey | _: P2SHScriptPubKey |
+          _: MultiSignatureScriptPubKey |
+          _: MultiSignatureWithTimeoutScriptPubKey | _: P2SHScriptPubKey |
           _: CSVScriptPubKey | _: CLTVScriptPubKey |
           _: NonStandardScriptPubKey | _: WitnessCommitment |
           EmptyScriptPubKey) =>
@@ -179,7 +180,8 @@ object WitnessTxSigComponent {
       case _: P2SHScriptPubKey =>
         WitnessTxSigComponentP2SH(transaction, inputIndex, output, flags)
       case x @ (_: P2PKScriptPubKey | _: P2PKHScriptPubKey |
-          _: MultiSignatureScriptPubKey | _: LockTimeScriptPubKey |
+          _: MultiSignatureScriptPubKey |
+          _: MultiSignatureWithTimeoutScriptPubKey | _: LockTimeScriptPubKey |
           _: WitnessCommitment | _: NonStandardScriptPubKey |
           EmptyScriptPubKey) =>
         throw new IllegalArgumentException(
@@ -206,7 +208,8 @@ object WitnessTxSigComponentRaw {
       case _: WitnessScriptPubKey =>
         WitnessTxSigComponentRawImpl(transaction, inputIndex, output, flags)
       case x @ (_: P2PKScriptPubKey | _: P2PKHScriptPubKey |
-          _: MultiSignatureScriptPubKey | _: P2SHScriptPubKey |
+          _: MultiSignatureScriptPubKey |
+          _: MultiSignatureWithTimeoutScriptPubKey | _: P2SHScriptPubKey |
           _: LockTimeScriptPubKey | _: NonStandardScriptPubKey |
           _: WitnessCommitment | EmptyScriptPubKey) =>
         throw new IllegalArgumentException(
@@ -234,7 +237,8 @@ object WitnessTxSigComponentP2SH {
       case _: P2SHScriptPubKey =>
         WitnessTxSigComponentP2SHImpl(transaction, inputIndex, output, flags)
       case x @ (_: P2PKScriptPubKey | _: P2PKHScriptPubKey |
-          _: MultiSignatureScriptPubKey | _: LockTimeScriptPubKey |
+          _: MultiSignatureScriptPubKey |
+          _: MultiSignatureWithTimeoutScriptPubKey | _: LockTimeScriptPubKey |
           _: NonStandardScriptPubKey | _: WitnessCommitment |
           _: WitnessScriptPubKey | EmptyScriptPubKey) =>
         throw new IllegalArgumentException(

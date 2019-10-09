@@ -95,7 +95,8 @@ sealed abstract class ScriptInterpreter {
               if (p2shEnabled) executeP2shScript(scriptSigExecutedProgram)
               else scriptPubKeyExecutedProgram
             case _: P2PKHScriptPubKey | _: P2PKScriptPubKey |
-                _: MultiSignatureScriptPubKey | _: CSVScriptPubKey |
+                _: MultiSignatureScriptPubKey |
+                _: MultiSignatureWithTimeoutScriptPubKey | _: CSVScriptPubKey |
                 _: CLTVScriptPubKey | _: NonStandardScriptPubKey |
                 _: WitnessCommitment | EmptyScriptPubKey =>
               scriptPubKeyExecutedProgram
@@ -261,9 +262,10 @@ sealed abstract class ScriptInterpreter {
               }
             case s @ (_: P2SHScriptPubKey | _: P2PKHScriptPubKey |
                 _: P2PKScriptPubKey | _: MultiSignatureScriptPubKey |
-                _: CLTVScriptPubKey | _: CSVScriptPubKey |
-                _: NonStandardScriptPubKey | _: WitnessCommitment |
-                _: UnassignedWitnessScriptPubKey | EmptyScriptPubKey) =>
+                _: MultiSignatureWithTimeoutScriptPubKey | _: CLTVScriptPubKey |
+                _: CSVScriptPubKey | _: NonStandardScriptPubKey |
+                _: WitnessCommitment | _: UnassignedWitnessScriptPubKey |
+                EmptyScriptPubKey) =>
               run(scriptPubKeyExecutedProgram, s)
           }
         case false =>

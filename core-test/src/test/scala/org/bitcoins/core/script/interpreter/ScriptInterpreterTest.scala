@@ -89,7 +89,8 @@ class ScriptInterpreterTest extends FlatSpec with MustMatchers {
                                          flags = flags)
               t
             case x @ (_: P2PKScriptPubKey | _: P2PKHScriptPubKey |
-                _: MultiSignatureScriptPubKey | _: CLTVScriptPubKey |
+                _: MultiSignatureScriptPubKey |
+                _: MultiSignatureWithTimeoutScriptPubKey | _: CLTVScriptPubKey |
                 _: CSVScriptPubKey | _: CLTVScriptPubKey |
                 _: NonStandardScriptPubKey | _: WitnessCommitment |
                 EmptyScriptPubKey) =>

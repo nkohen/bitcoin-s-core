@@ -155,7 +155,8 @@ class BitcoinTxBuilderSpec extends Properties("TxBuilderSpec") {
                                      Policy.standardFlags)
           case _: UnassignedWitnessScriptPubKey => ???
           case x @ (_: P2PKScriptPubKey | _: P2PKHScriptPubKey |
-              _: MultiSignatureScriptPubKey | _: WitnessCommitment |
+              _: MultiSignatureScriptPubKey |
+              _: MultiSignatureWithTimeoutScriptPubKey | _: WitnessCommitment |
               _: CSVScriptPubKey | _: CLTVScriptPubKey |
               _: NonStandardScriptPubKey | EmptyScriptPubKey) =>
             val o = TransactionOutput(CurrencyUnits.zero, x)
