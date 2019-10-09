@@ -13,8 +13,7 @@ import org.bitcoins.core.protocol.script.{
   MultiSignatureScriptPubKey,
   MultiSignatureWithTimeoutScriptPubKey,
   P2PKHScriptPubKey,
-  P2WSHWitnessSPKV0,
-  P2WSHWitnessV0,
+  P2SHScriptPubKey,
   ScriptPubKey
 }
 import org.bitcoins.core.protocol.transaction.{
@@ -83,13 +82,22 @@ case class BinaryOutcomeDLCWithSelf(
   def createFundingTransaction: Future[Transaction] = {
 
     val output: TransactionOutput =
-      TransactionOutput(totalInput, P2WSHWitnessSPKV0(fundingSPK))
+      TransactionOutput(totalInput, P2SHScriptPubKey(fundingSPK))
 
     val outputs: Vector[TransactionOutput] = Vector(output)
     val txBuilderF: Future[BitcoinTxBuilder] =
       BitcoinTxBuilder(outputs, fundingUtxos, feeRate, changeSPK, network)
 
     txBuilderF.flatMap(_.sign)
+  }
+
+  def toLocalSPK(
+      sigPubKey: ECPublicKey): MultiSignatureWithTimeoutScriptPubKey = {
+    MultiSignatureWithTimeoutScriptPubKey(
+      requiredSigs = 2,
+      pubKeys = Vector(cetLocalPrivKey.publicKey, sigPubKey),
+      timeout = timeout,
+      timeoutPubKey = cetRemotePrivKey.publicKey)
   }
 
   def createCETLocal(
@@ -104,7 +112,7 @@ case class BinaryOutcomeDLCWithSelf(
       timeoutPubKey = cetRemotePrivKey.publicKey)
 
     val toLocal: TransactionOutput =
-      TransactionOutput(localPayout, P2WSHWitnessSPKV0(toLocalSPK))
+      TransactionOutput(localPayout, P2SHScriptPubKey(toLocalSPK))
     val toRemote: TransactionOutput =
       TransactionOutput(remotePayout,
                         P2PKHScriptPubKey(cetRemotePrivKey.publicKey))
@@ -132,7 +140,7 @@ case class BinaryOutcomeDLCWithSelf(
       timeoutPubKey = cetLocalPrivKey.publicKey)
 
     val toLocal: TransactionOutput =
-      TransactionOutput(remotePayout, P2WSHWitnessSPKV0(toLocalSPK))
+      TransactionOutput(remotePayout, P2SHScriptPubKey(toLocalSPK))
     val toRemote: TransactionOutput =
       TransactionOutput(localPayout,
                         P2PKHScriptPubKey(cetLocalPrivKey.publicKey))
@@ -191,13 +199,15 @@ case class BinaryOutcomeDLCWithSelf(
   def executeDLC(
       oracleSigF: Future[SchnorrDigitalSignature]): Future[Transaction] = {
     createFundingTransaction.flatMap { fundingTx =>
+      println(s"Funding Transaction: ${fundingTx.hex}\n")
+
       val fundingTxId = fundingTx.txIdBE
       val fundingSpendingInfo = BitcoinUTXOSpendingInfo(
         outPoint = TransactionOutPoint(fundingTxId, UInt32.zero),
         output = fundingTx.outputs.head,
         signers = Vector(fundingLocalPrivKey, fundingRemotePrivKey),
-        redeemScriptOpt = None,
-        scriptWitnessOpt = Some(P2WSHWitnessV0(fundingSPK)),
+        redeemScriptOpt = Some(fundingSPK),
+        scriptWitnessOpt = None,
         hashType = HashType.sigHashAll
       )
 
@@ -206,27 +216,50 @@ case class BinaryOutcomeDLCWithSelf(
       val cetWinRemoteF = createCETWinRemote(fundingSpendingInfo)
       val cetLoseRemoteF = createCETLoseRemote(fundingSpendingInfo)
 
+      cetWinLocalF.foreach(cet => println(s"CET Win Local: ${cet.hex}\n"))
+      cetLoseLocalF.foreach(cet => println(s"CET Lose Local: ${cet.hex}\n"))
+      cetWinRemoteF.foreach(cet => println(s"CET Win Remote: ${cet.hex}\n"))
+      cetLoseRemoteF.foreach(cet => println(s"CET Lose Remote: ${cet.hex}\n"))
+
       // Publish funding tx
 
       oracleSigF.flatMap { oracleSig =>
-        if (Schnorr.verify(messageWin, oracleSig, oraclePubKey)) {
-          cetWinLocalF.map { cet =>
-            val cetSpendingInfo = BitcoinUTXOSpendingInfo(
-              TransactionOutPoint(cet.txIdBE, UInt32.zero),
-              cet.outputs.head,
-              Vector(cetLocalPrivKey, ECPrivateKey(oracleSig.s)),
-              None,
-              ???,
-              HashType.sigHashAll)
+        val cetLocalF =
+          if (Schnorr.verify(messageWin, oracleSig, oraclePubKey)) {
+            cetWinLocalF
+          } else if (Schnorr.verify(messageLose, oracleSig, oraclePubKey)) {
+            cetLoseLocalF
+          } else {
+            Future.failed(???)
+          }
 
-            ???
-          }
-        } else if (Schnorr.verify(messageLose, oracleSig, oraclePubKey)) {
-          cetLoseLocalF.map { cet =>
-            ???
-          }
-        } else {
-          Future.failed(???)
+        cetLocalF.map { cet =>
+          val cetSpendingInfo = BitcoinUTXOSpendingInfo(
+            TransactionOutPoint(cet.txIdBE, UInt32.zero),
+            cet.outputs.head,
+            Vector(cetLocalPrivKey, ECPrivateKey(oracleSig.s)),
+            Some(toLocalSPK(sigPubKeyWin)),
+            None,
+            HashType.sigHashAll
+          )
+
+          val txBuilder = BitcoinTxBuilder(
+            Vector(
+              TransactionOutput(
+                localWinPayout,
+                P2PKHScriptPubKey(finalLocalPrivKey.publicKey))),
+            Vector(cetSpendingInfo),
+            feeRate,
+            changeSPK,
+            network)
+
+          val spendingTxF = txBuilder.flatMap(_.sign)
+
+          spendingTxF.foreach(tx => println(s"Closing Tx: ${tx.hex}"))
+
+          // Publish tx
+
+          ???
         }
       }
     }

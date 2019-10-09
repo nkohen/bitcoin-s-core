@@ -453,7 +453,7 @@ sealed trait MultiSignatureWithTimeoutScriptSignature extends ScriptSignature {
 
   def timeoutScriptSignature: Option[ScriptSignature] = {
     if (isTimeout) {
-      Some(ScriptSignature(hex))
+      Try(ScriptSignature(BitcoinScriptUtil.asmToBytes(asm.dropRight(1)))).toOption
     } else {
       None
     }
