@@ -842,6 +842,7 @@ object TxBuilder {
     val creditingAmount = txBuilder.creditingAmount
     val actualFee = creditingAmount - spentAmount
     val estimatedFee = txBuilder.feeRate * signedTx
+    println(s"$spentAmount\n$creditingAmount\n$actualFee\n$estimatedFee")
     if (spentAmount > creditingAmount) {
       TxBuilderError.MintsMoney
     } else if (actualFee > txBuilder.largestFee) {

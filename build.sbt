@@ -400,7 +400,7 @@ lazy val dlc = project
     name := "bitcoin-s-dlc",
     libraryDependencies ++= Deps.dlc
   )
-  .dependsOn(core)
+  .dependsOn(core, testkit)
 
 /** Given a database name, returns the appropriate
   * Flyway settings we apply to a project (chain, node, wallet) */

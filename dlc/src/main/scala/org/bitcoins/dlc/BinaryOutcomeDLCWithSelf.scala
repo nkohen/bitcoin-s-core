@@ -7,13 +7,12 @@ import org.bitcoins.core.crypto.{
   Schnorr,
   SchnorrDigitalSignature
 }
-import org.bitcoins.core.currency.CurrencyUnit
+import org.bitcoins.core.currency.{CurrencyUnit, Satoshis}
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.script.{
   MultiSignatureScriptPubKey,
   MultiSignatureWithTimeoutScriptPubKey,
   P2PKHScriptPubKey,
-  P2SHScriptPubKey,
   ScriptPubKey
 }
 import org.bitcoins.core.protocol.transaction.{
@@ -57,10 +56,10 @@ case class BinaryOutcomeDLCWithSelf(
     network: BitcoinNetwork)(implicit ec: ExecutionContext) {
 
   val messageWin: ByteVector =
-    CryptoUtil.sha256(ByteVector(outcomeWin.getBytes)).bytes
+    CryptoUtil.sha256(ByteVector(outcomeWin.getBytes)).flip.bytes
 
   val messageLose: ByteVector =
-    CryptoUtil.sha256(ByteVector(outcomeLose.getBytes)).bytes
+    CryptoUtil.sha256(ByteVector(outcomeLose.getBytes)).flip.bytes
 
   val sigPubKeyWin: ECPublicKey =
     Schnorr.computePubKey(messageWin, preCommittedR, oraclePubKey)
@@ -80,14 +79,14 @@ case class BinaryOutcomeDLCWithSelf(
   }
 
   def createFundingTransaction: Future[Transaction] = {
-
+    println("CHECKPOINT 0")
     val output: TransactionOutput =
-      TransactionOutput(totalInput, P2SHScriptPubKey(fundingSPK))
+      TransactionOutput(totalInput + (Satoshis.one * 350), fundingSPK)
 
     val outputs: Vector[TransactionOutput] = Vector(output)
     val txBuilderF: Future[BitcoinTxBuilder] =
       BitcoinTxBuilder(outputs, fundingUtxos, feeRate, changeSPK, network)
-
+    println("CHECKPOINT 1")
     txBuilderF.flatMap(_.sign)
   }
 
@@ -105,6 +104,7 @@ case class BinaryOutcomeDLCWithSelf(
       fundingSpendingInfo: BitcoinUTXOSpendingInfo,
       localPayout: CurrencyUnit,
       remotePayout: CurrencyUnit): Future[Transaction] = {
+    println("CHECKPOINT 4")
     val toLocalSPK = MultiSignatureWithTimeoutScriptPubKey(
       requiredSigs = 2,
       pubKeys = Vector(cetLocalPrivKey.publicKey, sigPubKey),
@@ -112,7 +112,7 @@ case class BinaryOutcomeDLCWithSelf(
       timeoutPubKey = cetRemotePrivKey.publicKey)
 
     val toLocal: TransactionOutput =
-      TransactionOutput(localPayout, P2SHScriptPubKey(toLocalSPK))
+      TransactionOutput(localPayout, toLocalSPK)
     val toRemote: TransactionOutput =
       TransactionOutput(remotePayout,
                         P2PKHScriptPubKey(cetRemotePrivKey.publicKey))
@@ -125,6 +125,7 @@ case class BinaryOutcomeDLCWithSelf(
                        changeSPK,
                        network)
 
+    println("CHECKPOINT 5")
     txBuilderF.flatMap(_.sign)
   }
 
@@ -140,7 +141,7 @@ case class BinaryOutcomeDLCWithSelf(
       timeoutPubKey = cetLocalPrivKey.publicKey)
 
     val toLocal: TransactionOutput =
-      TransactionOutput(remotePayout, P2SHScriptPubKey(toLocalSPK))
+      TransactionOutput(remotePayout, toLocalSPK)
     val toRemote: TransactionOutput =
       TransactionOutput(localPayout,
                         P2PKHScriptPubKey(cetLocalPrivKey.publicKey))
@@ -199,6 +200,7 @@ case class BinaryOutcomeDLCWithSelf(
   def executeDLC(
       oracleSigF: Future[SchnorrDigitalSignature]): Future[Transaction] = {
     createFundingTransaction.flatMap { fundingTx =>
+      println("CHECKPOINT 2")
       println(s"Funding Transaction: ${fundingTx.hex}\n")
 
       val fundingTxId = fundingTx.txIdBE
@@ -211,6 +213,7 @@ case class BinaryOutcomeDLCWithSelf(
         hashType = HashType.sigHashAll
       )
 
+      println("CHECKPOINT 3")
       val cetWinLocalF = createCETWinLocal(fundingSpendingInfo)
       val cetLoseLocalF = createCETLoseLocal(fundingSpendingInfo)
       val cetWinRemoteF = createCETWinRemote(fundingSpendingInfo)
@@ -233,7 +236,7 @@ case class BinaryOutcomeDLCWithSelf(
             Future.failed(???)
           }
 
-        cetLocalF.map { cet =>
+        cetLocalF.flatMap { cet =>
           val cetSpendingInfo = BitcoinUTXOSpendingInfo(
             TransactionOutPoint(cet.txIdBE, UInt32.zero),
             cet.outputs.head,
@@ -259,7 +262,7 @@ case class BinaryOutcomeDLCWithSelf(
 
           // Publish tx
 
-          ???
+          spendingTxF
         }
       }
     }
