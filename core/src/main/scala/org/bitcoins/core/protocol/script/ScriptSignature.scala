@@ -488,19 +488,20 @@ object MultiSignatureWithTimeoutScriptSignature
 
   def fromMultiSignatureScriptSignature(
       multiSignatureScriptSignature: MultiSignatureScriptSignature): MultiSignatureWithTimeoutScriptSignature = {
-    fromAsm(Seq(OP_TRUE) ++ multiSignatureScriptSignature.asm)
+    fromAsm(multiSignatureScriptSignature.asm ++ Seq(OP_TRUE))
   }
 
   def fromLockTimeScriptSignature(
       lockTimeScriptSignature: LockTimeScriptSignature): MultiSignatureWithTimeoutScriptSignature = {
-    fromAsm(Seq(OP_FALSE) ++ lockTimeScriptSignature.asm)
+    fromAsm(lockTimeScriptSignature.asm ++ Seq(OP_FALSE))
   }
 
   def isMultiSignatureWithTimeoutScriptSignature(
       asm: Seq[ScriptToken]): Boolean = {
-    asm.headOption match {
+    asm.lastOption match {
       case Some(OP_TRUE) =>
-        MultiSignatureScriptSignature.isMultiSignatureScriptSignature(asm.tail)
+        MultiSignatureScriptSignature.isMultiSignatureScriptSignature(
+          asm.dropRight(1))
       case Some(OP_FALSE) => true
       case Some(_) | None => false
     }

@@ -286,7 +286,15 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
                   dummySignatures)
             .map(_.transaction)
         case _: MultiSignatureWithTimeoutScriptPubKey =>
-          ???
+          ScriptPubKey.fixMe()
+          MultiSigSigner
+            .sign(signers,
+                  output,
+                  unsignedTx,
+                  inputIndex,
+                  hashType,
+                  dummySignatures)
+            .map(_.transaction)
         case lock: LockTimeScriptPubKey =>
           lock.nestedScriptPubKey match {
             case _: P2PKScriptPubKey =>
@@ -633,7 +641,9 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
               loop(t, currentLockTime)
             }
           case _: MultiSignatureWithTimeoutScriptPubKey =>
-            ???
+            ScriptPubKey.fixMe()
+            // Currently assumes MultiSignature case
+            loop(t, currentLockTime)
           case _: P2PKScriptPubKey | _: P2PKHScriptPubKey |
               _: MultiSignatureScriptPubKey | _: P2SHScriptPubKey |
               _: P2WPKHWitnessSPKV0 | _: P2WSHWitnessSPKV0 |
@@ -702,7 +712,12 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
               }
             } else loop(t, accum)
           case _: MultiSignatureWithTimeoutScriptPubKey =>
-            ???
+            ScriptPubKey.fixMe()
+            val sequence =
+              if (isRBFEnabled) UInt32.zero else TransactionConstants.sequence
+            val input =
+              TransactionInput(outpoint, EmptyScriptSignature, sequence)
+            loop(t, input +: accum)
           case _: P2PKScriptPubKey | _: P2PKHScriptPubKey |
               _: MultiSignatureScriptPubKey | _: P2WPKHWitnessSPKV0 |
               _: NonStandardScriptPubKey | _: WitnessCommitment |

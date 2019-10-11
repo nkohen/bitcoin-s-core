@@ -249,12 +249,13 @@ case class BinaryOutcomeDLCWithSelf(
           val txBuilder = BitcoinTxBuilder(
             Vector(
               TransactionOutput(
-                localWinPayout,
+                localWinPayout - (Satoshis.one * 232),
                 P2PKHScriptPubKey(finalLocalPrivKey.publicKey))),
             Vector(cetSpendingInfo),
             feeRate,
             changeSPK,
-            network)
+            network
+          )
 
           val spendingTxF = txBuilder.flatMap(_.sign)
 

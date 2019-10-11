@@ -674,6 +674,11 @@ object ScriptPubKey extends ScriptFactory[ScriptPubKey] {
   }
 
   def apply(asm: Seq[ScriptToken]): ScriptPubKey = fromAsm(asm)
+
+  def fixMe(): Unit = {
+    println(
+      s"FIX ME! I ONLY WORK FOR UNNESTED MULTISIG RIGHT NOW: ${Thread.currentThread().getStackTrace.apply(2)}")
+  }
 }
 
 /** This type represents a
