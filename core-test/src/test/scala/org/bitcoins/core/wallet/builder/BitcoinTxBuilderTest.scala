@@ -23,7 +23,7 @@ import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{
   BitcoinUTXOSpendingInfo,
   ConditionalPath,
-  LockTimeSpendingInfo,
+  LockTimeSpendingInfoFull,
   UTXOSpendingInfo
 }
 import org.bitcoins.core.wallet.fee.SatoshisPerByte
@@ -396,7 +396,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       CLTVScriptPubKey(ScriptNumber(lockTime),
                        P2PKScriptPubKey(fundingPrivKey.publicKey))
 
-    val cltvSpendingInfo = LockTimeSpendingInfo(
+    val cltvSpendingInfo = LockTimeSpendingInfoFull(
       TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.zero),
       Bitcoins.one,
       cltvSPK,
@@ -430,7 +430,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       CLTVScriptPubKey(ScriptNumber(lockTime),
                        P2PKScriptPubKey(fundingPrivKey.publicKey))
 
-    val cltvSpendingInfo = LockTimeSpendingInfo(
+    val cltvSpendingInfo = LockTimeSpendingInfoFull(
       TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.zero),
       Bitcoins.one,
       cltvSPK,
@@ -469,7 +469,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       CLTVScriptPubKey(ScriptNumber(lockTime2),
                        P2PKScriptPubKey(fundingPrivKey2.publicKey))
 
-    val cltvSpendingInfo1 = LockTimeSpendingInfo(
+    val cltvSpendingInfo1 = LockTimeSpendingInfoFull(
       TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.zero),
       Bitcoins.one,
       cltvSPK1,
@@ -478,7 +478,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       ConditionalPath.NoConditionsLeft
     )
 
-    val cltvSpendingInfo2 = LockTimeSpendingInfo(
+    val cltvSpendingInfo2 = LockTimeSpendingInfoFull(
       TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.one),
       Bitcoins.one,
       cltvSPK2,
