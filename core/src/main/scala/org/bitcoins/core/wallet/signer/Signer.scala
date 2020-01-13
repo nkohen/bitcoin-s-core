@@ -86,7 +86,26 @@ abstract private[signer] class SignerUtils {
 
         WitnessTxSigComponent(wtx, index, spendingInfo.output, flags)
       case _: P2SHScriptPubKey =>
-        P2SHTxSigComponent(unsignedTx, index, spendingInfo.output, flags)
+        val emptyInput = unsignedTx.inputs(index.toInt)
+        val newInput = TransactionInput(
+          emptyInput.previousOutput,
+          P2SHScriptSignature(EmptyScriptSignature,
+                              spendingInfo.redeemScriptOpt.get),
+          emptyInput.sequence)
+        val updatedTx = unsignedTx.updateInput(index.toInt, newInput)
+        spendingInfo.redeemScriptOpt.get match {
+          case _: WitnessScriptPubKey =>
+            val wtx = WitnessTransaction.toWitnessTx(updatedTx)
+            val updatedWtx =
+              wtx.updateWitness(index.toInt, spendingInfo.scriptWitnessOpt.get)
+
+            WitnessTxSigComponentP2SH(updatedWtx,
+                                      index,
+                                      spendingInfo.output,
+                                      flags)
+          case _: ScriptPubKey =>
+            P2SHTxSigComponent(updatedTx, index, spendingInfo.output, flags)
+        }
       case _: ScriptPubKey =>
         BaseTxSigComponent(unsignedTx, index, spendingInfo.output, flags)
     }
@@ -195,18 +214,6 @@ sealed trait BitcoinSignerSingle[-SpendingInfo <: BitcoinUTXOSpendingInfoSingle]
       spendingInfoToSatisfy: SpendingInfo)(
       implicit ec: ExecutionContext): Future[
     (ECPublicKey, ECDigitalSignature)] = {
-    if (spendingInfo
-          .isInstanceOf[P2WSHV0SpendingInfoSingle] && spendingInfoToSatisfy
-          .isInstanceOf[MultiSignatureSpendingInfoSingle]) {
-
-      println(spendingInfo.output.scriptPubKey)
-      println(
-        spendingInfo.output.scriptPubKey.isInstanceOf[WitnessScriptPubKey])
-      val s = sigComponent(spendingInfo, unsignedTx)
-
-      println(s)
-    }
-
     val signatureF = doSign(
       sigComponent = sigComponent(spendingInfo, unsignedTx),
       sign = spendingInfoToSatisfy.signer.signFunction,
@@ -252,29 +259,6 @@ object BitcoinSignerSingle {
         .toUTXOSpendingInfoSingle(tx.inputs(inputIndex),
                                   signer,
                                   conditionalPath)
-
-    if (inputIndex == 1) {
-      println(spendingInfo)
-      println(
-        spendingInfo
-          .asInstanceOf[P2SHNestedSegwitV0UTXOSpendingInfoSingle]
-          .nestedSpendingInfo)
-      println(
-        spendingInfo
-          .asInstanceOf[P2SHNestedSegwitV0UTXOSpendingInfoSingle]
-          .nestedSpendingInfo
-          .asInstanceOf[P2WSHV0SpendingInfoSingle]
-          .nestedSpendingInfo)
-      println(
-        spendingInfo
-          .asInstanceOf[P2SHNestedSegwitV0UTXOSpendingInfoSingle]
-          .nestedSpendingInfo
-          .asInstanceOf[P2WSHV0SpendingInfoSingle]
-          .nestedSpendingInfo
-          .scriptPubKey)
-      println()
-      println()
-    }
 
     val sigAndPubKeyF =
       signSingle(spendingInfo, tx, isDummySignature)
@@ -582,9 +566,10 @@ sealed abstract class P2SHSignerSingle
         unsignedTx.updateInput(inputIndex.toInt, input)
 
       BitcoinSignerSingle
-        .signSingle(spendingInfoToSatisfy.nestedSpendingInfo,
+        .signSingle(spendingInfoToSatisfy,
                     updatedTx,
-                    isDummySignature)
+                    isDummySignature,
+                    spendingInfoToSatisfy.nestedSpendingInfo)
     }
   }
 }
@@ -667,22 +652,18 @@ sealed abstract class P2WPKHSigner
       spendingInfoToSatisfy: P2WPKHV0SpendingInfo)(
       implicit ec: ExecutionContext): Future[
     (ECPublicKey, ECDigitalSignature)] = {
-    if (spendingInfoToSatisfy != spendingInfo) {
-      Future.fromTry(TxBuilderError.WrongSigner)
-    } else {
-      for {
-        sigComponent <- sign(spendingInfoToSatisfy,
-                             unsignedTx,
-                             isDummySignature,
-                             spendingInfoToSatisfy)
-        sig = sigComponent
-          .asInstanceOf[WitnessTxSigComponent]
-          .witness
-          .asInstanceOf[script.P2WPKHWitnessV0]
-          .signature
-      } yield {
-        (spendingInfoToSatisfy.signer.publicKey, sig)
-      }
+    for {
+      sigComponent <- sign(spendingInfoToSatisfy,
+                           unsignedTx,
+                           isDummySignature,
+                           spendingInfoToSatisfy)
+      sig = sigComponent
+        .asInstanceOf[WitnessTxSigComponent]
+        .witness
+        .asInstanceOf[script.P2WPKHWitnessV0]
+        .signature
+    } yield {
+      (spendingInfoToSatisfy.signer.publicKey, sig)
     }
   }
 
@@ -763,16 +744,12 @@ sealed abstract class P2WSHSignerSingle
       spendingInfoToSatisfy: P2WSHV0SpendingInfoSingle)(
       implicit ec: ExecutionContext): Future[
     (ECPublicKey, ECDigitalSignature)] = {
-    if (spendingInfoToSatisfy != spendingInfo) {
-      Future.fromTry(TxBuilderError.WrongSigner)
-    } else {
-      val wtx = WitnessTransaction.toWitnessTx(unsignedTx)
+    val wtx = WitnessTransaction.toWitnessTx(unsignedTx)
 
-      BitcoinSignerSingle.signSingle(spendingInfo,
-                                     wtx,
-                                     isDummySignature,
-                                     spendingInfoToSatisfy.nestedSpendingInfo)
-    }
+    BitcoinSignerSingle.signSingle(spendingInfo,
+                                   wtx,
+                                   isDummySignature,
+                                   spendingInfoToSatisfy.nestedSpendingInfo)
   }
 }
 

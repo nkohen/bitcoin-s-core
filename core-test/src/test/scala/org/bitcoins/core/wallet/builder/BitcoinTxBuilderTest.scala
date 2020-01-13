@@ -620,34 +620,6 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
           .sign(x, 1, privKey1, isDummySignature = false))
 
     signedPsbt.map { signedPsbt =>
-      expectedPsbt.inputMaps.head.elements
-        .sortBy(_.key)
-        .foreach(x => println(x))
-
-      println()
-      println()
-      println()
-
-      signedPsbt.inputMaps.head.elements
-        .sortBy(_.key)
-        .foreach(x => println(x))
-
-      println()
-      println()
-      println()
-
-      expectedPsbt.inputMaps.last.elements
-        .sortBy(_.key)
-        .foreach(x => println(x))
-
-      println()
-      println()
-      println()
-
-      signedPsbt.inputMaps.last.elements
-        .sortBy(_.key)
-        .foreach(x => println(x))
-
       assert(
         signedPsbt.inputMaps.head.bytes == expectedPsbt.inputMaps.head.bytes)
       assert(
