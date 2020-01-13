@@ -28,8 +28,10 @@ import org.bitcoins.core.wallet.builder.BitcoinTxBuilder
 import org.bitcoins.core.wallet.signer.BitcoinSigner
 import org.bitcoins.core.wallet.utxo.{
   BitcoinUTXOSpendingInfo,
+  BitcoinUTXOSpendingInfoSingle,
   ConditionalPath,
-  UTXOSpendingInfo
+  UTXOSpendingInfo,
+  UTXOSpendingInfoSingle
 }
 import scodec.bits._
 
@@ -1366,6 +1368,51 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord]) extends PSBTMap {
                             scriptWitnessOpt,
                             hashType,
                             conditionalPath)
+  }
+
+  def toUTXOSpendingInfoSingle(
+      txIn: TransactionInput,
+      signer: Sign,
+      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): UTXOSpendingInfoSingle = {
+    require(!isFinalized, s"Cannot update an InputPSBTMap that is finalized")
+    val outPoint = txIn.previousOutput
+
+    val witVec = getRecords[WitnessUTXO](WitnessUTXOKeyId)
+    val txVec = getRecords[NonWitnessOrUnknownUTXO](NonWitnessUTXOKeyId)
+
+    val output = if (witVec.size == 1) {
+      witVec.head.spentWitnessTransaction
+    } else if (txVec.size == 1) {
+      val tx = txVec.head.transactionSpent
+      tx.outputs(txIn.previousOutput.vout.toInt)
+    } else {
+      throw new UnsupportedOperationException(
+        "Not enough information in the InputPSBTMap to get a valid UTXOSpendingInfo")
+    }
+
+    val redeemScriptVec = getRecords[RedeemScript](RedeemScriptKeyId)
+    val redeemScriptOpt =
+      if (redeemScriptVec.size == 1) Some(redeemScriptVec.head.redeemScript)
+      else None
+
+    val scriptWitnessVec = getRecords[WitnessScript](WitnessScriptKeyId)
+    val scriptWitnessOpt =
+      if (scriptWitnessVec.size == 1)
+        Some(P2WSHWitnessV0(scriptWitnessVec.head.witnessScript))
+      else None
+
+    val hashTypeVec = getRecords[SigHashType](SighashTypeKeyId)
+    val hashType =
+      if (hashTypeVec.size == 1) hashTypeVec.head.hashType
+      else HashType.sigHashAll
+
+    BitcoinUTXOSpendingInfoSingle(outPoint,
+                                  output,
+                                  signer,
+                                  redeemScriptOpt,
+                                  scriptWitnessOpt,
+                                  hashType,
+                                  conditionalPath)
   }
 
   /**

@@ -6,6 +6,9 @@ import org.bitcoins.core.policy.Policy
 import org.bitcoins.core.protocol.script
 import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.transaction._
+import org.bitcoins.core.psbt.InputPSBTRecord.PartialSignature
+import org.bitcoins.core.psbt.{InputPSBTMap, PSBT}
+import org.bitcoins.core.psbt.PSBTInputKeyId.PartialSignatureKeyId
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.script.flag.ScriptFlag
 import org.bitcoins.core.wallet.builder.TxBuilderError
@@ -192,6 +195,18 @@ sealed trait BitcoinSignerSingle[-SpendingInfo <: BitcoinUTXOSpendingInfoSingle]
       spendingInfoToSatisfy: SpendingInfo)(
       implicit ec: ExecutionContext): Future[
     (ECPublicKey, ECDigitalSignature)] = {
+    if (spendingInfo
+          .isInstanceOf[P2WSHV0SpendingInfoSingle] && spendingInfoToSatisfy
+          .isInstanceOf[MultiSignatureSpendingInfoSingle]) {
+
+      println(spendingInfo.output.scriptPubKey)
+      println(
+        spendingInfo.output.scriptPubKey.isInstanceOf[WitnessScriptPubKey])
+      val s = sigComponent(spendingInfo, unsignedTx)
+
+      println(s)
+    }
+
     val signatureF = doSign(
       sigComponent = sigComponent(spendingInfo, unsignedTx),
       sign = spendingInfoToSatisfy.signer.signFunction,
@@ -213,6 +228,69 @@ object BitcoinSignerSingle {
       isDummySignature: Boolean)(implicit ec: ExecutionContext): Future[
     (ECPublicKey, ECDigitalSignature)] = {
     signSingle(spendingInfo, unsignedTx, isDummySignature, spendingInfo)
+  }
+
+  def sign(
+      psbt: PSBT,
+      inputIndex: Int,
+      signer: Sign,
+      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft,
+      isDummySignature: Boolean)(
+      implicit ec: ExecutionContext): Future[PSBT] = {
+    // if already signed by this signer
+    if (psbt
+          .inputMaps(inputIndex)
+          .getRecords[PartialSignature](PartialSignatureKeyId)
+          .exists(_.pubKey == signer.publicKey)) {
+      Future.successful(psbt)
+    }
+
+    val tx = psbt.transaction
+    val spendingInfo =
+      psbt
+        .inputMaps(inputIndex)
+        .toUTXOSpendingInfoSingle(tx.inputs(inputIndex),
+                                  signer,
+                                  conditionalPath)
+
+    if (inputIndex == 1) {
+      println(spendingInfo)
+      println(
+        spendingInfo
+          .asInstanceOf[P2SHNestedSegwitV0UTXOSpendingInfoSingle]
+          .nestedSpendingInfo)
+      println(
+        spendingInfo
+          .asInstanceOf[P2SHNestedSegwitV0UTXOSpendingInfoSingle]
+          .nestedSpendingInfo
+          .asInstanceOf[P2WSHV0SpendingInfoSingle]
+          .nestedSpendingInfo)
+      println(
+        spendingInfo
+          .asInstanceOf[P2SHNestedSegwitV0UTXOSpendingInfoSingle]
+          .nestedSpendingInfo
+          .asInstanceOf[P2WSHV0SpendingInfoSingle]
+          .nestedSpendingInfo
+          .scriptPubKey)
+      println()
+      println()
+    }
+
+    val sigAndPubKeyF =
+      signSingle(spendingInfo, tx, isDummySignature)
+
+    sigAndPubKeyF.map { sigAndPubKey =>
+      val map = psbt.inputMaps(inputIndex)
+
+      val pubKey = sigAndPubKey._1
+      val signature = sigAndPubKey._2
+
+      val elements = map.elements :+ PartialSignature(pubKey, signature)
+
+      val newInputMaps =
+        psbt.inputMaps.updated(inputIndex, InputPSBTMap(elements))
+      PSBT(psbt.globalMap, newInputMaps, psbt.outputMaps)
+    }
   }
 
   def signSingle(
