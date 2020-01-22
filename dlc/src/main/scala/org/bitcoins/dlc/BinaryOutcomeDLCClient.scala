@@ -11,7 +11,7 @@ import org.bitcoins.core.crypto.{
 }
 import org.bitcoins.core.currency.{CurrencyUnit, Satoshis}
 import org.bitcoins.core.hd.{BIP32Node, BIP32Path}
-import org.bitcoins.core.number.UInt32
+import org.bitcoins.core.number.{Int64, UInt32}
 import org.bitcoins.core.protocol.BlockStampWithFuture
 import org.bitcoins.core.protocol.script.{
   EmptyScriptPubKey,
@@ -70,7 +70,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param localChangeSPK Local's change ScriptPubKey used in the funding tx
   * @param remoteChangeSPK Remote's change ScriptPubKey used in the funding tx
   */
-case class BinaryOutcomeDLCWithSelf(
+case class BinaryOutcomeDLCClient(
     outcomeWin: String,
     outcomeLose: String,
     oraclePubKey: ECPublicKey,
@@ -781,3 +781,92 @@ case class BinaryOutcomeDLCWithSelf(
     }
   }
 }
+
+object BinaryOutcomeDLCClient {
+
+  /** Subtracts the estimated fee by removing from each output evenly */
+  def subtractFeeAndSign(txBuilder: BitcoinTxBuilder)(
+      implicit ec: ExecutionContext): Future[Transaction] = {
+    val spks = txBuilder.destinations.toVector.map(_.scriptPubKey)
+
+    subtractFeeFromOutputsAndSign(txBuilder, spks)
+  }
+
+  // This invariant ensures that emptyChangeSPK is never used above
+  val noEmptyOutputs: (Seq[BitcoinUTXOSpendingInfo], Transaction) => Boolean = {
+    (_, tx) =>
+      tx.outputs.forall(_.scriptPubKey != EmptyScriptPubKey)
+  }
+
+  /** Subtracts the estimated fee by removing from each output with a specified spk evenly */
+  def subtractFeeFromOutputsAndSign(
+      txBuilder: BitcoinTxBuilder,
+      spks: Vector[ScriptPubKey])(
+      implicit ec: ExecutionContext): Future[Transaction] = {
+    txBuilder.unsignedTx.flatMap { tx =>
+      val fee = txBuilder.feeRate.calc(tx)
+
+      val outputs = txBuilder.destinations.zipWithIndex.filter {
+        case (output, _) => spks.contains(output.scriptPubKey)
+      }
+      val unchangedOutputs = txBuilder.destinations.zipWithIndex.filterNot {
+        case (output, _) => spks.contains(output.scriptPubKey)
+      }
+
+      val feePerOutput = Satoshis(Int64(fee.satoshis.toLong / outputs.length))
+      val feeRemainder = Satoshis(Int64(fee.satoshis.toLong % outputs.length))
+
+      val newOutputsWithoutRemainder = outputs.map {
+        case (output, index) =>
+          (TransactionOutput(output.value - feePerOutput, output.scriptPubKey),
+           index)
+      }
+      val (lastOutput, lastOutputIndex) = newOutputsWithoutRemainder.last
+      val newLastOutput = TransactionOutput(lastOutput.value - feeRemainder,
+                                            lastOutput.scriptPubKey)
+      val newOutputs = newOutputsWithoutRemainder
+        .dropRight(1)
+        .:+((newLastOutput, lastOutputIndex))
+
+      val allOuputsWithNew =
+        (newOutputs ++ unchangedOutputs).sortBy(_._2).map(_._1)
+
+      val newBuilder =
+        BitcoinTxBuilder(allOuputsWithNew,
+                         txBuilder.utxoMap,
+                         txBuilder.feeRate,
+                         txBuilder.changeSPK,
+                         txBuilder.network,
+                         txBuilder.lockTimeOverrideOpt)
+
+      newBuilder.flatMap(_.sign(noEmptyOutputs))
+    }
+  }
+}
+
+/** Contains all DLC transactions after initial setup. */
+case class SetupDLC(
+    fundingTx: Transaction,
+    fundingSpendingInfo: P2WSHV0SpendingInfo,
+    cetWinLocal: Transaction,
+    cetWinLocalWitness: P2WSHWitnessV0,
+    cetLoseLocal: Transaction,
+    cetLoseLocalWitness: P2WSHWitnessV0,
+    cetWinRemote: Transaction,
+    cetWinRemoteWitness: P2WSHWitnessV0,
+    cetLoseRemote: Transaction,
+    cetLoseRemoteWitness: P2WSHWitnessV0,
+    refundTx: Transaction
+)
+
+/** Contains all DLC transactions and the BitcoinUTXOSpendingInfos they use. */
+case class DLCOutcome(
+    fundingTx: Transaction,
+    cet: Transaction,
+    localClosingTx: Transaction,
+    remoteClosingTx: Transaction,
+    fundingUtxos: Vector[BitcoinUTXOSpendingInfo],
+    fundingSpendingInfo: BitcoinUTXOSpendingInfo,
+    localCetSpendingInfo: BitcoinUTXOSpendingInfo,
+    remoteCetSpendingInfo: BitcoinUTXOSpendingInfo
+)
