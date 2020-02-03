@@ -3,11 +3,15 @@ package org.bitcoins.cli
 import java.time.{ZoneId, ZonedDateTime}
 
 import org.bitcoins.core.config.{NetworkParameters, Networks}
+import org.bitcoins.core.crypto.Sha256DigestBE
 import org.bitcoins.core.currency._
+import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BlockStamp.BlockTime
 import org.bitcoins.core.protocol._
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.core.psbt.PSBT
+import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
+import org.bitcoins.dlc.DLCMessage.{DLCAccept, DLCOffer, OracleInfo}
 import scodec.bits.ByteVector
 import scopt._
 
@@ -45,6 +49,31 @@ object CliReaders {
       val reads: String => Bitcoins = str => Bitcoins(BigDecimal(str))
     }
 
+  implicit val satoshisPerVirtualByteReads: Read[SatoshisPerVirtualByte] =
+    new Read[SatoshisPerVirtualByte] {
+      val arity: Int = 1
+
+      val reads: String => SatoshisPerVirtualByte = str =>
+        SatoshisPerVirtualByte(Satoshis(BigInt(str)))
+    }
+
+  implicit val uInt32Reads: Read[UInt32] = new Read[UInt32] {
+    val arity: Int = 1
+
+    val reads: String => UInt32 = str => UInt32(BigInt(str))
+  }
+
+  implicit val oracleInfoReads: Read[OracleInfo] = new Read[OracleInfo] {
+    val arity: Int = 1
+    val reads: String => OracleInfo = OracleInfo.fromHex
+  }
+
+  implicit val sha256DigestsBEReads: Read[Sha256DigestBE] =
+    new Read[Sha256DigestBE] {
+      val arity: Int = 1
+      val reads: String => Sha256DigestBE = Sha256DigestBE.fromHex
+    }
+
   implicit val blockStampReads: Read[BlockStamp] =
     new Read[BlockStamp] {
       val arity: Int = 1
@@ -77,5 +106,23 @@ object CliReaders {
     val arity: Int = 1
 
     val reads: String => Transaction = Transaction.fromHex
+  }
+
+  implicit val dlcOfferReads: Read[DLCOffer] = new Read[DLCOffer] {
+    override def arity: Int = 1
+
+    // this will be a JSON string
+    override def reads: String => DLCOffer = str => {
+      DLCOffer.fromJson(ujson.read(str))
+    }
+  }
+
+  implicit val dlcAcceptReads: Read[DLCAccept] = new Read[DLCAccept] {
+    override def arity: Int = 1
+
+    // this will be a JSON string
+    override def reads: String => DLCAccept = str => {
+      DLCAccept.fromJson(ujson.read(str))
+    }
   }
 }
