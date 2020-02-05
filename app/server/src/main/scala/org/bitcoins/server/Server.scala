@@ -47,7 +47,8 @@ case class Server(conf: AppConfig, handlers: Seq[ServerRoute])(
           Server.httpError(s"'$method' is not a valid method",
                            StatusCodes.BadRequest))
       case err: Throwable =>
-        logger.info(s"Unhandled error in server:", err)
+        logger.error(s"Unhandled error in server:", err)
+        err.printStackTrace()
         complete(Server.httpError(s"Request failed: ${err.getMessage}"))
     }
 

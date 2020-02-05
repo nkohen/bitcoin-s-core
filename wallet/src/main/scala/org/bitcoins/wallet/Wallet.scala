@@ -14,7 +14,12 @@ import org.bitcoins.core.protocol.script.{
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.protocol.{Bech32Address, BitcoinAddress, BlockStamp}
 import org.bitcoins.core.wallet.fee.{FeeUnit, SatoshisPerVirtualByte}
+import org.bitcoins.core.wallet.utxo.SegwitV0NativeUTXOSpendingInfoFull
 import org.bitcoins.dlc.DLCMessage.{DLCAccept, DLCOffer, DLCSign, OracleInfo}
+import org.bitcoins.dlc.testgen.{
+  SerializedDLCTestVectorSerializers,
+  SerializedSegwitSpendingInfo
+}
 import org.bitcoins.dlc.{BinaryOutcomeDLCClient, DLCTimeouts}
 import org.bitcoins.keymanager.KeyManagerParams
 import org.bitcoins.keymanager.bip39.BIP39KeyManager
@@ -22,6 +27,7 @@ import org.bitcoins.keymanager.util.HDUtil
 import org.bitcoins.wallet.api._
 import org.bitcoins.wallet.config.WalletAppConfig
 import org.bitcoins.wallet.models._
+import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -70,6 +76,21 @@ sealed abstract class Wallet extends LockedWallet with UnlockedWalletApi {
         (Map.newBuilder ++= contractInfo.map(sha => (sha, amount.satoshis)))
           .result()
 
+      println()
+      println(s"Offer Priv Key: ${keyManager.rootExtPrivKey.toStringSensitive}")
+      println()
+      val fundingUtxos =
+        txBuilder.utxoMap.values
+          .flatMap(_.toSingles)
+          .toVector
+      val serializedUtxos = fundingUtxos.map(utxo =>
+        Json.toJson(SerializedSegwitSpendingInfo.fromSpendingInfo(
+          utxo.asInstanceOf[SegwitV0NativeUTXOSpendingInfoFull]))(
+          SerializedDLCTestVectorSerializers.serializedSegwitSpendingInfoWrites))
+      val utxosStr = Json.toJson(serializedUtxos).toString
+      println(s"Offer funding spending infos: $utxosStr")
+      println()
+
       DLCOffer(
         contractInfoMap,
         oracleInfo,
@@ -106,13 +127,24 @@ sealed abstract class Wallet extends LockedWallet with UnlockedWalletApi {
           .flatMap(_.toSingles)
           .toVector
       val changeSPK = txBuilder.changeSPK.asInstanceOf[P2WPKHWitnessSPKV0]
+
+      println()
+      println(
+        s"Accept Priv Key: ${keyManager.rootExtPrivKey.toStringSensitive}")
+      println()
+      val serializedUtxos = fundingUtxos.map(utxo =>
+        Json.toJson(SerializedSegwitSpendingInfo.fromSpendingInfo(
+          utxo.asInstanceOf[SegwitV0NativeUTXOSpendingInfoFull]))(
+          SerializedDLCTestVectorSerializers.serializedSegwitSpendingInfoWrites))
+      val utxosStr = Json.toJson(serializedUtxos).toString
+      println(s"Accept funding spending infos: $utxosStr")
+      println()
+
       val client = BinaryOutcomeDLCClient.fromOffer(
         dlcOffer,
         keyManager.rootExtPrivKey, // todo change to a ExtSign.deriveAndSignFuture // fixme this will need to be changed according to KeyDerivation.md
         fundingUtxos,
         amount,
-        dlcOffer.totalCollateral + amount,
-        dlcOffer.totalCollateral + amount, //todo remove these for binary cases after refactor
         changeSPK
       )
 
@@ -154,12 +186,11 @@ sealed abstract class Wallet extends LockedWallet with UnlockedWalletApi {
           .flatMap(_.toSingles)
           .toVector
       BinaryOutcomeDLCClient.fromOfferAndAccept(
-        offer,
-        accept,
-        keyManager.rootExtPrivKey,
-        fundingUtxos,
-        offer.totalCollateral + accept.totalCollateral,
-        offer.totalCollateral + accept.totalCollateral)
+        offer = offer,
+        accept = accept,
+        extPrivKey = keyManager.rootExtPrivKey,
+        fundingUtxos = fundingUtxos
+      )
     }
 
     clientF.flatMap { client =>

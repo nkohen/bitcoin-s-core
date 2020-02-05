@@ -339,7 +339,7 @@ object ConsoleCli {
     )
   }
 
-  def exec(args: String*): Try[String] = {
+  def exec(args: String*)(port: Int): Try[String] = {
     val config = OParser.parse(parser, args.toVector, Config()) match {
       case None       => sys.exit(1)
       case Some(conf) => conf
@@ -488,7 +488,7 @@ object ConsoleCli {
   }
 
   // TODO make this dynamic
-  def port = 9999
+  def defaultPort = 9999
   def host = "localhost"
 
   case class RequestParam(
@@ -556,4 +556,227 @@ object CliCommand {
   case class FinalizePSBT(psbt: PSBT) extends CliCommand
   case class ExtractFromPSBT(psbt: PSBT) extends CliCommand
   case class ConvertToPSBT(transaction: Transaction) extends CliCommand
+}
+
+object Demo {
+  import org.bitcoins.core.crypto._
+  import org.bitcoins.core.protocol.script.P2WPKHWitnessSPKV0
+  import org.bitcoins.core.util.{CryptoUtil, FutureUtil}
+  import org.bitcoins.core.wallet.utxo.P2WPKHV0SpendingInfo
+  import org.bitcoins.dlc._
+  import org.bitcoins.dlc.DLCMessage._
+  import scodec.bits.ByteVector
+  import org.bitcoins.dlc.testgen.{
+    SerializedDLCTestVectorSerializers,
+    SerializedSegwitSpendingInfo
+  }
+  import play.api.libs.json.{Json, Reads}
+
+  import scala.concurrent.{ExecutionContext, Future, Promise}
+
+  /*
+  import org.bitcoins.cli.{ConsoleCli, Demo}
+  import org.bitcoins.core.protocol.transaction.Transaction
+   */
+
+  def setupOracle(): (
+      OracleInfo,
+      Sha256DigestBE,
+      Sha256DigestBE,
+      SchnorrDigitalSignature,
+      SchnorrDigitalSignature) = {
+    val oraclePrivKey = ECPrivateKey.freshPrivateKey
+    val oraclePubKey = oraclePrivKey.publicKey
+
+    val oracleKValue = SchnorrNonce.freshNonce
+    val oracleRValue = oracleKValue.publicKey
+
+    val oracleInfo = OracleInfo(oraclePubKey, oracleRValue)
+
+    val strA = "A"
+    val hashA = CryptoUtil.sha256(ByteVector(strA.getBytes)).flip
+    val sigA = Schnorr.signWithNonce(hashA.bytes, oraclePrivKey, oracleKValue)
+
+    val strB = "B"
+    val hashB = CryptoUtil.sha256(ByteVector(strB.getBytes)).flip
+    val sigB = Schnorr.signWithNonce(hashB.bytes, oraclePrivKey, oracleKValue)
+
+    println()
+    println(s"Oracle Info: ${oracleInfo.hex}")
+    println(s"Hash A: ${hashA.hex}")
+    println(s"Hash B: ${hashB.hex}")
+    println(s"Sig A: ${sigA.hex}")
+    println(s"Sig B: ${sigB.hex}")
+    println()
+
+    (oracleInfo, hashA, hashB, sigA, sigB)
+  }
+
+  def setupFromOracleInfo(
+      oracleInfoStr: String,
+      hashAStr: String,
+      hashBStr: String,
+      sigAStr: String,
+      sigBStr: String): (
+      OracleInfo,
+      Sha256DigestBE,
+      Sha256DigestBE,
+      SchnorrDigitalSignature,
+      SchnorrDigitalSignature) = {
+    (OracleInfo.fromHex(oracleInfoStr),
+     Sha256DigestBE.fromHex(hashAStr),
+     Sha256DigestBE.fromHex(hashBStr),
+     SchnorrDigitalSignature.fromHex(sigAStr),
+     SchnorrDigitalSignature.fromHex(sigBStr))
+  }
+
+  def parseKeyAndUTXOs(privKeyStr: String, fundingUTXOsStr: String): (
+      ExtPrivateKey,
+      Vector[P2WPKHV0SpendingInfo]) = {
+    implicit val reads: Reads[SerializedSegwitSpendingInfo] =
+      SerializedDLCTestVectorSerializers.serializedSegwitSpendingInfoReads
+
+    val privKey = ExtPrivateKey.fromString(privKeyStr).get
+    val fundingUTXOs = Json
+      .parse(fundingUTXOsStr)
+      .validate[Vector[SerializedSegwitSpendingInfo]]
+      .get
+      .map(_.toSpendingInfo)
+
+    (privKey, fundingUTXOs)
+  }
+
+  def constructAcceptClient(
+      offer: DLCOffer,
+      accept: DLCAccept,
+      acceptPrivKey: ExtPrivateKey,
+      acceptFundingUTXOs: Vector[P2WPKHV0SpendingInfo])(
+      implicit ec: ExecutionContext): BinaryOutcomeDLCClient = {
+    BinaryOutcomeDLCClient.fromOffer(
+      offer = offer,
+      extPrivKey = acceptPrivKey,
+      fundingUtxos = acceptFundingUTXOs,
+      totalCollateral = accept.totalCollateral,
+      changeSPK =
+        accept.changeAddress.scriptPubKey.asInstanceOf[P2WPKHWitnessSPKV0]
+    )
+  }
+
+  def setupDLCForOffer(
+      offerClient: BinaryOutcomeDLCClient,
+      accept: DLCAccept): (Transaction => Unit, Future[SetupDLC]) = {
+    val fundingTxP = Promise[Transaction]()
+    val fillFundingTx = { tx: Transaction =>
+      val _ = fundingTxP.success(tx)
+    }
+
+    val dlcSetupF = offerClient.setupDLCOffer(
+      getSigs = Future.successful(accept.cetSigs),
+      sendSigs = (cetSigs, fundingSigs) =>
+        Future.successful {
+          println()
+          println(s"Offer sigs: ${DLCSign(cetSigs, fundingSigs).toJsonStr}")
+          println()
+        },
+      getFundingTx = fundingTxP.future
+    )
+
+    (fillFundingTx, dlcSetupF)
+  }
+
+  def setupDLCForAccept(
+      acceptClient: BinaryOutcomeDLCClient,
+      offerSigStr: String): Future[SetupDLC] = {
+    val offerSig = DLCSign.fromJson(ujson.read(offerSigStr))
+
+    acceptClient.setupDLCAccept(
+      sendSigs = _ => FutureUtil.unit,
+      getSigs = Future.successful((offerSig.cetSigs, offerSig.fundingSigs)))
+  }
+
+  def demoOffer()(implicit ec: ExecutionContext): Unit = {
+    val (oracleInfo, hashA, hashB, sigA, sigB) = Demo.setupOracle()
+
+    val offerStr = ConsoleCli.exec(
+      "createdlcoffer",
+      "--amount",
+      "0.00005",
+      "--oracleInfo",
+      oracleInfo.hex,
+      "--contractInfo",
+      s"${hashA.hex},${hashB.hex}",
+      "--locktime",
+      "1580323752",
+      "--refundlocktime",
+      "1580323754",
+      "--feerate",
+      "1"
+    )(port = 9999)
+    val offer = DLCOffer.fromJson(ujson.read(offerStr.get))
+
+    val offerPrivKeyStr = ???
+    val offerFundingUTXOsStr: String = ???
+    val (offerPrivKey, offerFundingUTXOs) =
+      Demo.parseKeyAndUTXOs(offerPrivKeyStr, offerFundingUTXOsStr)
+
+    // Go give other node your serialized offer string
+
+    val acceptStr = ???
+    val accept = DLCAccept.fromJson(ujson.read(acceptStr))
+
+    val offerClient = BinaryOutcomeDLCClient.fromOfferAndAccept(
+      offer = offer,
+      accept = accept,
+      extPrivKey = offerPrivKey,
+      fundingUtxos = offerFundingUTXOs)
+
+    val (fundingTxFound, offerSetupF) =
+      Demo.setupDLCForOffer(offerClient, accept)
+
+    // Go give other node your serialized cet signatures
+
+    val acceptSetupFundingTx = ???
+    fundingTxFound(acceptSetupFundingTx)
+
+    // Pause
+
+    val offerSetup = offerSetupF.value.get.get
+
+    // Setup is now done for both and any execution can happen
+  }
+
+  def demoAccept()(implicit ec: ExecutionContext): Unit = {
+    val offerStr = ???
+    val offer = DLCOffer.fromJson(ujson.read(offerStr))
+
+    val acceptStr = ConsoleCli.exec("acceptdlcoffer",
+                                    "--offer",
+                                    offerStr,
+                                    "--amount",
+                                    "0.00005")(port = 9998)
+    val accept = DLCAccept.fromJson(ujson.read(acceptStr.get))
+
+    val acceptPrivKeyStr = ???
+    val acceptFundingUTXOsStr: String = ???
+    val (acceptPrivKey, acceptFundingUTXOs) =
+      Demo.parseKeyAndUTXOs(acceptPrivKeyStr, acceptFundingUTXOsStr)
+
+    val acceptClient =
+      Demo.constructAcceptClient(offer,
+                                 accept,
+                                 acceptPrivKey,
+                                 acceptFundingUTXOs)
+
+    // Go give other client your serialized accept message
+
+    val offerSigStr = ???
+    val acceptSetupF = Demo.setupDLCForAccept(acceptClient, offerSigStr)
+
+    // Pause
+
+    val acceptSetup = acceptSetupF.value.get.get
+    println(s"\nFunding Tx: ${acceptSetup.fundingTx.hex}\n")
+
+    // Go give other node the serialized fully-signed funding transaction
+  }
 }

@@ -12,9 +12,10 @@ import org.bitcoins.core.crypto.{
   SchnorrDigitalSignature,
   Sha256DigestBE
 }
-import org.bitcoins.core.currency.{CurrencyUnit, Satoshis}
+import org.bitcoins.core.currency.{CurrencyUnit, CurrencyUnits, Satoshis}
 import org.bitcoins.core.hd.{BIP32Node, BIP32Path}
 import org.bitcoins.core.number.{Int64, UInt32}
+import org.bitcoins.core.policy.Policy
 import org.bitcoins.core.protocol.script.{
   EmptyScriptPubKey,
   EmptyScriptSignature,
@@ -1133,8 +1134,6 @@ object BinaryOutcomeDLCClient {
       extPrivKey: ExtPrivateKey,
       fundingUtxos: Vector[BitcoinUTXOSpendingInfoSingle],
       totalCollateral: CurrencyUnit,
-      winPayout: CurrencyUnit,
-      losePayout: CurrencyUnit,
       changeSPK: P2WPKHWitnessSPKV0)(
       implicit ec: ExecutionContext): BinaryOutcomeDLCClient = {
     BinaryOutcomeDLCClient(
@@ -1149,8 +1148,8 @@ object BinaryOutcomeDLCClient {
       remoteInput = offer.totalCollateral,
       fundingUtxos = fundingUtxos,
       remoteFundingInputs = offer.fundingInputs,
-      winPayout = winPayout,
-      losePayout = losePayout,
+      winPayout = CurrencyUnits.zero,
+      losePayout = offer.totalCollateral + totalCollateral,
       timeouts = offer.timeouts,
       feeRate = offer.feeRate,
       changeSPK = changeSPK,
@@ -1164,9 +1163,7 @@ object BinaryOutcomeDLCClient {
       offer: DLCMessage.DLCOffer,
       accept: DLCMessage.DLCAccept,
       extPrivKey: ExtPrivateKey,
-      fundingUtxos: Vector[BitcoinUTXOSpendingInfoSingle],
-      winPayout: CurrencyUnit,
-      losePayout: CurrencyUnit)(
+      fundingUtxos: Vector[BitcoinUTXOSpendingInfoSingle])(
       implicit ec: ExecutionContext): BinaryOutcomeDLCClient = {
     require(extPrivKey.extPublicKey == offer.extPubKey,
             "ExtPrivateKey must match the one in your Offer message")
@@ -1190,8 +1187,8 @@ object BinaryOutcomeDLCClient {
       remoteInput = accept.totalCollateral,
       fundingUtxos = fundingUtxos,
       remoteFundingInputs = accept.fundingInputs,
-      winPayout = winPayout,
-      losePayout = losePayout,
+      winPayout = offer.totalCollateral + accept.totalCollateral,
+      losePayout = CurrencyUnits.zero,
       timeouts = offer.timeouts,
       feeRate = offer.feeRate,
       changeSPK =

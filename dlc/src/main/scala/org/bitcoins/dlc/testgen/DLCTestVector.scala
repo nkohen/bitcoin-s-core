@@ -566,11 +566,16 @@ object SerializedSegwitSpendingInfo {
 
   def fromSpendingInfo(
       spendingInfo: SegwitV0NativeUTXOSpendingInfoFull): SerializedSegwitSpendingInfo = {
+    val keys = spendingInfo.signers.map {
+      case key: ECPrivateKey     => key
+      case extKey: ExtPrivateKey => extKey.key
+    }
+
     SerializedSegwitSpendingInfo(
       outPoint =
         SerializedTransactionOutPoint.fromOutPoint(spendingInfo.outPoint),
       output = SerializedTransactionOutput.fromOutput(spendingInfo.output),
-      keys = spendingInfo.signers.map(_.asInstanceOf[ECPrivateKey]),
+      keys = keys,
       hashType = spendingInfo.hashType,
       scriptWitness = spendingInfo.scriptWitness
     )
