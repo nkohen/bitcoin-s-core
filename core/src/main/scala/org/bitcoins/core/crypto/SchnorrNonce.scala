@@ -53,7 +53,7 @@ object SchnorrNonce {
     val nonceBytes =
       CryptoUtil
         .sha256(
-          Schnorr.HASH_TAG ++ Schnorr.HASH_TAG ++ privateKey.bytes ++ message)
+          Schnorr.NONCE_HASH_TAG ++ Schnorr.NONCE_HASH_TAG ++ privateKey.bytes ++ message)
         .bytes
     SchnorrNonce.fromBytes(nonceBytes)
   }

@@ -8,8 +8,13 @@ import scodec.bits.ByteVector
 
 object Schnorr { // TODO: TEST Against the actual binary (which you have to build)
 
-  val TAG: ByteVector = ByteVector("BIP340/nonce0000".toCharArray.map(_.toByte))
-  val HASH_TAG: ByteVector = CryptoUtil.sha256(TAG).bytes
+  val NONCE_TAG: ByteVector = ByteVector(
+    "BIP340/nonce".toCharArray.map(_.toByte))
+  val NONCE_HASH_TAG: ByteVector = CryptoUtil.sha256(NONCE_TAG).bytes
+
+  val CHALLENGE_TAG: ByteVector = ByteVector(
+    "BIP340/challenge".toCharArray.map(_.toByte))
+  val CHALLENGE_HASH_TAG: ByteVector = CryptoUtil.sha256(CHALLENGE_TAG).bytes
 
   /** Generates a Schnorr signature for the 32 byte msg using privateKey */
   def sign(
@@ -46,7 +51,10 @@ object Schnorr { // TODO: TEST Against the actual binary (which you have to buil
 
     val e = new BigInteger(
       1,
-      CryptoUtil.sha256(HASH_TAG ++ HASH_TAG ++ rx ++ pkx ++ msg).bytes.toArray)
+      CryptoUtil
+        .sha256(CHALLENGE_HASH_TAG ++ CHALLENGE_HASH_TAG ++ rx ++ pkx ++ msg)
+        .bytes
+        .toArray)
     val s = e
       .multiply(new BigInteger(1, correctedPrivKey.bytes.toArray))
       .add(new BigInteger(1, nonce.bytes.toArray))
@@ -66,7 +74,10 @@ object Schnorr { // TODO: TEST Against the actual binary (which you have to buil
 
     val pkx = ByteVector(publicKey.toPoint.getRawXCoord.getEncoded)
     val e =
-      CryptoUtil.sha256(HASH_TAG ++ HASH_TAG ++ sig.rx ++ pkx ++ msg).bytes
+      CryptoUtil
+        .sha256(
+          CHALLENGE_HASH_TAG ++ CHALLENGE_HASH_TAG ++ sig.rx ++ pkx ++ msg)
+        .bytes
     val negE = ECPrivateKey(e).negate.toBigInteger
     val expectedR = publicKey.toPoint
       .multiply(negE)
@@ -86,7 +97,9 @@ object Schnorr { // TODO: TEST Against the actual binary (which you have to buil
 
     val pkx = ByteVector(publicKey.toPoint.getRawXCoord.getEncoded)
     val rx = ByteVector(r.toPoint.getRawXCoord.getEncoded)
-    val e = CryptoUtil.sha256(HASH_TAG ++ HASH_TAG ++ rx ++ pkx ++ msg).bytes
+    val e = CryptoUtil
+      .sha256(CHALLENGE_HASH_TAG ++ CHALLENGE_HASH_TAG ++ rx ++ pkx ++ msg)
+      .bytes
     val sigPoint = publicKey.toPoint
       .multiply(new BigInteger(1, e.toArray))
       .add(r.toPoint)
