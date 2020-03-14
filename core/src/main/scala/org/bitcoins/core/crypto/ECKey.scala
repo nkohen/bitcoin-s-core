@@ -86,6 +86,13 @@ sealed abstract class ECPrivateKey
   /** Signifies if the this private key corresponds to a compressed public key */
   def isCompressed: Boolean
 
+  def toBigInteger: BigInteger = new BigInteger(1, bytes.toArray)
+
+  def negate: ECPrivateKey = {
+    ECPrivateKey.fromBigInteger(
+      CryptoParams.curve.getN.subtract(this.toBigInteger))
+  }
+
   /** Derives the public for a the private key */
   def publicKey: ECPublicKey = {
     val pubKeyBytes: Array[Byte] =
@@ -131,6 +138,13 @@ object ECPrivateKey extends Factory[ECPrivateKey] {
   def apply(bytes: ByteVector, isCompressed: Boolean)(
       implicit ec: ExecutionContext): ECPrivateKey = {
     ECPrivateKeyImpl(bytes, isCompressed, ec)
+  }
+
+  def fromBigInteger(
+      num: BigInteger,
+      isCompressed: Boolean = true): ECPrivateKey = {
+    val bytes = ByteVector(num.mod(CryptoParams.curve.getN).toByteArray)
+    fromBytes(bytes, isCompressed)
   }
 
   override def fromBytes(bytes: ByteVector): ECPrivateKey =
