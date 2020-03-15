@@ -8,12 +8,12 @@ import scodec.bits.ByteVector
 
 object Schnorr { // TODO: TEST Against the actual binary (which you have to build)
 
-  val NONCE_TAG: ByteVector = ByteVector(
-    "BIP340/nonce".toCharArray.map(_.toByte))
+  val NONCE_TAG: ByteVector =
+    ByteVector("BIP340/nonce".toCharArray.map(_.toByte)).take(16)
   val NONCE_HASH_TAG: ByteVector = CryptoUtil.sha256(NONCE_TAG).bytes
 
-  val CHALLENGE_TAG: ByteVector = ByteVector(
-    "BIP340/challenge".toCharArray.map(_.toByte))
+  val CHALLENGE_TAG: ByteVector =
+    ByteVector("BIP340/challenge".toCharArray.map(_.toByte)).take(16)
   val CHALLENGE_HASH_TAG: ByteVector = CryptoUtil.sha256(CHALLENGE_TAG).bytes
 
   /** Generates a Schnorr signature for the 32 byte msg using privateKey */
@@ -40,7 +40,7 @@ object Schnorr { // TODO: TEST Against the actual binary (which you have to buil
     val correctedPrivKey =
       if (new BigInteger(
             1,
-            privateKey.publicKey.toPoint.getRawXCoord.getEncoded).testBit(0)) {
+            privateKey.publicKey.toPoint.getRawYCoord.getEncoded).testBit(0)) {
         privateKey.negate
       } else {
         privateKey
@@ -72,18 +72,26 @@ object Schnorr { // TODO: TEST Against the actual binary (which you have to buil
 
     // TODO: More Validation
 
-    val pkx = ByteVector(publicKey.toPoint.getRawXCoord.getEncoded)
+    val correctedPubKey =
+      if (new BigInteger(1, publicKey.toPoint.getRawYCoord.getEncoded)
+            .testBit(0)) {
+        publicKey.negate
+      } else {
+        publicKey
+      }
+
+    val pkx = ByteVector(correctedPubKey.toPoint.getRawXCoord.getEncoded)
     val e =
       CryptoUtil
         .sha256(
           CHALLENGE_HASH_TAG ++ CHALLENGE_HASH_TAG ++ sig.rx ++ pkx ++ msg)
         .bytes
     val negE = ECPrivateKey(e).negate.toBigInteger
-    val expectedR = publicKey.toPoint
+    val expectedR = correctedPubKey.toPoint
       .multiply(negE)
       .add(ECPrivateKey(sig.s).publicKey.toPoint)
 
-    ByteVector(expectedR.getRawXCoord.getEncoded) == sig.rx
+    ByteVector(expectedR.normalize.getAffineXCoord.getEncoded) == sig.rx
   }
 
   /** Computes the public key associated with Schnorr signature from public information */

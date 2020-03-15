@@ -372,6 +372,10 @@ sealed abstract class ECPublicKey extends BaseECKey {
 
     ECPublicKey.fromPoint(sumPoint)
   }
+
+  def negate: ECPublicKey = {
+    ECPublicKey.fromPoint(toPoint.negate)
+  }
 }
 
 object ECPublicKey extends Factory[ECPublicKey] {
