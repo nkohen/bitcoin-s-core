@@ -1,55 +1,20 @@
 package org.bitcoins.core.protocol.script.ptlc
 
 import org.bitcoins.core.config.RegTest
-import org.bitcoins.core.crypto.{
-  BaseTxSigComponent,
-  ECPrivateKey,
-  ECPublicKey,
-  WitnessTxSigComponentP2SH,
-  WitnessTxSigComponentRaw
-}
+import org.bitcoins.core.crypto._
 import org.bitcoins.core.currency.{CurrencyUnit, CurrencyUnits, Satoshis}
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.policy.Policy
 import org.bitcoins.core.protocol.Bech32Address
-import org.bitcoins.core.protocol.script.{
-  CLTVScriptPubKey,
-  CSVScriptPubKey,
-  ConditionalScriptPubKey,
-  EmptyScriptPubKey,
-  MultiSignatureScriptPubKey,
-  NonStandardScriptPubKey,
-  P2PKHScriptPubKey,
-  P2PKScriptPubKey,
-  P2PKWithTimeoutScriptPubKey,
-  P2SHScriptPubKey,
-  P2SHScriptSignature,
-  P2WPKHWitnessSPKV0,
-  P2WPKHWitnessV0,
-  P2WSHWitnessSPKV0,
-  P2WSHWitnessV0,
-  UnassignedWitnessScriptPubKey,
-  WitnessCommitment,
-  WitnessScriptPubKey,
-  WitnessScriptPubKeyV0
-}
-import org.bitcoins.core.protocol.transaction.{
-  BaseTransaction,
-  Transaction,
-  TransactionConstants,
-  TransactionInput,
-  TransactionOutPoint,
-  TransactionOutput,
-  WitnessTransaction
-}
+import org.bitcoins.core.protocol.script._
+import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.script.PreExecutionScriptProgram
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.script.interpreter.ScriptInterpreter
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{
-  ConditionalPath,
+  MultiSignatureSpendingInfoFull,
   P2WPKHV0SpendingInfo,
-  P2WSHV0SpendingInfoFull,
   UTXOSpendingInfo
 }
 import org.bitcoins.testkit.util.BitcoinSAsyncTest
@@ -203,14 +168,12 @@ class PTLCTxBuilderTest extends BitcoinSAsyncTest {
       assert(payerTxBuilder.fundingSPK == receiverTxBuilder.fundingSPK)
       assert(verifyScript(fundingTx, Vector(inputUTXO)))
 
-      val spendingInfo = P2WSHV0SpendingInfoFull(
+      val spendingInfo = MultiSignatureSpendingInfoFull(
         TransactionOutPoint(fundingTx.txIdBE, UInt32.zero),
         fundingTx.outputs.head.value,
-        P2WSHWitnessSPKV0(payerTxBuilder.fundingSPK),
+        payerTxBuilder.fundingSPK,
         Vector(payerPrivKey, receiverPrivKey),
-        HashType.sigHashAll,
-        P2WSHWitnessV0(payerTxBuilder.fundingSPK),
-        ConditionalPath.NoConditionsLeft
+        HashType.sigHashAll
       )
 
       assert(verifyScript(spendingTx, Vector(spendingInfo)))

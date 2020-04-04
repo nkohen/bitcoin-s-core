@@ -8,8 +8,6 @@ import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.script.{
   EmptyScriptSignature,
   MultiSignatureScriptPubKey,
-  P2WSHWitnessSPKV0,
-  P2WSHWitnessV0,
   ScriptPubKey
 }
 import org.bitcoins.core.protocol.transaction._
@@ -22,8 +20,7 @@ import org.bitcoins.core.wallet.fee.FeeUnit
 import org.bitcoins.core.wallet.signer.BitcoinSignerSingle
 import org.bitcoins.core.wallet.utxo.{
   BitcoinUTXOSpendingInfoFull,
-  ConditionalPath,
-  P2WSHV0SpendingInfoSingle
+  MultiSignatureSpendingInfoSingle
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -54,8 +51,7 @@ case class PTLCTxBuilder(
           val spendingFee = spendingVBytes * feeRate.toLong
 
           val output: TransactionOutput =
-            TransactionOutput(paymentAmt + Satoshis(spendingFee),
-                              P2WSHWitnessSPKV0(fundingSPK))
+            TransactionOutput(paymentAmt + Satoshis(spendingFee), fundingSPK)
 
           BitcoinTxBuilder(Vector(output),
                            fundingUtxos,
@@ -88,7 +84,7 @@ case class PTLCTxBuilder(
       fundingPrivKey: ECPrivateKey,
       nLockTime: UInt32 = UInt32.zero): (
       BaseTransaction,
-      P2WSHV0SpendingInfoSingle) = {
+      MultiSignatureSpendingInfoSingle) = {
     val outPoint = TransactionOutPoint(fundingTx.txIdBE, UInt32.zero)
 
     val tx = BaseTransaction(
@@ -101,14 +97,12 @@ case class PTLCTxBuilder(
       nLockTime
     )
 
-    val spendingInfo = P2WSHV0SpendingInfoSingle(
+    val spendingInfo = MultiSignatureSpendingInfoSingle(
       outPoint,
       fundingTx.outputs.head.value,
-      P2WSHWitnessSPKV0(fundingSPK),
+      fundingSPK,
       fundingPrivKey,
-      HashType.sigHashAll,
-      P2WSHWitnessV0(fundingSPK),
-      ConditionalPath.NoConditionsLeft
+      HashType.sigHashAll
     )
 
     (tx, spendingInfo)
@@ -128,8 +122,7 @@ case class PTLCTxBuilder(
 
       PSBT
         .fromUnsignedTx(tx)
-        .addWitnessUTXOToInput(fundingTx.outputs.head, 0)
-        .addScriptWitnessToInput(P2WSHWitnessV0(fundingSPK), 0)
+        .addUTXOToInput(fundingTx, 0)
         .addSignatures(Vector(remoteSig), 0)
         .sign(0, fundingPrivKey) // TODO This sometimes needs to be adapted
         .flatMap { signedSpendingPSBT =>
