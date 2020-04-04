@@ -8,6 +8,7 @@ import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.script.{
   EmptyScriptSignature,
   MultiSignatureScriptPubKey,
+  P2PKScriptPubKey,
   P2WSHWitnessSPKV0,
   P2WSHWitnessV0,
   ScriptPubKey
@@ -43,8 +44,9 @@ case class PTLCTxBuilder(
   require(fundingUtxosOpt.isEmpty != unsignedFundingTxOpt.isEmpty,
           "One of fundingUtxosOpt or unsignedFundingTxOpt must be defined")
 
-  val fundingSPK: MultiSignatureScriptPubKey = {
-    MultiSignatureScriptPubKey(2, Vector(payerFundingKey, receiverFundingKey))
+  val fundingSPK: P2PKScriptPubKey = {
+    P2PKScriptPubKey(payerFundingKey)
+    //MultiSignatureScriptPubKey(2, Vector(payerFundingKey, receiverFundingKey))
   }
 
   lazy val (unsignedFundingTransaction, signedFundingTransaction) = {

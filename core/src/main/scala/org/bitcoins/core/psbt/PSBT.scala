@@ -498,11 +498,17 @@ case class PSBT(
     require(
       !inputMaps(inputIndex).isFinalized,
       s"Cannot update an InputPSBTMap that is finalized, index: $inputIndex")
-    require(
-      !inputMaps(inputIndex).partialSignatures
-        .exists(_.pubKey == partialSignature.pubKey),
-      s"Input has already been signed by ${partialSignature.pubKey}"
-    )
+    val existingSigOpt = inputMaps(inputIndex).partialSignatures
+      .find(_.pubKey == partialSignature.pubKey)
+    if (existingSigOpt.isDefined) {
+      require(partialSignature == existingSigOpt.get, "Sig must be the same")
+    } else {
+      require(
+        !inputMaps(inputIndex).partialSignatures
+          .exists(_.pubKey == partialSignature.pubKey),
+        s"Input has already been signed by ${partialSignature.pubKey}"
+      )
+    }
 
     val newElements = inputMaps(inputIndex).elements :+ partialSignature
 

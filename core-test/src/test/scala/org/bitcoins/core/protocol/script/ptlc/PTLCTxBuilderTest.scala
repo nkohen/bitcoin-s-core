@@ -66,7 +66,7 @@ class PTLCTxBuilderTest extends BitcoinSAsyncTest {
 
   val payerPrivKey: ECPrivateKey = ECPrivateKey.freshPrivateKey
   val payerPubKey: ECPublicKey = payerPrivKey.publicKey
-  val receiverPrivKey: ECPrivateKey = ECPrivateKey.freshPrivateKey
+  val receiverPrivKey: ECPrivateKey = payerPrivKey
   val receiverPubKey: ECPublicKey = receiverPrivKey.publicKey
 
   val blockTimeToday: UInt32 =
