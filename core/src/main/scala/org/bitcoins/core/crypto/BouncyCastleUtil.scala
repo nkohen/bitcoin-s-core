@@ -2,7 +2,7 @@ package org.bitcoins.core.crypto
 
 import java.math.BigInteger
 
-import org.bitcoins.core.util.BitcoinSUtil
+import org.bitcoins.core.util.{BitcoinSUtil, CryptoUtil}
 import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.params.{
   ECPrivateKeyParameters,
@@ -39,6 +39,11 @@ object BouncyCastleUtil {
     Try(decodePoint(bytes))
       .map(_.getCurve == curve)
       .getOrElse(false)
+  }
+
+  def pubKeyTweakMul(pubKey: ECPublicKey, tweak: FieldElement): ECPublicKey = {
+    val tweakedPoint = pubKey.toPoint.multiply(tweak.toBigInteger)
+    ECPublicKey.fromPoint(tweakedPoint, pubKey.isCompressed)
   }
 
   def decompressPublicKey(publicKey: ECPublicKey): ECPublicKey = {
@@ -110,5 +115,184 @@ object BouncyCastleUtil {
       }
     }
     resultTry.getOrElse(false)
+  }
+}
+
+object AdaptorStuff {
+
+  private def serializePoint(point: ECPublicKey): ByteVector = {
+    val (sign, xCoor) = point.bytes.splitAt(1)
+    sign.map(b => (b & 0x01).toByte) ++ xCoor
+  }
+
+  private def deserializePoint(point: ByteVector): ECPublicKey = {
+    val (sign, xCoor) = point.splitAt(1)
+    ECPublicKey(sign.map(b => (b | 0x02).toByte) ++ xCoor)
+  }
+
+  private def adaptorSignHelper(
+      dataToSign: ByteVector,
+      k: FieldElement,
+      r: ECPublicKey,
+      privateKey: ECPrivateKey): FieldElement = {
+    val rx = FieldElement(r.toPoint.getXCoord.toBigInteger)
+    val x = privateKey.fieldElement
+    val m = FieldElement(dataToSign)
+    val kInv = k.inverse
+
+    rx.multiply(x).add(m).multiply(kInv)
+  }
+
+  def adaptorSign(
+      privateKey: ECPrivateKey,
+      adaptorPoint: ECPublicKey,
+      dataToSign: ByteVector): ECAdaptorSignature = {
+    val hash = CryptoUtil.sha256(dataToSign ++ adaptorPoint.bytes)
+    val nonceBytes =
+      CryptoUtil
+        .taggedSha256(privateKey.bytes ++ hash.bytes, "ECDSAAdaptorNon")
+        .bytes
+
+    val k = FieldElement(nonceBytes)
+    val untweakedNonce = k.getPublicKey
+    val tweakedNonce = adaptorPoint.tweakMultiply(k)
+
+    val (proofS, proofE) =
+      DLEQStuff.dleqProve(k, adaptorPoint, "ECDSAAdaptorSig")
+
+    val adaptedSig = adaptorSignHelper(dataToSign, k, tweakedNonce, privateKey)
+
+    ECAdaptorSignature(
+      serializePoint(tweakedNonce) ++ adaptedSig.bytes,
+      serializePoint(untweakedNonce) ++ proofS.bytes ++ proofE.bytes)
+  }
+
+  def adaptorVerifyHelper(
+      rx: FieldElement,
+      s: FieldElement,
+      pubKey: ECPublicKey,
+      msg: ByteVector): FieldElement = {
+    val m = FieldElement(msg)
+    val untweakedPoint =
+      m.getPublicKey.add(pubKey.tweakMultiply(rx)).tweakMultiply(s.inverse)
+
+    FieldElement(untweakedPoint.bytes.tail)
+  }
+
+  def adaptorVerify(
+      adaptorSig: ECAdaptorSignature,
+      pubKey: ECPublicKey,
+      data: ByteVector,
+      adaptor: ECPublicKey): Boolean = {
+    val untweakedNonce = deserializePoint(adaptorSig.dleqProof.take(33))
+    val proofS = FieldElement(adaptorSig.dleqProof.drop(33).take(32))
+    val proofR = FieldElement(adaptorSig.dleqProof.drop(65))
+
+    val tweakedNonce = deserializePoint(adaptorSig.adaptedSig.take(33))
+    val adaptedSig = FieldElement(adaptorSig.adaptedSig.drop(33))
+
+    val validProof = DLEQStuff.dleqVerify(
+      "ECDSAAdaptorSig",
+      proofS,
+      proofR,
+      untweakedNonce,
+      adaptor,
+      tweakedNonce
+    )
+
+    if (validProof) {
+      val untweakedRx = adaptorVerifyHelper(
+        FieldElement(tweakedNonce.bytes.tail),
+        adaptedSig,
+        pubKey,
+        data)
+
+      untweakedRx == FieldElement(untweakedNonce.bytes.tail)
+    } else {
+      false
+    }
+  }
+
+  def adaptorComplete(
+      adaptorSecret: ECPrivateKey,
+      adaptedSig: ByteVector): ECDigitalSignature = {
+    ???
+  }
+
+  def extractAdaptorSecret(
+      sig: ECDigitalSignature,
+      adaptorSig: ECAdaptorSignature,
+      adaptor: ECPublicKey): ECPrivateKey = {
+    ???
+  }
+}
+
+object DLEQStuff {
+
+  def dleqPair(
+      fe: FieldElement,
+      adaptorPoint: ECPublicKey): (ECPublicKey, ECPublicKey) = {
+    val point = fe.getPublicKey
+    val tweakedPoint = adaptorPoint.tweakMultiply(fe)
+
+    (point, tweakedPoint)
+  }
+
+  def dleqNonceFunc(
+      hash: ByteVector,
+      fe: FieldElement,
+      algoName: String): FieldElement = {
+    val kBytes =
+      CryptoUtil.taggedSha256(fe.bytes ++ hash, algoName).bytes
+    FieldElement(kBytes)
+  }
+
+  def dleqChallengeHash(
+      algoName: String,
+      adaptorPoint: ECPublicKey,
+      r1: ECPublicKey,
+      r2: ECPublicKey,
+      p1: ECPublicKey,
+      p2: ECPublicKey): ByteVector = {
+    CryptoUtil
+      .taggedSha256(
+        adaptorPoint.bytes ++ r1.bytes ++ r2.bytes ++ p1.bytes ++ p2.bytes,
+        algoName)
+      .bytes
+  }
+
+  def dleqProve(
+      fe: FieldElement,
+      adaptorPoint: ECPublicKey,
+      algoName: String): (FieldElement, FieldElement) = {
+    val (p1, p2) = dleqPair(fe, adaptorPoint)
+
+    val hash =
+      CryptoUtil.sha256(adaptorPoint.bytes ++ p1.bytes ++ p2.bytes).bytes
+    val k = dleqNonceFunc(hash, fe, algoName)
+
+    val r1 = k.getPublicKey
+    val r2 = adaptorPoint.tweakMultiply(k)
+
+    val challengeHash =
+      dleqChallengeHash(algoName, adaptorPoint, r1, r2, p1, p2)
+    val e = FieldElement(challengeHash)
+    val s = fe.multiply(e).add(k)
+
+    (s, e)
+  }
+
+  def dleqVerify(
+      algoName: String,
+      s: FieldElement,
+      e: FieldElement,
+      p1: ECPublicKey,
+      adaptor: ECPublicKey,
+      p2: ECPublicKey): Boolean = {
+    val r1 = p1.tweakMultiply(e.negate).add(s.getPublicKey)
+    val r2 = p2.tweakMultiply(e.negate).add(adaptor.tweakMultiply(s))
+    val challengeHash = dleqChallengeHash(algoName, adaptor, r1, r2, p1, p2)
+
+    challengeHash == e.bytes
   }
 }

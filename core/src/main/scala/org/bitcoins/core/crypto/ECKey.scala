@@ -100,6 +100,28 @@ sealed abstract class ECPrivateKey
     ECDigitalSignature(completedSig.bytes ++ ByteVector.fromByte(hashType.byte))
   }
 
+  def add(other: ECPrivateKey): ECPrivateKey = {
+    add(other, Secp256k1Context.isEnabled)
+  }
+
+  def add(other: ECPrivateKey, useSecp: Boolean): ECPrivateKey = {
+    if (useSecp) {
+      addWithSecp(other)
+    } else {
+      addWithBouncyCastle(other)
+    }
+  }
+
+  def addWithSecp(other: ECPrivateKey): ECPrivateKey = {
+    val sumBytes =
+      NativeSecp256k1.privKeyTweakAdd(bytes.toArray, other.bytes.toArray)
+    ECPrivateKey(ByteVector(sumBytes))
+  }
+
+  def addWithBouncyCastle(other: ECPrivateKey): ECPrivateKey = {
+    fieldElement.add(other.fieldElement).toPrivateKey
+  }
+
   /** Signifies if the this private key corresponds to a compressed public key */
   def isCompressed: Boolean
 
@@ -144,6 +166,8 @@ sealed abstract class ECPrivateKey
     val encodedPrivKey = fullBytes ++ checksum
     Base58.encode(encodedPrivKey)
   }
+
+  def fieldElement: FieldElement = FieldElement(bytes)
 
   override def toStringSensitive: String = s"ECPrivateKey($hex,$isCompressed)"
 }
@@ -192,6 +216,10 @@ object ECPrivateKey extends Factory[ECPrivateKey] {
 
   def fromHex(hex: String, isCompressed: Boolean): ECPrivateKey =
     fromBytes(BitcoinSUtil.decodeHex(hex), isCompressed)
+
+  def fromFieldElement(fieldElement: FieldElement): ECPrivateKey = {
+    fieldElement.toPrivateKey
+  }
 
   /** Generates a fresh [[org.bitcoins.core.crypto.ECPrivateKey ECPrivateKey]] that has not been used before. */
   def apply(): ECPrivateKey = ECPrivateKey(true)
@@ -427,6 +455,29 @@ sealed abstract class ECPublicKey extends BaseECKey {
     val sumPoint = toPoint.add(otherKey.toPoint)
 
     ECPublicKey.fromPoint(sumPoint)
+  }
+
+  def tweakMultiply(tweak: FieldElement): ECPublicKey = {
+    tweakMultiply(tweak, Secp256k1Context.isEnabled)
+  }
+
+  def tweakMultiply(tweak: FieldElement, useSecp: Boolean): ECPublicKey = {
+    if (useSecp) {
+      tweakMultiplyWithSecp(tweak)
+    } else {
+      tweakMultiplyWithBouncyCastle(tweak)
+    }
+  }
+
+  def tweakMultiplyWithSecp(tweak: FieldElement): ECPublicKey = {
+    val keyBytes = NativeSecp256k1.pubKeyTweakMul(bytes.toArray,
+                                                  tweak.bytes.toArray,
+                                                  isCompressed)
+    ECPublicKey(ByteVector(keyBytes))
+  }
+
+  def tweakMultiplyWithBouncyCastle(tweak: FieldElement): ECPublicKey = {
+    BouncyCastleUtil.pubKeyTweakMul(this, tweak)
   }
 }
 
