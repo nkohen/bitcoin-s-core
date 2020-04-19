@@ -120,12 +120,12 @@ object BouncyCastleUtil {
 
 object AdaptorStuff {
 
-  private def serializePoint(point: ECPublicKey): ByteVector = {
+  def serializePoint(point: ECPublicKey): ByteVector = {
     val (sign, xCoor) = point.bytes.splitAt(1)
     sign.map(b => (b & 0x01).toByte) ++ xCoor
   }
 
-  private def deserializePoint(point: ByteVector): ECPublicKey = {
+  def deserializePoint(point: ByteVector): ECPublicKey = {
     val (sign, xCoor) = point.splitAt(1)
     ECPublicKey(sign.map(b => (b | 0x02).toByte) ++ xCoor)
   }
@@ -147,7 +147,7 @@ object AdaptorStuff {
       privateKey: ECPrivateKey,
       adaptorPoint: ECPublicKey,
       dataToSign: ByteVector): ECAdaptorSignature = {
-    val hash = CryptoUtil.sha256(dataToSign ++ adaptorPoint.bytes)
+    val hash = CryptoUtil.sha256(dataToSign ++ serializePoint(adaptorPoint))
     val nonceBytes =
       CryptoUtil
         .taggedSha256(privateKey.bytes ++ hash.bytes, "ECDSAAdaptorNon")
@@ -228,6 +228,7 @@ object AdaptorStuff {
 }
 
 object DLEQStuff {
+  import AdaptorStuff.serializePoint
 
   def dleqPair(
       fe: FieldElement,
@@ -255,9 +256,9 @@ object DLEQStuff {
       p1: ECPublicKey,
       p2: ECPublicKey): ByteVector = {
     CryptoUtil
-      .taggedSha256(
-        adaptorPoint.bytes ++ r1.bytes ++ r2.bytes ++ p1.bytes ++ p2.bytes,
-        algoName)
+      .taggedSha256(serializePoint(adaptorPoint) ++ serializePoint(r1) ++ serializePoint(
+                      r2) ++ serializePoint(p1) ++ serializePoint(p2),
+                    algoName)
       .bytes
   }
 
@@ -268,7 +269,11 @@ object DLEQStuff {
     val (p1, p2) = dleqPair(fe, adaptorPoint)
 
     val hash =
-      CryptoUtil.sha256(adaptorPoint.bytes ++ p1.bytes ++ p2.bytes).bytes
+      CryptoUtil
+        .sha256(
+          serializePoint(adaptorPoint) ++ serializePoint(p1) ++ serializePoint(
+            p2))
+        .bytes
     val k = dleqNonceFunc(hash, fe, algoName)
 
     val r1 = k.getPublicKey
