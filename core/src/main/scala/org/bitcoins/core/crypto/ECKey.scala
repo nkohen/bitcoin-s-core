@@ -78,11 +78,34 @@ sealed abstract class ECPrivateKey
   def adaptorSign(
       adaptorPoint: ECPublicKey,
       msg: ByteVector): ECAdaptorSignature = {
+    adaptorSign(adaptorPoint, msg, Secp256k1Context.isEnabled)
+  }
+
+  def adaptorSign(
+      adaptorPoint: ECPublicKey,
+      msg: ByteVector,
+      useSecp: Boolean): ECAdaptorSignature = {
+    if (useSecp) {
+      adaptorSignWithSecp(adaptorPoint, msg)
+    } else {
+      adaptorSignWithBouncyCastle(adaptorPoint, msg)
+    }
+  }
+
+  def adaptorSignWithSecp(
+      adaptorPoint: ECPublicKey,
+      msg: ByteVector): ECAdaptorSignature = {
     val sigWithProof = NativeSecp256k1.adaptorSign(bytes.toArray,
                                                    adaptorPoint.bytes.toArray,
                                                    msg.toArray)
-    val sigWithProofBytes = ByteVector(sigWithProof)
-    ECAdaptorSignature(sigWithProofBytes.take(65), sigWithProofBytes.drop(65))
+
+    ECAdaptorSignature(ByteVector(sigWithProof))
+  }
+
+  def adaptorSignWithBouncyCastle(
+      adaptorPoint: ECPublicKey,
+      msg: ByteVector): ECAdaptorSignature = {
+    AdaptorStuff.adaptorSign(this, adaptorPoint, msg)
   }
 
   def completeAdaptorSignature(
@@ -385,11 +408,40 @@ sealed abstract class ECPublicKey extends BaseECKey {
       msg: ByteVector,
       adaptorPoint: ECPublicKey,
       adaptorSignature: ECAdaptorSignature): Boolean = {
+    adaptorVerify(msg,
+                  adaptorPoint,
+                  adaptorSignature,
+                  Secp256k1Context.isEnabled)
+  }
+
+  def adaptorVerify(
+      msg: ByteVector,
+      adaptorPoint: ECPublicKey,
+      adaptorSignature: ECAdaptorSignature,
+      useSecp: Boolean): Boolean = {
+    if (useSecp) {
+      adaptorVerifyWithSecp(msg, adaptorPoint, adaptorSignature)
+    } else {
+      adaptorVerifyWithBouncyCastle(msg, adaptorPoint, adaptorSignature)
+    }
+  }
+
+  def adaptorVerifyWithSecp(
+      msg: ByteVector,
+      adaptorPoint: ECPublicKey,
+      adaptorSignature: ECAdaptorSignature): Boolean = {
     NativeSecp256k1.adaptorVerify(adaptorSignature.adaptedSig.toArray,
                                   bytes.toArray,
                                   msg.toArray,
                                   adaptorPoint.bytes.toArray,
                                   adaptorSignature.dleqProof.toArray)
+  }
+
+  def adaptorVerifyWithBouncyCastle(
+      msg: ByteVector,
+      adaptorPoint: ECPublicKey,
+      adaptorSignature: ECAdaptorSignature): Boolean = {
+    AdaptorStuff.adaptorVerify(adaptorSignature, this, msg, adaptorPoint)
   }
 
   def extractAdaptorSecret(

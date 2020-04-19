@@ -119,17 +119,9 @@ object BouncyCastleUtil {
 }
 
 object AdaptorStuff {
+  import ECAdaptorSignature.{deserializePoint, serializePoint}
 
-  def serializePoint(point: ECPublicKey): ByteVector = {
-    val (sign, xCoor) = point.bytes.splitAt(1)
-    sign.map(b => (b & 0x01).toByte) ++ xCoor
-  }
-
-  def deserializePoint(point: ByteVector): ECPublicKey = {
-    val (sign, xCoor) = point.splitAt(1)
-    ECPublicKey(sign.map(b => (b | 0x02).toByte) ++ xCoor)
-  }
-
+  // Compute s' = k^-1 * (dataToSign + rx*privateKey)
   private def adaptorSignHelper(
       dataToSign: ByteVector,
       k: FieldElement,
@@ -147,6 +139,7 @@ object AdaptorStuff {
       privateKey: ECPrivateKey,
       adaptorPoint: ECPublicKey,
       dataToSign: ByteVector): ECAdaptorSignature = {
+    // Include dataToSign and adaptor in nonce derivation
     val hash = CryptoUtil.sha256(dataToSign ++ serializePoint(adaptorPoint))
     val nonceBytes =
       CryptoUtil
@@ -154,20 +147,21 @@ object AdaptorStuff {
         .bytes
 
     val k = FieldElement(nonceBytes)
-    val untweakedNonce = k.getPublicKey
-    val tweakedNonce = adaptorPoint.tweakMultiply(k)
+    val untweakedNonce = k.getPublicKey // k*G
+    val tweakedNonce = adaptorPoint.tweakMultiply(k) // k*Y
 
+    // DLEQ_prove((G,R'),(Y, R))
     val (proofS, proofE) =
       DLEQStuff.dleqProve(k, adaptorPoint, "ECDSAAdaptorSig")
 
+    // s' = k^-1*(m + rx*x)
     val adaptedSig = adaptorSignHelper(dataToSign, k, tweakedNonce, privateKey)
 
-    ECAdaptorSignature(
-      serializePoint(tweakedNonce) ++ adaptedSig.bytes,
-      serializePoint(untweakedNonce) ++ proofS.bytes ++ proofE.bytes)
+    ECAdaptorSignature(tweakedNonce, adaptedSig, untweakedNonce, proofS, proofE)
   }
 
-  def adaptorVerifyHelper(
+  // Compute R'x = s^-1 * (msg*G + rx*pubKey) = s^-1 * (msg + rx*privKey) * G
+  private def adaptorVerifyHelper(
       rx: FieldElement,
       s: FieldElement,
       pubKey: ECPublicKey,
@@ -228,7 +222,7 @@ object AdaptorStuff {
 }
 
 object DLEQStuff {
-  import AdaptorStuff.serializePoint
+  import ECAdaptorSignature.serializePoint
 
   def dleqPair(
       fe: FieldElement,
@@ -262,12 +256,17 @@ object DLEQStuff {
       .bytes
   }
 
+  /** Proves that the DLOG_G(R') = DLOG_Y(R) (= fe)
+    * For a full description, see https://cs.nyu.edu/courses/spring07/G22.3220-001/lec3.pdf
+    */
   def dleqProve(
       fe: FieldElement,
       adaptorPoint: ECPublicKey,
       algoName: String): (FieldElement, FieldElement) = {
+    // (fe*G, fe*Y)
     val (p1, p2) = dleqPair(fe, adaptorPoint)
 
+    // hash(Y || fe*G || fe*Y)
     val hash =
       CryptoUtil
         .sha256(
@@ -279,14 +278,27 @@ object DLEQStuff {
     val r1 = k.getPublicKey
     val r2 = adaptorPoint.tweakMultiply(k)
 
+    // Hash all components to get a challenge (this is the trick that turns
+    // interactive ZKPs into non-interactive ZKPs, using hash assumptions)
+    //
+    // In short, rather than having the verifier present challenges, hash
+    // all shared information (so that both parties can compute) and use
+    // this hash as the challenge to the prover as loosely speaking this
+    // should only be game-able if the prover can reverse hash functions.
     val challengeHash =
       dleqChallengeHash(algoName, adaptorPoint, r1, r2, p1, p2)
     val e = FieldElement(challengeHash)
+
+    // s = k + fe*challenge. This proof works because then k = fe*challenge - s
+    // so that R' = k*G =?= p1*challenge - s and R = k*Y =?= p2*challenge - s
+    // can both be verified given s and challenge and will be true if and only
+    // if R = y*R' which is what we are trying to prove.
     val s = fe.multiply(e).add(k)
 
     (s, e)
   }
 
+  /** Verifies a proof that the DLOG_G of P1 equals the DLOG_adaptor of P2 */
   def dleqVerify(
       algoName: String,
       s: FieldElement,

@@ -96,4 +96,33 @@ class BouncyCastleSecp256k1Test extends BitcoinSUnitTest {
             .verifyWithSecp(bytes, badSig))
     }
   }
+
+  it must "compute adaptor signatures the same" in {
+    forAll(CryptoGenerators.privateKey,
+           CryptoGenerators.publicKey,
+           NumberGenerator.bytevector(32)) {
+      case (privKey, adaptor, msg) =>
+        assert(
+          privKey.adaptorSign(adaptor, msg, useSecp = false) == privKey
+            .adaptorSign(adaptor, msg, useSecp = true))
+    }
+  }
+
+  it must "verify adaptor signatures the same" in {
+    forAll(CryptoGenerators.privateKey,
+           CryptoGenerators.publicKey,
+           NumberGenerator.bytevector(32),
+           CryptoGenerators.adaptorSignature) {
+      case (privKey, adaptor, msg, badSig) =>
+        val sig = privKey.adaptorSign(adaptor, msg)
+        val pubKey = privKey.publicKey
+
+        assert(
+          pubKey.adaptorVerify(msg, adaptor, sig, useSecp = false) == pubKey
+            .adaptorVerify(msg, adaptor, sig, useSecp = true))
+        assert(
+          pubKey.adaptorVerify(msg, adaptor, badSig, useSecp = false) == pubKey
+            .adaptorVerify(msg, adaptor, badSig, useSecp = true))
+    }
+  }
 }

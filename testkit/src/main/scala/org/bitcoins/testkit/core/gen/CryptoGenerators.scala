@@ -118,6 +118,8 @@ sealed abstract class CryptoGenerators {
 
   def privateKey: Gen[ECPrivateKey] = Gen.delay(ECPrivateKey())
 
+  def fieldElement: Gen[FieldElement] = privateKey.map(_.fieldElement)
+
   /**
     * Generate a sequence of private keys
     * @param num maximum number of keys to generate
@@ -173,6 +175,18 @@ sealed abstract class CryptoGenerators {
       privKey <- privateKey
       hash <- CryptoGenerators.doubleSha256Digest
     } yield privKey.sign(hash)
+
+  def adaptorSignature: Gen[ECAdaptorSignature] = {
+    for {
+      tweakedNonce <- publicKey
+      untweakedNonce <- publicKey
+      adaptedS <- fieldElement
+      proofS <- fieldElement
+      proofE <- fieldElement
+    } yield {
+      ECAdaptorSignature(tweakedNonce, adaptedS, untweakedNonce, proofS, proofE)
+    }
+  }
 
   def sha256Digest: Gen[Sha256Digest] =
     for {
