@@ -210,14 +210,27 @@ object AdaptorStuff {
   def adaptorComplete(
       adaptorSecret: ECPrivateKey,
       adaptedSig: ByteVector): ECDigitalSignature = {
-    ???
+    val tweakedNonce: ECPublicKey =
+      ECAdaptorSignature.deserializePoint(adaptedSig.take(33))
+    val rx = FieldElement(tweakedNonce.bytes.tail)
+    val adaptedS: FieldElement = FieldElement(adaptedSig.drop(33))
+    val correctedS = adaptedS.multInv(adaptorSecret.fieldElement)
+
+    val sig = ECDigitalSignature.fromRS(BigInt(rx.toBigInteger),
+                                        BigInt(correctedS.toBigInteger))
+    DERSignatureUtil.lowS(sig)
   }
 
   def extractAdaptorSecret(
       sig: ECDigitalSignature,
       adaptorSig: ECAdaptorSignature,
       adaptor: ECPublicKey): ECPrivateKey = {
-    ???
+    val secretOrNeg = adaptorSig.adaptedS.multInv(FieldElement(sig.s))
+    if (secretOrNeg.getPublicKey == adaptor) {
+      secretOrNeg.toPrivateKey
+    } else {
+      secretOrNeg.negate.toPrivateKey
+    }
   }
 }
 

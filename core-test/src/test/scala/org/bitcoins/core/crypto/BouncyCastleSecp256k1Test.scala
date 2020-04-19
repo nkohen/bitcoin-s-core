@@ -125,4 +125,26 @@ class BouncyCastleSecp256k1Test extends BitcoinSUnitTest {
             .adaptorVerify(msg, adaptor, badSig, useSecp = true))
     }
   }
+
+  it must "complete adaptor signatures the same" in {
+    forAll(CryptoGenerators.privateKey, CryptoGenerators.adaptorSignature) {
+      case (adaptorSecret, adaptorSig) =>
+        assert(adaptorSecret.completeAdaptorSignature(
+          adaptorSig,
+          useSecp = false) == adaptorSecret
+          .completeAdaptorSignature(adaptorSig, useSecp = true))
+    }
+  }
+
+  it must "extract adaptor secrets the same" in {
+    forAll(CryptoGenerators.digitalSignature,
+           CryptoGenerators.adaptorSignature,
+           CryptoGenerators.publicKey) {
+      case (sig, adaptorSig, adaptor) =>
+        assert(
+          adaptor
+            .extractAdaptorSecret(adaptorSig, sig, useSecp = false) == adaptor
+            .extractAdaptorSecret(adaptorSig, sig, useSecp = false))
+    }
+  }
 }
