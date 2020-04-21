@@ -50,8 +50,16 @@ class DLCPane(glassPane: VBox) {
     spacing = 15
   }
 
+  private val punishOracleButton = new Button {
+    text = "Punish Oracle"
+    onAction = new EventHandler[ActionEvent] {
+      override def handle(event: ActionEvent): Unit = model.onPunishOracle()
+    }
+  }
+
   private val demoOracleVBox = new VBox {
-    children = Seq(demoOracleArea, oracleButtonHBox)
+    children = Seq(demoOracleArea, oracleButtonHBox, punishOracleButton)
+    alignment = Pos.Center
     spacing = 15
   }
 

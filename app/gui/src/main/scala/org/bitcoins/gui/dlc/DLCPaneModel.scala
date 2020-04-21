@@ -1,8 +1,15 @@
 package org.bitcoins.gui.dlc
 
+import org.bitcoins.cli.CliCommand.SendToAddress
 import org.bitcoins.cli.{CliCommand, ConsoleCli}
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.OracleInfo
-import org.bitcoins.core.crypto.ECPrivateKey
+import org.bitcoins.core.config.RegTest
+import org.bitcoins.core.crypto.{DoubleSha256DigestBE, ECPrivateKey}
+import org.bitcoins.core.currency.Bitcoins
+import org.bitcoins.core.number.UInt32
+import org.bitcoins.core.protocol.BitcoinAddress
+import org.bitcoins.core.protocol.script.P2PKHScriptPubKey
+import org.bitcoins.core.protocol.transaction.TransactionOutPoint
 import org.bitcoins.gui.TaskRunner
 import org.bitcoins.gui.dlc.dialog._
 import scalafx.beans.property.ObjectProperty
@@ -60,6 +67,12 @@ class DLCPaneModel(
         val rValue = kValue.schnorrNonce
         val oracleInfo = OracleInfo(pubKey, rValue)
 
+        val punishmentAddress = BitcoinAddress
+          .fromScriptPubKey(P2PKHScriptPubKey(pubKey.publicKey), RegTest)
+          .get
+        val amount = Bitcoins.one
+
+        builder.append(s"Oracle P2PKH Address: $punishmentAddress\n")
         builder.append(
           s"Oracle Public Key: ${pubKey.hex}\nEvent R value: ${rValue.hex}\n")
         builder.append(s"Serialized Oracle Info: ${oracleInfo.hex}\n\n")
@@ -81,6 +94,48 @@ class DLCPaneModel(
         GlobalDLCData.lastContractInfo = contractInfo.hex
 
         oracleInfoArea.text = builder.result()
+
+        taskRunner.run(
+          caption = s"Send $amount to $punishmentAddress",
+          op = {
+            ConsoleCli.exec(
+              SendToAddress(punishmentAddress,
+                            amount,
+                            satoshisPerVirtualByte = None,
+                            noBroadcast = false)) match {
+              case Success(txid) =>
+                val outPoint =
+                  TransactionOutPoint(DoubleSha256DigestBE(txid), UInt32.zero)
+                oracleInfoArea.text = oracleInfoArea
+                  .text() + s"\n\nOracle Punishment OutPoint: ${outPoint.hex}"
+              case Failure(err) => throw err
+            }
+          }
+        )
+      case None => ()
+    }
+  }
+
+  def onPunishOracle(): Unit = {
+    val result = PunishOracleDialog.showAndWait(parentWindow.value)
+
+    result match {
+      case Some(tx) =>
+        taskRunner.run(
+          caption =
+            s"Punish oracle for ${tx.outputs.head.value} from ${tx.inputs.head.previousOutput.hex}",
+          op = {
+            scala.util
+              .Try(???) match { //ConsoleCli.exec(SendRawTransaction(tx)) match {
+              case Success(txid) =>
+                oracleInfoArea.text = oracleInfoArea
+                  .text() + s"\n\nOracle Punishment Tx: $txid"
+              case Failure(err) =>
+                err.printStackTrace()
+                throw err
+            }
+          }
+        )
       case None => ()
     }
   }
