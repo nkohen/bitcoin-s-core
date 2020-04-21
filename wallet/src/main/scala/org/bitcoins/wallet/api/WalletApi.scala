@@ -58,6 +58,9 @@ trait LockedWalletApi extends WalletApi with WalletLogger {
   /** Gives a fee Rate to use for transactions if one is not specified */
   def getFeeRate: FeeUnit = Policy.defaultFeeRate
 
+  def broadcastTransaction(transaction: Transaction): Future[Unit] =
+    nodeApi.broadcastTransaction(transaction)
+
   /**
     * Retrieves a bloom filter that that can be sent to a P2P network node
     * to get information about our transactions, pubkeys and scripts.
