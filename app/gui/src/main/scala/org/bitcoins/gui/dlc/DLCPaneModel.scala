@@ -1,6 +1,6 @@
 package org.bitcoins.gui.dlc
 
-import org.bitcoins.cli.CliCommand.SendToAddress
+import org.bitcoins.cli.CliCommand.{SendRawTransaction, SendToAddress}
 import org.bitcoins.cli.{CliCommand, ConsoleCli}
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.OracleInfo
 import org.bitcoins.core.config.RegTest
@@ -125,11 +125,10 @@ class DLCPaneModel(
           caption =
             s"Punish oracle for ${tx.outputs.head.value} from ${tx.inputs.head.previousOutput.hex}",
           op = {
-            scala.util
-              .Try(???) match { //ConsoleCli.exec(SendRawTransaction(tx)) match {
+            ConsoleCli.exec(SendRawTransaction(tx)) match {
               case Success(txid) =>
                 oracleInfoArea.text = oracleInfoArea
-                  .text() + s"\n\nOracle Punishment Tx: $txid"
+                  .text() + s"\n\nOracle Punishment Tx: ${txid.hex}"
               case Failure(err) =>
                 err.printStackTrace()
                 throw err
