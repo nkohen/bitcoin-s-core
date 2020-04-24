@@ -101,6 +101,26 @@ abstract class CRUD[T, PrimaryKeyType](
 
   import profile.api._
 
+  import scala.language.implicitConversions
+
+  /** We need to cast from TableQuery's of internal types (e.g. AddressDAO#AddressTable) to external
+    * versions of them (e.g. AddressDAO().table). You'll notice that although the latter is a subtype
+    * of the first, this requires a cast since TableQuery is not covariant in its type parameter.
+    *
+    * However, since Query is covariant in its first type parameter, I believe the cast from
+    * TableQuery[T1] to TableQuery[T2] will always be safe so long as T1 is a subtype of T2
+    * AND T1#TableElementType is equal to T2#TableElementType.
+    *
+    * The above conditions are always the case when this is called within DAOs as it is only
+    * ever used for things of the form TableQuery[XDAO().table] -> TableQuery[XDAO#XTable].
+    */
+  implicit def tableQuerySafeSubtypeCast[
+      SpecificT <: slick.lifted.AbstractTable[_],
+      SomeT <: SpecificT](
+      tableQuery: TableQuery[SomeT]): TableQuery[SpecificT] = {
+    tableQuery.asInstanceOf[TableQuery[SpecificT]]
+  }
+
   /** The table inside our database we are inserting into */
   val table: profile.api.TableQuery[_ <: profile.api.Table[T]]
 
