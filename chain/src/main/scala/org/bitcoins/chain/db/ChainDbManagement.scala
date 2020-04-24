@@ -22,16 +22,13 @@ trait ChainDbManagement extends DbManagement {
 
   private lazy val chainTable: TableQuery[Table[_]] =
     BlockHeaderDAO()(ec, appConfig).table
-      .asInstanceOf[TableQuery[Table[_]]]
 
   private lazy val filterHeaderTable: TableQuery[Table[_]] = {
     CompactFilterHeaderDAO()(ec, appConfig).table
-      .asInstanceOf[TableQuery[Table[_]]]
   }
 
   private lazy val filterTable: TableQuery[Table[_]] = {
     CompactFilterDAO()(ec, appConfig).table
-      .asInstanceOf[TableQuery[Table[_]]]
   }
 
   override lazy val allTables: List[TableQuery[Table[_]]] =

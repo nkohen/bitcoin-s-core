@@ -15,7 +15,6 @@ trait NodeDbManagement extends DbManagement {
 
   private lazy val txTable: TableQuery[Table[_]] = {
     BroadcastAbleTransactionDAO()(appConfig, ec).table
-      .asInstanceOf[TableQuery[Table[_]]]
   }
 
   override val allTables: List[TableQuery[Table[_]]] = List(txTable)
