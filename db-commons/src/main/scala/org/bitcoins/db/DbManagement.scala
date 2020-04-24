@@ -6,7 +6,8 @@ import org.flywaydb.core.api.FlywayException
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait DbManagement extends BitcoinSLogger { _: JdbcProfileComponent =>
+trait DbManagement extends BitcoinSLogger {
+  _: JdbcProfileComponent[AppConfig] =>
   import profile.api._
 
   def allTables: List[TableQuery[Table[_]]]

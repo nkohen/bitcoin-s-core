@@ -6,16 +6,15 @@ import org.bitcoins.node.models.{BroadcastAbleTransactionDAO}
 
 import scala.concurrent.ExecutionContext
 
-trait NodeDbManagement extends DbManagement { _: JdbcProfileComponent =>
+trait NodeDbManagement extends DbManagement {
+  _: JdbcProfileComponent[NodeAppConfig] =>
 
   import profile.api._
 
   def ec: ExecutionContext
 
-  override def appConfig: NodeAppConfig
-
   private lazy val txTable: TableQuery[Table[_]] = {
-    BroadcastAbleTransactionDAO()(appConfig.asInstanceOf[NodeAppConfig], ec).table
+    BroadcastAbleTransactionDAO()(appConfig, ec).table
       .asInstanceOf[TableQuery[Table[_]]]
   }
 

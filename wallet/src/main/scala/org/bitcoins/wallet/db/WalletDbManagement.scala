@@ -13,36 +13,35 @@ import org.bitcoins.wallet.models.{
 
 import scala.concurrent.ExecutionContext
 
-trait WalletDbManagement extends DbManagement { _: JdbcProfileComponent =>
+trait WalletDbManagement extends DbManagement {
+  _: JdbcProfileComponent[WalletAppConfig] =>
 
   import profile.api._
 
   def ec: ExecutionContext
 
-  override def appConfig: WalletAppConfig
-
   private lazy val accountTable: TableQuery[Table[_]] = {
-    AccountDAO()(ec, appConfig.asInstanceOf[WalletAppConfig]).table
+    AccountDAO()(ec, appConfig).table
       .asInstanceOf[TableQuery[Table[_]]]
   }
   private lazy val addressTable: TableQuery[Table[_]] = {
-    AddressDAO()(ec, appConfig.asInstanceOf[WalletAppConfig]).table
+    AddressDAO()(ec, appConfig).table
       .asInstanceOf[TableQuery[Table[_]]]
   }
   private lazy val utxoTable: TableQuery[Table[_]] = {
-    SpendingInfoDAO()(ec, appConfig.asInstanceOf[WalletAppConfig]).table
+    SpendingInfoDAO()(ec, appConfig).table
       .asInstanceOf[TableQuery[Table[_]]]
   }
   private lazy val txTable: TableQuery[Table[_]] = {
-    TransactionDAO()(ec, appConfig.asInstanceOf[WalletAppConfig]).table
+    TransactionDAO()(ec, appConfig).table
       .asInstanceOf[TableQuery[Table[_]]]
   }
   private lazy val incomingTxTable: TableQuery[Table[_]] = {
-    IncomingTransactionDAO()(ec, appConfig.asInstanceOf[WalletAppConfig]).table
+    IncomingTransactionDAO()(ec, appConfig).table
       .asInstanceOf[TableQuery[Table[_]]]
   }
   private lazy val outgoingTxTable: TableQuery[Table[_]] = {
-    OutgoingTransactionDAO()(ec, appConfig.asInstanceOf[WalletAppConfig]).table
+    OutgoingTransactionDAO()(ec, appConfig).table
       .asInstanceOf[TableQuery[Table[_]]]
   }
 

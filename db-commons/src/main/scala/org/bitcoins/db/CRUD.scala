@@ -11,9 +11,9 @@ import slick.jdbc.{JdbcProfile}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-trait JdbcProfileComponent extends BitcoinSLogger {
+trait JdbcProfileComponent[+ConfigType <: AppConfig] extends BitcoinSLogger {
 
-  def appConfig: AppConfig
+  def appConfig: ConfigType
 
   /**
     * The configuration details for connecting/using the database for our projects
@@ -97,7 +97,7 @@ trait JdbcProfileComponent extends BitcoinSLogger {
 abstract class CRUD[T, PrimaryKeyType](
     implicit private val ec: ExecutionContext,
     override val appConfig: AppConfig)
-    extends JdbcProfileComponent {
+    extends JdbcProfileComponent[AppConfig] {
 
   import profile.api._
 
@@ -220,7 +220,7 @@ abstract class CRUD[T, PrimaryKeyType](
   def count(): Future[Int] = safeDatabase.run(table.length.result)
 }
 
-case class SafeDatabase(jdbcProfile: JdbcProfileComponent)
+case class SafeDatabase(jdbcProfile: JdbcProfileComponent[AppConfig])
     extends BitcoinSLogger {
 
   import jdbcProfile.database
