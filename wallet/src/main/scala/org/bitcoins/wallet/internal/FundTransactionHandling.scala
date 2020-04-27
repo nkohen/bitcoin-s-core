@@ -10,6 +10,7 @@ import org.bitcoins.core.protocol.transaction.{
 }
 import org.bitcoins.core.wallet.builder.BitcoinTxBuilder
 import org.bitcoins.core.wallet.fee.FeeUnit
+import org.bitcoins.core.wallet.utxo.AddressTag
 import org.bitcoins.keymanager.bip39.BIP39KeyManager
 import org.bitcoins.wallet.WalletLogger
 import org.bitcoins.wallet.api.{AddressInfo, CoinSelector, WalletApi}
@@ -22,12 +23,14 @@ trait FundTransactionHandling extends WalletLogger { self: WalletApi =>
   def fundRawTransaction(
       destinations: Vector[TransactionOutput],
       feeRate: FeeUnit,
+      fromTagOpt: Option[AddressTag],
       markAsReserved: Boolean): Future[Transaction] = {
     for {
       account <- getDefaultAccount()
       funded <- fundRawTransaction(destinations = destinations,
                                    feeRate = feeRate,
                                    fromAccount = account,
+                                   fromTagOpt = fromTagOpt,
                                    markAsReserved = markAsReserved)
     } yield funded
   }
@@ -36,12 +39,14 @@ trait FundTransactionHandling extends WalletLogger { self: WalletApi =>
       destinations: Vector[TransactionOutput],
       feeRate: FeeUnit,
       fromAccount: AccountDb,
+      fromTagOpt: Option[AddressTag] = None,
       markAsReserved: Boolean = false): Future[Transaction] = {
     val txBuilderF =
       fundRawTransactionInternal(destinations = destinations,
                                  feeRate = feeRate,
                                  fromAccount = fromAccount,
                                  keyManagerOpt = None,
+                                 fromTagOpt = fromTagOpt,
                                  markAsReserved = markAsReserved)
     txBuilderF.flatMap(_.unsignedTx)
   }
@@ -62,9 +67,15 @@ trait FundTransactionHandling extends WalletLogger { self: WalletApi =>
       feeRate: FeeUnit,
       fromAccount: AccountDb,
       keyManagerOpt: Option[BIP39KeyManager],
+      fromTagOpt: Option[AddressTag],
       markAsReserved: Boolean = false): Future[BitcoinTxBuilder] = {
     val utxosF = for {
-      utxos <- listUtxos(fromAccount.hdAccount)
+      utxos <- fromTagOpt match {
+        case None =>
+          listUtxos(fromAccount.hdAccount)
+        case Some(tag) =>
+          listUtxos(fromAccount.hdAccount, tag)
+      }
 
       // Need to remove immature coinbase inputs
       coinbaseUtxos = utxos.filter(_.outPoint == EmptyTransactionOutPoint)

@@ -10,9 +10,15 @@ import org.bitcoins.core.protocol.transaction.{
   TransactionOutPoint,
   TransactionOutput
 }
+import org.bitcoins.core.wallet.utxo.AddressTag
 import org.bitcoins.wallet._
 import org.bitcoins.wallet.api.AddressInfo
-import org.bitcoins.wallet.models.{AccountDb, AddressDb, AddressDbHelper}
+import org.bitcoins.wallet.models.{
+  AccountDb,
+  AddressDb,
+  AddressDbHelper,
+  AddressTagDb
+}
 
 import scala.concurrent.{Await, Future, Promise, TimeoutException}
 import scala.util.{Failure, Success}
@@ -289,6 +295,19 @@ private[wallet] trait AddressHandling extends WalletLogger {
     for {
       account <- getDefaultAccountForType(addressType)
       address <- getNewAddressHelper(account, HDChainType.External)
+    } yield address
+  }
+
+  /** @inheritdoc */
+  override def getNewAddress(
+      addressType: AddressType,
+      tags: Vector[AddressTag]): Future[BitcoinAddress] = {
+    for {
+      account <- getDefaultAccountForType(addressType)
+      address <- getNewAddressHelper(account, HDChainType.External)
+
+      tagDbs = tags.map(tag => AddressTagDb(address, tag))
+      _ <- addressTagDAO.createAll(tagDbs)
     } yield address
   }
 
