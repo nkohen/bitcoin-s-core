@@ -9,6 +9,7 @@ import org.scalatest.flatspec.FixtureAsyncFlatSpec
 case class WalletDAOs(
     accountDAO: AccountDAO,
     addressDAO: AddressDAO,
+    addressTagDAO: AddressTagDAO,
     utxoDAO: SpendingInfoDAO,
     transactionDAO: TransactionDAO,
     incomingTxDAO: IncomingTransactionDAO,
@@ -19,11 +20,12 @@ trait WalletDAOFixture extends FixtureAsyncFlatSpec with BitcoinSWalletTest {
   private lazy val daos: WalletDAOs = {
     val account = AccountDAO()
     val address = AddressDAO()
+    val tags = AddressTagDAO()
     val utxo = SpendingInfoDAO()
     val tx = TransactionDAO()
     val incomingTx = IncomingTransactionDAO()
     val outgoingTx = OutgoingTransactionDAO()
-    WalletDAOs(account, address, utxo, tx, incomingTx, outgoingTx)
+    WalletDAOs(account, address, tags, utxo, tx, incomingTx, outgoingTx)
   }
 
   final override type FixtureParam = WalletDAOs

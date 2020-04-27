@@ -15,7 +15,7 @@ import org.bitcoins.core.protocol.transaction.{
 import org.bitcoins.core.script.ScriptType
 import org.bitcoins.core.serializers.script.RawScriptWitnessParser
 import org.bitcoins.core.wallet.fee.SatoshisPerByte
-import org.bitcoins.core.wallet.utxo.TxoState
+import org.bitcoins.core.wallet.utxo.{TxoState, _}
 import org.bitcoins.crypto.{
   DoubleSha256DigestBE,
   ECPublicKey,
@@ -176,6 +176,17 @@ abstract class DbCommonsColumnMappers {
   implicit val satoshisPerByteMapper: BaseColumnType[SatoshisPerByte] = {
     MappedColumnType
       .base[SatoshisPerByte, Long](_.toLong, SatoshisPerByte.fromLong)
+  }
+
+  implicit val addressTagMapper: BaseColumnType[AddressTagName] = {
+    MappedColumnType
+      .base[AddressTagName, String](_.name, InternalAddressTagName.fromString)
+  }
+
+  implicit val addressTagTypeMapper: BaseColumnType[AddressTagType] = {
+    MappedColumnType
+      .base[AddressTagType, String](_.typeName,
+                                    InternalAddressTagType.fromString)
   }
 }
 

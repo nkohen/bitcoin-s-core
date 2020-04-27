@@ -14,6 +14,7 @@ import org.bitcoins.core.protocol.transaction.{Transaction, TransactionOutput}
 import org.bitcoins.core.protocol.{BitcoinAddress, BlockStamp}
 import org.bitcoins.core.util.FutureUtil
 import org.bitcoins.core.wallet.fee.FeeUnit
+import org.bitcoins.core.wallet.utxo.AddressTag
 import org.bitcoins.crypto.{
   AesPassword,
   DoubleSha256Digest,
@@ -32,7 +33,7 @@ import scala.util.{Failure, Success}
 /**
   * API for the wallet project.
   *
-  * This wallet API is BIP344 compliant.
+  * This wallet API is BIP44 compliant.
   *
   * @see [[https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki BIP44]]
   */
@@ -140,15 +141,30 @@ trait WalletApi extends WalletLogger {
     }
   }
 
+  /** Gets the sum of all UTXOs in this wallet with the address tag */
+  def getBalance(tag: AddressTag): Future[CurrencyUnit] = {
+    val confirmedF = getConfirmedBalance(tag)
+    val unconfirmedF = getUnconfirmedBalance(tag)
+
+    for {
+      confirmed <- confirmedF
+      unconfirmed <- unconfirmedF
+    } yield confirmed + unconfirmed
+  }
+
   /** Gets the sum of all confirmed UTXOs in this wallet */
   def getConfirmedBalance(): Future[CurrencyUnit]
 
   def getConfirmedBalance(account: HDAccount): Future[CurrencyUnit]
 
+  def getConfirmedBalance(tag: AddressTag): Future[CurrencyUnit]
+
   /** Gets the sum of all unconfirmed UTXOs in this wallet */
   def getUnconfirmedBalance(): Future[CurrencyUnit]
 
   def getUnconfirmedBalance(account: HDAccount): Future[CurrencyUnit]
+
+  def getUnconfirmedBalance(tag: AddressTag): Future[CurrencyUnit]
 
   /**
     * If a UTXO is spent outside of the wallet, we
@@ -163,6 +179,12 @@ trait WalletApi extends WalletLogger {
   def listUtxos(): Future[Vector[SpendingInfoDb]]
 
   def listUtxos(account: HDAccount): Future[Vector[SpendingInfoDb]]
+
+  def listUtxos(tag: AddressTag): Future[Vector[SpendingInfoDb]]
+
+  def listUtxos(
+      hdAccount: HDAccount,
+      tag: AddressTag): Future[Vector[SpendingInfoDb]]
 
   def listAddresses(): Future[Vector[AddressDb]]
 
@@ -205,6 +227,16 @@ trait WalletApi extends WalletLogger {
   def getNewAddress(): Future[BitcoinAddress] = {
     for {
       address <- getNewAddress(walletConfig.defaultAddressType)
+    } yield address
+  }
+
+  def getNewAddress(
+      addressType: AddressType,
+      tags: Vector[AddressTag]): Future[BitcoinAddress]
+
+  def getNewAddress(tags: Vector[AddressTag]): Future[BitcoinAddress] = {
+    for {
+      address <- getNewAddress(walletConfig.defaultAddressType, tags)
     } yield address
   }
 
@@ -442,6 +474,13 @@ trait WalletApi extends WalletLogger {
       tx <- sendToAddress(address, amount, feeRate, account)
     } yield tx
   }
+
+  def sendToAddress(
+      address: BitcoinAddress,
+      amount: CurrencyUnit,
+      feeRate: FeeUnit,
+      fromAccount: AccountDb,
+      newTags: Vector[AddressTag]): Future[Transaction]
 
   /**
     *

@@ -11,11 +11,11 @@ import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.wallet.fee.FeeUnit
-import org.bitcoins.core.wallet.utxo.TxoState
 import org.bitcoins.core.wallet.utxo.TxoState.{
   ConfirmedReceived,
   PendingConfirmationsReceived
 }
+import org.bitcoins.core.wallet.utxo.{AddressTag, TxoState}
 import org.bitcoins.crypto.ECPublicKey
 import org.bitcoins.keymanager.KeyManagerParams
 import org.bitcoins.keymanager.bip39.BIP39KeyManager
@@ -45,6 +45,7 @@ abstract class Wallet
     IncomingTransactionDAO()
   private[wallet] val outgoingTxDAO: OutgoingTransactionDAO =
     OutgoingTransactionDAO()
+  private[wallet] val addressTagDAO: AddressTagDAO = AddressTagDAO()
 
   val nodeApi: NodeApi
   val chainQueryApi: ChainQueryApi
@@ -113,11 +114,18 @@ abstract class Wallet
     } yield {
       allUnspent.filter { utxo =>
         HDAccount.isSameAccount(utxo.privKeyPath.path, account) &&
-        utxo.blockHash.isDefined
+        utxo.state == ConfirmedReceived
       }
     }
 
     unspentInAccountF.map(_.foldLeft(CurrencyUnits.zero)(_ + _.output.value))
+  }
+
+  override def getConfirmedBalance(tag: AddressTag): Future[CurrencyUnit] = {
+    spendingInfoDAO.findAllUnspentForTag(tag).map { allUnspent =>
+      val confirmed = allUnspent.filter(_.state == ConfirmedReceived)
+      confirmed.foldLeft(CurrencyUnits.zero)(_ + _.output.value)
+    }
   }
 
   override def getUnconfirmedBalance(): Future[CurrencyUnit] = {
@@ -136,11 +144,18 @@ abstract class Wallet
     } yield {
       allUnspent.filter { utxo =>
         HDAccount.isSameAccount(utxo.privKeyPath.path, account) &&
-        utxo.blockHash.isEmpty
+        utxo.state == PendingConfirmationsReceived
       }
     }
 
     unspentInAccountF.map(_.foldLeft(CurrencyUnits.zero)(_ + _.output.value))
+  }
+
+  override def getUnconfirmedBalance(tag: AddressTag): Future[CurrencyUnit] = {
+    spendingInfoDAO.findAllUnspentForTag(tag).map { allUnspent =>
+      val confirmed = allUnspent.filter(_.state == PendingConfirmationsReceived)
+      confirmed.foldLeft(CurrencyUnits.zero)(_ + _.output.value)
+    }
   }
 
   /** Enumerates all the TX outpoints in the wallet  */
@@ -214,6 +229,15 @@ abstract class Wallet
       address.networkParameters.isSameNetworkBytes(networkParameters),
       s"Cannot send to address on other network, got ${address.networkParameters}"
     )
+    sendToAddress(address, amount, feeRate, fromAccount, Vector.empty)
+  }
+
+  override def sendToAddress(
+      address: BitcoinAddress,
+      amount: CurrencyUnit,
+      feeRate: FeeUnit,
+      fromAccount: AccountDb,
+      newTags: Vector[AddressTag]): Future[Transaction] = {
     logger.info(s"Sending $amount to $address at feerate $feeRate")
     val destination = TransactionOutput(amount, address.scriptPubKey)
     for {
@@ -221,14 +245,16 @@ abstract class Wallet
         destinations = Vector(destination),
         feeRate = feeRate,
         fromAccount = fromAccount,
-        keyManagerOpt = Some(keyManager))
+        keyManagerOpt = Some(keyManager),
+        fromTagOpt = None)
       signed <- txBuilder.sign
       ourOuts <- findOurOuts(signed)
       _ <- processOurTransaction(transaction = signed,
                                  feeRate = feeRate,
                                  inputAmount = txBuilder.creditingAmount,
                                  sentAmount = txBuilder.destinationAmount,
-                                 blockHashOpt = None)
+                                 blockHashOpt = None,
+                                 newTags = newTags)
     } yield {
       logger.debug(
         s"Signed transaction=${signed.txIdBE.hex} with outputs=${signed.outputs.length}, inputs=${signed.inputs.length}")
@@ -272,14 +298,18 @@ abstract class Wallet
                                               feeRate = feeRate,
                                               fromAccount = fromAccount,
                                               keyManagerOpt = Some(keyManager),
+                                              fromTagOpt = None,
                                               markAsReserved = reserveUtxos)
       signed <- txBuilder.sign
       ourOuts <- findOurOuts(signed)
-      _ <- processOurTransaction(transaction = signed,
-                                 feeRate = feeRate,
-                                 inputAmount = txBuilder.creditingAmount,
-                                 sentAmount = txBuilder.destinationAmount,
-                                 blockHashOpt = None)
+      _ <- processOurTransaction(
+        transaction = signed,
+        feeRate = feeRate,
+        inputAmount = txBuilder.creditingAmount,
+        sentAmount = txBuilder.destinationAmount,
+        blockHashOpt = None,
+        newTags = Vector.empty
+      )
     } yield {
       logger.debug(
         s"Signed transaction=${signed.txIdBE.hex} with outputs=${signed.outputs.length}, inputs=${signed.inputs.length}")

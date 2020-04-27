@@ -110,6 +110,9 @@
       "testkit/testkit": {
         "title": "Testkit"
       },
+      "wallet/address-tagging": {
+        "title": "Address and UTXO tagging"
+      },
       "wallet/chain-query-api": {
         "title": "Chain Query API"
       },
