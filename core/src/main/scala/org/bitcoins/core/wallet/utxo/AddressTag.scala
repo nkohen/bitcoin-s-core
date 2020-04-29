@@ -13,8 +13,8 @@ trait AddressTagType {
 trait AddressTagName {
   def name: String
 
-  def ==(at: AddressTagType): Boolean = name == at.typeName
-  def !=(at: AddressTagType): Boolean = !(this == at)
+  def ==(at: AddressTagName): Boolean = name == at.name
+  def !=(at: AddressTagName): Boolean = !(this == at)
 }
 
 /**
