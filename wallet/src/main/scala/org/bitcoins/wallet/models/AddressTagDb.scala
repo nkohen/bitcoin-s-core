@@ -13,7 +13,7 @@ case class AddressTagDb(
     tagName: AddressTagName,
     tagType: AddressTagType) {
 
-  val addressTag: AddressTag = InternalAddressTag(tagName, tagType)
+  val addressTag: InternalAddressTag = InternalAddressTag(tagName, tagType)
 
   def ==(at: AddressTagDb): Boolean =
     address == at.address && addressTag == at.addressTag
