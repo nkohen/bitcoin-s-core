@@ -2,10 +2,16 @@ package org.bitcoins.wallet.models
 
 import java.sql.SQLException
 
+import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.wallet.utxo.StorageLocationTag.HotStorage
 import org.bitcoins.core.wallet.utxo.{
   AddressTag,
+  AddressTagFactory,
+  ExternalAddressTag,
+  ExternalAddressTagName,
+  ExternalAddressTagType,
   ExternalAddressTagWrapper,
+  StorageLocationTag,
   UnknownAddressTagName,
   UnknownAddressTagType
 }
@@ -81,5 +87,97 @@ class AddressTagDAOTest extends BitcoinSWalletTest with WalletDAOFixture {
   it should "insert and read an internal address tag into the database" in {
     daos =>
       testInsertion(daos, HotStorage)
+  }
+
+  // EXAMPLE BEGIN
+
+  sealed trait ExternalExampleTagName extends ExternalAddressTagName
+
+  case object ExternalExampleTagType extends ExternalAddressTagType {
+    override lazy val typeName: String = "Example"
+  }
+
+  sealed trait ExternalExampleTag extends ExternalAddressTag {
+    override def tagName: ExternalExampleTagName
+    override val tagType: ExternalAddressTagType = ExternalExampleTagType
+  }
+
+  object ExternalExampleTag extends AddressTagFactory[ExternalAddressTag] {
+
+    override val tagType: ExternalExampleTagType.type = ExternalExampleTagType
+
+    override val tagNames = Vector(ExampleAName, ExampleBName, ExampleCName)
+
+    override val all = Vector(ExampleA, ExampleB, ExampleC)
+
+    case object ExampleAName extends ExternalExampleTagName {
+      override val name: String = "A"
+    }
+
+    case object ExampleBName extends ExternalExampleTagName {
+      override val name: String = "B"
+    }
+
+    case object ExampleCName extends ExternalExampleTagName {
+      override val name: String = "C"
+    }
+
+    case object ExampleA extends ExternalExampleTag {
+      override val tagName: ExternalExampleTagName = ExampleAName
+    }
+
+    case object ExampleB extends ExternalExampleTag {
+      override val tagName: ExternalExampleTagName = ExampleBName
+    }
+
+    case object ExampleC extends ExternalExampleTag {
+      override val tagName: ExternalExampleTagName = ExampleCName
+    }
+  }
+
+  case class Example(dao: AddressTagDAO) {
+
+    def writeAllToDb(address: BitcoinAddress): Future[Vector[AddressTagDb]] = {
+
+      val addressDbA = AddressTagDb(address, ExternalExampleTag.ExampleA)
+      val addressDbB = AddressTagDb(address, ExternalExampleTag.ExampleB)
+      val addressDbC = AddressTagDb(address, ExternalExampleTag.ExampleC)
+
+      dao.createAll(Vector(addressDbA, addressDbB, addressDbC))
+    }
+
+    def readAllFromDb(address: BitcoinAddress): Future[Vector[AddressTag]] = {
+      dao.findByAddress(address).map { tags =>
+        tags.map(_.addressTag).map {
+          case tag: StorageLocationTag => tag
+          case tag: ExternalAddressTagWrapper =>
+            tag.toExternal(ExternalExampleTag.fromString)
+        }
+      }
+    }
+  }
+
+  // EXAMPLE END
+
+  it should "work for Nadav's example" in { daos =>
+    import WalletTestUtil._
+
+    val dao = daos.addressTagDAO
+    val example = Example(dao)
+
+    val addressF = for {
+      account <- daos.accountDAO.create(firstAccountDb)
+      addressDb <- daos.addressDAO.create(getAddressDb(account))
+    } yield addressDb.address
+
+    for {
+      address <- addressF
+      _ <- example.writeAllToDb(address)
+      addressTags <- example.readAllFromDb(address)
+    } yield {
+      println(addressTags)
+      println(ExternalExampleTag.all)
+      assert(addressTags == ExternalExampleTag.all)
+    }
   }
 }
