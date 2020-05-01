@@ -53,7 +53,7 @@ object TxSigComponent {
     output.scriptPubKey match {
       case _: WitnessScriptPubKey =>
         transaction match {
-          case _: BaseTransaction =>
+          case _: NonWitnessTransaction =>
             throw new IllegalArgumentException(
               s"Cannot spend from segwit output ($output) with a base transaction ($transaction)")
           case wtx: WitnessTransaction =>
@@ -64,7 +64,7 @@ object TxSigComponent {
         if (WitnessScriptPubKey.isWitnessScriptPubKey(
               p2shScriptSig.redeemScript.asm)) {
           transaction match {
-            case _: BaseTransaction =>
+            case _: NonWitnessTransaction =>
               throw new IllegalArgumentException(
                 s"Cannot spend from segwit output ($output) with a base transaction ($transaction)")
             case wtx: WitnessTransaction =>

@@ -162,7 +162,7 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
             destinations ++ Seq(newChangeOutput)
           }
           dtx match {
-            case btx: BaseTransaction =>
+            case btx: NonWitnessTransaction =>
               BaseTransaction(btx.version, btx.inputs, newOutputs, btx.lockTime)
             case wtx: WitnessTransaction =>
               WitnessTransaction(wtx.version,
@@ -632,7 +632,7 @@ object BitcoinTxBuilder {
     }
 
     tx match {
-      case btx: BaseTransaction =>
+      case btx: NonWitnessTransaction =>
         BaseTransaction(version = btx.version,
                         inputs = newInputs,
                         outputs = btx.outputs,
