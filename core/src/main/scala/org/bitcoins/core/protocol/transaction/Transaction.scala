@@ -202,8 +202,7 @@ case class WitnessTransaction(
 
   /**
     * Writes a [[org.bitcoins.core.protocol.transaction.WitnessTransaction WitnessTransaction]] to a hex string
-    * This is unique from
-    * [[org.bitcoins.core.serializers.transaction.RawBaseTransactionParser RawBaseTransactionParser]] in the fact
+    * This is unique from BaseTransaction.bytes in the fact
     * that it adds a 'marker' and 'flag' to indicate that this tx is a
     * [[org.bitcoins.core.protocol.transaction.WitnessTransaction WitnessTransaction]] and has extra
     * witness data attached to it.
@@ -239,7 +238,7 @@ case class WitnessTransaction(
 object WitnessTransaction extends Factory[WitnessTransaction] {
 
   /**
-    * This read function is unique to [[org.bitcoins.core.serializers.transaction.RawBaseTransactionParser]]
+    * This read function is unique to BaseTransaction.fromBytes
     * in the fact that it reads a 'marker' and 'flag' byte to indicate that this tx is a
     * [[org.bitcoins.core.protocol.transaction.WitnessTransaction WitnessTransaction]].
     * See [[https://github.com/bitcoin/bips/blob/master/bip-0144.mediawiki BIP144 ]] for more details.
