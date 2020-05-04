@@ -17,6 +17,8 @@ import org.bitcoins.core.script.locktime.{
 import org.bitcoins.core.script.reserved.UndefinedOP_NOP
 import org.bitcoins.core.script.stack.{OP_DROP, OP_DUP}
 import org.bitcoins.core.util._
+import org.bitcoins.core.wallet.builder.InputInfo
+import org.bitcoins.core.wallet.utxo.ConditionalPath
 import org.bitcoins.crypto.{
   BytesUtil,
   CryptoUtil,
@@ -31,7 +33,9 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by chris on 12/26/15.
   */
-sealed abstract class ScriptPubKey extends Script
+sealed abstract class ScriptPubKey extends Script {
+  def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey]
+}
 
 /** Trait for all Non-SegWit ScriptPubKeys  */
 sealed trait NonWitnessScriptPubKey extends ScriptPubKey
@@ -53,6 +57,14 @@ sealed trait P2PKHScriptPubKey extends RawScriptPubKey {
 
   def pubKeyHash: Sha256Hash160Digest =
     Sha256Hash160Digest(asm(asm.length - 3).bytes)
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
+    require(inputInfo.p2pkhPreImage.exists(key =>
+              CryptoUtil.sha256Hash160(key.bytes) == pubKeyHash),
+            "Input info does not contain valid p2pkh pre-image")
+
+    inputInfo.p2pkhPreImage.toVector
+  }
 
   override def toString = s"pkh(${pubKeyHash.hex})"
 }
@@ -165,6 +177,9 @@ sealed trait MultiSignatureScriptPubKey extends RawScriptPubKey {
       .slice(1, maxSigs + 1)
       .map(key => ECPublicKey(key.hex))
   }
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] =
+    publicKeys.toVector
 
   override def toString = s"multi($requiredSigs,${publicKeys.mkString(",")})"
 }
@@ -284,6 +299,14 @@ object MultiSignatureScriptPubKey
   */
 sealed trait P2SHScriptPubKey extends NonWitnessScriptPubKey {
 
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
+    require(inputInfo.redeemScript.exists(spk =>
+              CryptoUtil.sha256Hash160(spk.asmBytes) == scriptHash),
+            "Input info did not contain valid redeem script")
+
+    inputInfo.redeemScript.get.pubKeysFor(inputInfo)
+  }
+
   /** The hash of the script for which this scriptPubKey is being created from */
   def scriptHash: Sha256Hash160Digest =
     Sha256Hash160Digest(asm(asm.length - 2).bytes)
@@ -337,6 +360,9 @@ object P2SHScriptPubKey extends ScriptFactory[P2SHScriptPubKey] {
   */
 sealed trait P2PKScriptPubKey extends RawScriptPubKey {
 
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] =
+    Vector(publicKey)
+
   def publicKey: ECPublicKey =
     ECPublicKey(BitcoinScriptUtil.filterPushOps(asm).head.bytes)
 
@@ -376,6 +402,10 @@ object P2PKScriptPubKey extends ScriptFactory[P2PKScriptPubKey] {
 }
 
 sealed trait LockTimeScriptPubKey extends RawScriptPubKey {
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
+    nestedScriptPubKey.pubKeysFor(inputInfo)
+  }
 
   /** Determines the nested `ScriptPubKey` inside the `LockTimeScriptPubKey` */
   def nestedScriptPubKey: RawScriptPubKey = {
@@ -631,6 +661,18 @@ sealed trait ConditionalScriptPubKey extends RawScriptPubKey {
       case OP_NOTIF => firstSPK
     }
   }
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
+    inputInfo.conditions match {
+      case ConditionalPath.NoConditionsLeft =>
+        throw new IllegalArgumentException(
+          "Input info did not contain valid conditional information")
+      case ConditionalPath.ConditionTrue(nextCondition) =>
+        trueSPK.pubKeysFor(inputInfo.copy(conditions = nextCondition))
+      case ConditionalPath.ConditionFalse(nextCondition) =>
+        falseSPK.pubKeysFor(inputInfo.copy(conditions = nextCondition))
+    }
+  }
 }
 
 object ConditionalScriptPubKey {
@@ -884,6 +926,16 @@ sealed trait P2PKWithTimeoutScriptPubKey extends RawScriptPubKey {
 
   lazy val timeoutPubKey: ECPublicKey =
     ECPublicKey.fromBytes(asm(9).bytes)
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
+    inputInfo.conditions match {
+      case ConditionalPath.NoConditionsLeft =>
+        throw new IllegalArgumentException(
+          "Input info did not contain valid conditional information")
+      case ConditionalPath.ConditionTrue(_)  => Vector(pubKey)
+      case ConditionalPath.ConditionFalse(_) => Vector(timeoutPubKey)
+    }
+  }
 }
 
 object P2PKWithTimeoutScriptPubKey
@@ -939,7 +991,10 @@ object P2PKWithTimeoutScriptPubKey
   }
 }
 
-sealed trait NonStandardScriptPubKey extends RawScriptPubKey
+sealed trait NonStandardScriptPubKey extends RawScriptPubKey {
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] =
+    Vector.empty
+}
 
 object NonStandardScriptPubKey extends ScriptFactory[NonStandardScriptPubKey] {
 
@@ -962,6 +1017,9 @@ object NonStandardScriptPubKey extends ScriptFactory[NonStandardScriptPubKey] {
 /** Represents the empty ScriptPubKey */
 case object EmptyScriptPubKey extends RawScriptPubKey {
   override def asm: Seq[ScriptToken] = Vector.empty
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] =
+    Vector.empty
 }
 
 object RawScriptPubKey extends ScriptFactory[RawScriptPubKey] {
@@ -1139,6 +1197,20 @@ object WitnessScriptPubKeyV0 {
 sealed abstract class P2WPKHWitnessSPKV0 extends WitnessScriptPubKeyV0 {
   def pubKeyHash: Sha256Hash160Digest = Sha256Hash160Digest(asm(2).bytes)
   override def toString = s"wpkh(${pubKeyHash.hex})"
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
+    inputInfo.witness match {
+      case None =>
+        throw new IllegalArgumentException("Input info did not contain witness")
+      case Some(wit: P2WPKHWitnessV0) =>
+        require(CryptoUtil.sha256Hash160(wit.pubKey.bytes) == pubKeyHash,
+                "Input info did not contain valid p2wpkh witness")
+        Vector(wit.pubKey)
+      case Some(wit) =>
+        throw new IllegalArgumentException(
+          s"Input info did not contain p2wpkh wintess, got $wit")
+    }
+  }
 }
 
 object P2WPKHWitnessSPKV0 extends ScriptFactory[P2WPKHWitnessSPKV0] {
@@ -1184,6 +1256,20 @@ object P2WPKHWitnessSPKV0 extends ScriptFactory[P2WPKHWitnessSPKV0] {
 sealed abstract class P2WSHWitnessSPKV0 extends WitnessScriptPubKeyV0 {
   def scriptHash: Sha256Digest = Sha256Digest(asm(2).bytes)
   override def toString = s"wsh(${scriptHash.hex})"
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
+    inputInfo.witness match {
+      case None =>
+        throw new IllegalArgumentException("Input info did not contain witness")
+      case Some(wit: P2WSHWitnessV0) =>
+        require(CryptoUtil.sha256(wit.redeemScript.asmBytes) == scriptHash,
+                "Input info did not contain valid p2wsh witness")
+        wit.redeemScript.pubKeysFor(inputInfo)
+      case Some(wit) =>
+        throw new IllegalArgumentException(
+          s"Input info did not contain p2wsh wintess, got $wit")
+    }
+  }
 }
 
 object P2WSHWitnessSPKV0 extends ScriptFactory[P2WSHWitnessSPKV0] {
@@ -1233,6 +1319,8 @@ object UnassignedWitnessScriptPubKey
   private case class UnassignedWitnessScriptPubKeyImpl(
       override val asm: Vector[ScriptToken])
       extends UnassignedWitnessScriptPubKey {
+    override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] =
+      Vector.empty
     override def toString = s"UnassignedWitnessScriptPubKey($asm)"
   }
 
@@ -1256,6 +1344,9 @@ object UnassignedWitnessScriptPubKey
   * [[https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#commitment-structure]]
   */
 sealed trait WitnessCommitment extends RawScriptPubKey {
+
+  override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] =
+    Vector.empty
 
   /** The commitment to the
     * [[org.bitcoins.core.protocol.transaction.WitnessTransaction WitnessTransaction]]s in the
