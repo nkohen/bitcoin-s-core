@@ -149,7 +149,7 @@ sealed abstract class Signer[-InputType <: InputInfo] extends SignerUtils {
     * @param spendingInfo - The information required for signing
     * @param unsignedTx the external Transaction that needs an input signed
     * @param isDummySignature - do not sign the tx for real, just use a dummy signature this is useful for fee estimation
-    * @param spendingInfoToSatisfy - specifies the UTXOSpendingInfo whose ScriptPubKey needs a ScriptSignature to be generated
+    * @param spendingInfoToSatisfy - specifies the NewSpendingInfo whose ScriptPubKey needs a ScriptSignature to be generated
     * @return
     */
   def sign(
@@ -299,9 +299,7 @@ object BitcoinSigner extends SignerUtils {
     val spendingInfo =
       psbt
         .inputMaps(inputIndex)
-        .toUTXOSpendingInfoSingle(tx.inputs(inputIndex),
-                                  signer,
-                                  conditionalPath)
+        .toNewSpendingInfoSingle(tx.inputs(inputIndex), signer, conditionalPath)
 
     val txToSign = spendingInfo.output.scriptPubKey match {
       case _: WitnessScriptPubKey =>
