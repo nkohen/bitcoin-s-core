@@ -7,10 +7,11 @@ import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.script.interpreter.ScriptInterpreter
 import org.bitcoins.core.wallet.utxo.{
-  BitcoinUTXOSpendingInfoFull,
   ConditionalPath,
-  P2SHNestedSegwitV0InputInfo,
-  P2SHNestedSegwitV0UTXOSpendingInfoFull
+  InputInfo,
+  NewSpendingInfo,
+  NewSpendingInfoFull,
+  P2SHNestedSegwitV0InputInfo
 }
 import org.bitcoins.crypto.Sign
 import org.scalacheck.Gen
@@ -30,7 +31,7 @@ sealed abstract class CreditingTxGen {
     }
 
   /** Generator for non-script hash based output */
-  def nonSHOutput: Gen[BitcoinUTXOSpendingInfoFull] = {
+  def nonSHOutput: Gen[NewSpendingInfo.AnyFull] = {
     Gen.oneOf(
       p2pkOutput,
       p2pkhOutput,
@@ -42,14 +43,14 @@ sealed abstract class CreditingTxGen {
     )
   }
 
-  def nonSHOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] =
+  def nonSHOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] =
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, nonSHOutput))
 
-  def basicOutput: Gen[BitcoinUTXOSpendingInfoFull] = {
+  def basicOutput: Gen[NewSpendingInfo.AnyFull] = {
     Gen.oneOf(p2pkOutput, p2pkhOutput, multiSigOutput)
   }
 
-  def nonP2WSHOutput: Gen[BitcoinUTXOSpendingInfoFull] = {
+  def nonP2WSHOutput: Gen[NewSpendingInfo.AnyFull] = {
     //note, cannot put a p2wpkh here
     Gen.oneOf(p2pkOutput,
               p2pkhOutput,
@@ -60,7 +61,7 @@ sealed abstract class CreditingTxGen {
   }
 
   /** Only for use in constructing P2SH outputs */
-  private def nonP2SHOutput: Gen[BitcoinUTXOSpendingInfoFull] = {
+  private def nonP2SHOutput: Gen[NewSpendingInfo.AnyFull] = {
     Gen
       .oneOf(
         p2pkOutput,
@@ -73,9 +74,9 @@ sealed abstract class CreditingTxGen {
         p2wshOutput
       )
       .suchThat(output =>
-        !ScriptGenerators.redeemScriptTooBig(output.scriptPubKey))
+        !ScriptGenerators.redeemScriptTooBig(output.output.scriptPubKey))
       .suchThat {
-        case P2SHNestedSegwitV0UTXOSpendingInfoFull(
+        case NewSpendingInfoFull(
             P2SHNestedSegwitV0InputInfo(_, _, witness, _, _),
             _,
             _) =>
@@ -99,11 +100,11 @@ sealed abstract class CreditingTxGen {
 
   private val cltvOutputGens = Vector(cltvOutput)
 
-  def output: Gen[BitcoinUTXOSpendingInfoFull] =
+  def output: Gen[NewSpendingInfo.AnyFull] =
     Gen.oneOf(nonCltvOutputGens).flatMap(identity)
 
   /** Either a list of non-CLTV outputs or a single CLTV output, with proportional probability */
-  def outputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = {
+  def outputs: Gen[Seq[NewSpendingInfo.AnyFull]] = {
     val cltvGen = Gen
       .oneOf(cltvOutput, p2pkWithTimeoutOutput)
       .map { output =>
@@ -118,23 +119,23 @@ sealed abstract class CreditingTxGen {
   }
 
   /** Generates a crediting tx with a p2pk spk at the returned index */
-  def p2pkOutput: Gen[BitcoinUTXOSpendingInfoFull] =
+  def p2pkOutput: Gen[NewSpendingInfo.AnyFull] =
     ScriptGenerators.p2pkScriptPubKey.flatMap { p2pk =>
       build(p2pk._1, Seq(p2pk._2), None, None)
     }
 
   /** Generates multiple crediting txs with p2pk spks at the returned index */
-  def p2pkOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = {
+  def p2pkOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] = {
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, p2pkOutput))
   }
 
-  def p2pkWithTimeoutOutput: Gen[BitcoinUTXOSpendingInfoFull] = {
+  def p2pkWithTimeoutOutput: Gen[NewSpendingInfo.AnyFull] = {
     ScriptGenerators.p2pkWithTimeoutScriptPubKey.flatMap { p2pkWithTimeout =>
       build(p2pkWithTimeout._1, Seq(p2pkWithTimeout._2.head), None, None)
     }
   }
 
-  def p2pkWithTimeoutOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = {
+  def p2pkWithTimeoutOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] = {
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, p2pkWithTimeoutOutput))
   }
 
@@ -142,39 +143,39 @@ sealed abstract class CreditingTxGen {
     * Generates a transaction that has a p2pkh output at the returned index. This
     * output can be spent by the returned ECPrivateKey
     */
-  def p2pkhOutput: Gen[BitcoinUTXOSpendingInfoFull] =
+  def p2pkhOutput: Gen[NewSpendingInfo.AnyFull] =
     ScriptGenerators.p2pkhScriptPubKey.flatMap { p2pkh =>
       build(p2pkh._1, Seq(p2pkh._2), None, None)
     }
 
   /** Generates a sequence of p2pkh outputs at the returned index */
-  def p2pkhOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = {
+  def p2pkhOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] = {
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, p2pkhOutput))
   }
 
-  def multiSigOutput: Gen[BitcoinUTXOSpendingInfoFull] =
+  def multiSigOutput: Gen[NewSpendingInfo.AnyFull] =
     ScriptGenerators.multiSigScriptPubKey.flatMap { multisig =>
       build(multisig._1, multisig._2, None, None)
     }
 
-  def multiSigOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = {
+  def multiSigOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] = {
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, multiSigOutput))
   }
 
-  def multiSignatureWithTimeoutOutput: Gen[BitcoinUTXOSpendingInfoFull] = {
+  def multiSignatureWithTimeoutOutput: Gen[NewSpendingInfo.AnyFull] = {
     ScriptGenerators.multiSignatureWithTimeoutScriptPubKey.flatMap {
       case (conditional, keys) =>
         build(conditional, keys, None, None)
     }
   }
 
-  def multiSignatureWithTimeoutOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = {
+  def multiSignatureWithTimeoutOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] = {
     Gen
       .choose(min, max)
       .flatMap(n => Gen.listOfN(n, multiSignatureWithTimeoutOutput))
   }
 
-  def conditionalOutput: Gen[BitcoinUTXOSpendingInfoFull] = {
+  def conditionalOutput: Gen[NewSpendingInfo.AnyFull] = {
     ScriptGenerators
       .nonLocktimeConditionalScriptPubKey(ScriptGenerators.defaultMaxDepth)
       .flatMap {
@@ -183,34 +184,35 @@ sealed abstract class CreditingTxGen {
       }
   }
 
-  def conditionalOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = {
+  def conditionalOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] = {
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, conditionalOutput))
   }
 
-  def p2shOutput: Gen[BitcoinUTXOSpendingInfoFull] = nonP2SHOutput.flatMap {
-    o =>
-      CryptoGenerators.hashType.map { hashType =>
-        val oldOutput = o.output
-        val redeemScript = o.output.scriptPubKey
-        val p2sh = P2SHScriptPubKey(redeemScript)
-        val updatedOutput = TransactionOutput(oldOutput.value, p2sh)
-        BitcoinUTXOSpendingInfoFull(
+  def p2shOutput: Gen[NewSpendingInfo.AnyFull] = nonP2SHOutput.flatMap { o =>
+    CryptoGenerators.hashType.map { hashType =>
+      val oldOutput = o.output
+      val redeemScript = o.output.scriptPubKey
+      val p2sh = P2SHScriptPubKey(redeemScript)
+      val updatedOutput = TransactionOutput(oldOutput.value, p2sh)
+      NewSpendingInfoFull(
+        InputInfo(
           TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
           updatedOutput,
-          o.signers,
           Some(redeemScript),
           o.scriptWitnessOpt,
-          hashType,
           computeAllTrueConditionalPath(redeemScript, None, o.scriptWitnessOpt)
-        )
-      }
+        ),
+        o.signers,
+        hashType
+      )
+    }
   }
 
-  def p2shOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = {
+  def p2shOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] = {
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, p2shOutput))
   }
 
-  def cltvOutput: Gen[BitcoinUTXOSpendingInfoFull] =
+  def cltvOutput: Gen[NewSpendingInfo.AnyFull] =
     TransactionGenerators.spendableCLTVValues.flatMap {
       case (scriptNum, _) =>
         basicOutput.flatMap { o =>
@@ -218,23 +220,23 @@ sealed abstract class CreditingTxGen {
             val oldOutput = o.output
             val csvSPK = CLTVScriptPubKey(scriptNum, oldOutput.scriptPubKey)
             val updatedOutput = TransactionOutput(oldOutput.value, csvSPK)
-            BitcoinUTXOSpendingInfoFull(
-              TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
-              updatedOutput,
+            NewSpendingInfoFull(
+              InputInfo(TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
+                        updatedOutput,
+                        o.redeemScriptOpt,
+                        o.scriptWitnessOpt,
+                        ConditionalPath.NoConditionsLeft),
               o.signers,
-              o.redeemScriptOpt,
-              o.scriptWitnessOpt,
-              hashType,
-              ConditionalPath.NoConditionsLeft
+              hashType
             )
           }
         }
     }
 
-  def cltvOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] =
+  def cltvOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] =
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, cltvOutput))
 
-  def csvOutput: Gen[BitcoinUTXOSpendingInfoFull] =
+  def csvOutput: Gen[NewSpendingInfo.AnyFull] =
     TransactionGenerators.spendableCSVValues.flatMap {
       case (scriptNum, _) =>
         basicOutput.flatMap { o =>
@@ -242,38 +244,38 @@ sealed abstract class CreditingTxGen {
             val oldOutput = o.output
             val csvSPK = CSVScriptPubKey(scriptNum, oldOutput.scriptPubKey)
             val updatedOutput = TransactionOutput(oldOutput.value, csvSPK)
-            BitcoinUTXOSpendingInfoFull(
-              TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
-              updatedOutput,
+            NewSpendingInfoFull(
+              InputInfo(TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
+                        updatedOutput,
+                        o.redeemScriptOpt,
+                        o.scriptWitnessOpt,
+                        ConditionalPath.NoConditionsLeft),
               o.signers,
-              o.redeemScriptOpt,
-              o.scriptWitnessOpt,
-              hashType,
-              ConditionalPath.NoConditionsLeft
+              hashType
             )
           }
         }
     }
 
-  def csvOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] =
+  def csvOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] =
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, csvOutput))
 
-  def p2wpkhOutput: Gen[BitcoinUTXOSpendingInfoFull] =
+  def p2wpkhOutput: Gen[NewSpendingInfo.AnyFull] =
     ScriptGenerators.p2wpkhSPKV0.flatMap { witSPK =>
       val scriptWit = P2WPKHWitnessV0(witSPK._2.head.publicKey)
       build(witSPK._1, witSPK._2, None, Some(scriptWit))
     }
 
-  def p2wpkhOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] =
+  def p2wpkhOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] =
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, p2wpkhOutput))
 
-  def p2wshOutput: Gen[BitcoinUTXOSpendingInfoFull] =
+  def p2wshOutput: Gen[NewSpendingInfo.AnyFull] =
     nonP2WSHOutput
       .suchThat(output =>
-        !ScriptGenerators.redeemScriptTooBig(output.scriptPubKey))
+        !ScriptGenerators.redeemScriptTooBig(output.output.scriptPubKey))
       .flatMap {
-        case BitcoinUTXOSpendingInfoFull(_, txOutput, signer, _, _, _, _) =>
-          val spk = txOutput.scriptPubKey
+        case NewSpendingInfoFull(info, signer, _) =>
+          val spk = info.scriptPubKey
           spk match {
             case rspk: RawScriptPubKey =>
               val scriptWit = P2WSHWitnessV0(rspk)
@@ -285,18 +287,18 @@ sealed abstract class CreditingTxGen {
           }
       }
 
-  def p2wshOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] =
+  def p2wshOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] =
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, p2wshOutput))
 
   /** A nested output is a p2sh/p2wsh wrapped output */
-  def nestedOutput: Gen[BitcoinUTXOSpendingInfoFull] = {
+  def nestedOutput: Gen[NewSpendingInfo.AnyFull] = {
     Gen.oneOf(p2wshOutput, p2shOutput)
   }
 
-  def nestedOutputs: Gen[Seq[BitcoinUTXOSpendingInfoFull]] =
+  def nestedOutputs: Gen[Seq[NewSpendingInfo.AnyFull]] =
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, nestedOutput))
 
-  def random: Gen[BitcoinUTXOSpendingInfoFull] = nonEmptyOutputs.flatMap {
+  def random: Gen[NewSpendingInfo.AnyFull] = nonEmptyOutputs.flatMap {
     outputs =>
       Gen.choose(0, outputs.size - 1).flatMap { outputIndex: Int =>
         ScriptGenerators.scriptPubKey.flatMap {
@@ -309,17 +311,19 @@ sealed abstract class CreditingTxGen {
                                                   Nil,
                                                   outputs,
                                                   tc.lockTime)
-                BitcoinUTXOSpendingInfoFull(
-                  TransactionOutPoint(creditingTx.txId,
-                                      UInt32.apply(outputIndex)),
-                  TransactionOutput(
-                    creditingTx.outputs(outputIndex).value,
-                    creditingTx.outputs(outputIndex).scriptPubKey),
+                NewSpendingInfoFull(
+                  InputInfo(
+                    TransactionOutPoint(creditingTx.txId,
+                                        UInt32.apply(outputIndex)),
+                    TransactionOutput(
+                      creditingTx.outputs(outputIndex).value,
+                      creditingTx.outputs(outputIndex).scriptPubKey),
+                    Some(spk),
+                    Some(wit),
+                    ConditionalPath.NoConditionsLeft
+                  ),
                   signers,
-                  Some(spk),
-                  Some(wit),
-                  hashType,
-                  ConditionalPath.NoConditionsLeft
+                  hashType
                 )
               }
             }
@@ -327,7 +331,7 @@ sealed abstract class CreditingTxGen {
       }
   }
 
-  def randoms: Gen[Seq[BitcoinUTXOSpendingInfoFull]] =
+  def randoms: Gen[Seq[NewSpendingInfo.AnyFull]] =
     Gen.choose(min, max).flatMap(n => Gen.listOfN(n, random))
 
   private def computeAllTrueConditionalPath(
@@ -371,7 +375,7 @@ sealed abstract class CreditingTxGen {
       spk: ScriptPubKey,
       signers: Seq[Sign],
       redeemScript: Option[ScriptPubKey],
-      scriptWitness: Option[ScriptWitness]): Gen[BitcoinUTXOSpendingInfoFull] =
+      scriptWitness: Option[ScriptWitness]): Gen[NewSpendingInfo.AnyFull] =
     nonEmptyOutputs.flatMap { outputs =>
       CryptoGenerators.hashType.flatMap { hashType =>
         Gen.choose(0, outputs.size - 1).map { idx =>
@@ -379,24 +383,26 @@ sealed abstract class CreditingTxGen {
           val updated = outputs.updated(idx, TransactionOutput(old.value, spk))
           val tc = TransactionConstants
           val btx = BaseTransaction(tc.version, Nil, updated, tc.lockTime)
-          BitcoinUTXOSpendingInfoFull(
-            TransactionOutPoint(btx.txId, UInt32.apply(idx)),
-            TransactionOutput(old.value, spk),
+          NewSpendingInfoFull(
+            InputInfo(
+              TransactionOutPoint(btx.txId, UInt32.apply(idx)),
+              TransactionOutput(old.value, spk),
+              redeemScript,
+              scriptWitness,
+              computeAllTrueConditionalPath(spk, redeemScript, scriptWitness)
+            ),
             signers.toVector,
-            redeemScript,
-            scriptWitness,
-            hashType,
-            computeAllTrueConditionalPath(spk, redeemScript, scriptWitness)
+            hashType
           )
         }
       }
     }
 
   def inputsAndOutputs(
-      outputsToUse: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = outputs,
+      outputsToUse: Gen[Seq[NewSpendingInfo.AnyFull]] = outputs,
       destinationGenerator: CurrencyUnit => Gen[Seq[TransactionOutput]] =
         TransactionGenerators.smallOutputs): Gen[
-    (Seq[BitcoinUTXOSpendingInfoFull], Seq[TransactionOutput])] = {
+    (Seq[NewSpendingInfo.AnyFull], Seq[TransactionOutput])] = {
     inputsAndP2SHOutputs(
       outputsToUse,
       destinationGenerator.andThen(_.map(_.map(x => (x, ScriptPubKey.empty)))))
@@ -404,12 +410,11 @@ sealed abstract class CreditingTxGen {
   }
 
   def inputsAndP2SHOutputs(
-      outputsToUse: Gen[Seq[BitcoinUTXOSpendingInfoFull]] = outputs,
+      outputsToUse: Gen[Seq[NewSpendingInfo.AnyFull]] = outputs,
       destinationGenerator: CurrencyUnit => Gen[
         Seq[(TransactionOutput, ScriptPubKey)]] =
-        TransactionGenerators.smallP2SHOutputs): Gen[(
-      Seq[BitcoinUTXOSpendingInfoFull],
-      Seq[(TransactionOutput, ScriptPubKey)])] = {
+        TransactionGenerators.smallP2SHOutputs): Gen[
+    (Seq[NewSpendingInfo.AnyFull], Seq[(TransactionOutput, ScriptPubKey)])] = {
     outputsToUse
       .flatMap { creditingTxsInfo =>
         val creditingOutputs = creditingTxsInfo.map(c => c.output)
