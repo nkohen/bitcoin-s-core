@@ -55,26 +55,26 @@ sealed trait InputInfo {
 
   def toSpendingInfo(
       signers: Vector[Sign],
-      hashType: HashType): BitcoinUTXOSpendingInfoFull = {
-    BitcoinUTXOSpendingInfoFull(outPoint,
-                                output,
-                                signers,
-                                redeemScriptOpt,
-                                scriptWitnessOpt,
-                                hashType,
-                                conditionalPath)
+      hashType: HashType): NewSpendingInfoFull[InputInfo] = {
+    NewSpendingInfoFull(this, signers, hashType)
   }
 
   def toSpendingInfo(
       signer: Sign,
-      hashType: HashType): BitcoinUTXOSpendingInfoSingle = {
-    BitcoinUTXOSpendingInfoSingle(outPoint,
-                                  output,
-                                  signer,
-                                  redeemScriptOpt,
-                                  scriptWitnessOpt,
-                                  hashType,
-                                  conditionalPath)
+      hashType: HashType): NewSpendingInfoSingle[InputInfo] = {
+    NewSpendingInfoSingle(this, signer, hashType)
+  }
+
+  def withSignFrom(
+      signerMaterial: NewSpendingInfoFull[InputInfo]): NewSpendingInfoFull[
+    this.type] = {
+    signerMaterial.copy(inputInfo = this)
+  }
+
+  def withSignFrom(
+      signerMaterial: NewSpendingInfoSingle[InputInfo]): NewSpendingInfoSingle[
+    this.type] = {
+    signerMaterial.copy(inputInfo = this)
   }
 }
 
