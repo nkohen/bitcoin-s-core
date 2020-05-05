@@ -46,6 +46,7 @@ import org.bitcoins.core.wallet.utxo.{
   P2WSHV0SpendingInfoFull,
   UTXOSpendingInfo,
   UTXOSpendingInfoSingle,
+  UnassignedSegwitNativeInputInfo,
   UnassignedSegwitNativeUTXOSpendingInfo
 }
 import org.bitcoins.crypto.ECDigitalSignature
@@ -73,13 +74,14 @@ class SignerTest extends BitcoinSAsyncTest {
     val p2wpkh = GenUtil.sample(CreditingTxGen.p2wpkhOutput)
     val tx = GenUtil.sample(TransactionGenerators.baseTransaction)
     val spendingInfo = UnassignedSegwitNativeUTXOSpendingInfo(
-      p2wpkh.outPoint,
-      p2wpkh.amount,
-      p2wpkh.scriptPubKey.asInstanceOf[WitnessScriptPubKey],
+      UnassignedSegwitNativeInputInfo(
+        p2wpkh.outPoint,
+        p2wpkh.amount,
+        p2wpkh.scriptPubKey.asInstanceOf[WitnessScriptPubKey],
+        p2wpkh.scriptWitnessOpt.get,
+        p2wpkh.conditionalPath),
       p2wpkh.signers,
-      p2wpkh.hashType,
-      p2wpkh.scriptWitnessOpt.get,
-      p2wpkh.conditionalPath
+      p2wpkh.hashType
     )
     assertThrows[UnsupportedOperationException](
       BitcoinSigner.sign(spendingInfo, tx, isDummySignature = false))
