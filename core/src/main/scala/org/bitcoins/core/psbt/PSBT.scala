@@ -140,12 +140,12 @@ case class PSBT(
   }
 
   /**
-    * Takes the InputPSBTMap at the given index and returns a UTXOSpendingInfoFull
+    * Takes the InputPSBTMap at the given index and returns a NewSpendingInfoFull
     * that can be used to sign the input
     * @param index index of the InputPSBTMap
     * @param signers Signers that will be used to sign the input
     * @param conditionalPath Path that should be used for the script
-    * @return A corresponding UTXOSpendingInfoFull
+    * @return A corresponding NewSpendingInfoFull
     */
   def getSpendingInfoUsingSigners(
       index: Int,
@@ -155,9 +155,9 @@ case class PSBT(
     require(index >= 0 && index < inputMaps.size,
             s"Index must be within 0 and the number of inputs, got: $index")
     inputMaps(index)
-      .toUTXOSpendingInfoUsingSigners(transaction.inputs(index),
-                                      signers,
-                                      conditionalPath)
+      .toNewSpendingInfoUsingSigners(transaction.inputs(index),
+                                     signers,
+                                     conditionalPath)
   }
 
   /**
@@ -772,7 +772,7 @@ object PSBT extends Factory[PSBT] {
   }
 
   /**
-    * Wraps a Vector of pairs of UTXOSpendingInfos and the Transactions whose outputs are spent.
+    * Wraps a Vector of pairs of NewSpendingInfos and the Transactions whose outputs are spent.
     * Note that this Transaction is only necessary when the output is non-segwit.
     */
   case class SpendingInfoAndNonWitnessTxs(infoAndTxOpts: Vector[
@@ -823,10 +823,10 @@ object PSBT extends Factory[PSBT] {
       spendingInfoAndNonWitnessTxs: SpendingInfoAndNonWitnessTxs,
       finalized: Boolean)(implicit ec: ExecutionContext): Future[PSBT] = {
     require(spendingInfoAndNonWitnessTxs.length == unsignedTx.inputs.length,
-            "Must have a UTXOSpendingInfo for every input")
+            "Must have a NewSpendingInfo for every input")
     require(
       spendingInfoAndNonWitnessTxs.matchesInputs(unsignedTx.inputs),
-      "UTXOSpendingInfos must correspond to transaction inputs"
+      "NewSpendingInfos must correspond to transaction inputs"
     )
     val emptySigTx = BitcoinTxBuilder.emptyAllScriptSigs(unsignedTx)
     val btx = emptySigTx match {
@@ -840,9 +840,9 @@ object PSBT extends Factory[PSBT] {
     val inputMapFs = spendingInfoAndNonWitnessTxs.map {
       case (info, txOpt) =>
         if (finalized) {
-          InputPSBTMap.finalizedFromUTXOSpendingInfo(info, unsignedTx, txOpt)
+          InputPSBTMap.finalizedFromNewSpendingInfo(info, unsignedTx, txOpt)
         } else {
-          InputPSBTMap.fromUTXOSpendingInfo(info, unsignedTx, txOpt)
+          InputPSBTMap.fromNewSpendingInfo(info, unsignedTx, txOpt)
         }
     }
     val outputMaps = unsignedTx.outputs.map(_ => OutputPSBTMap.empty).toVector

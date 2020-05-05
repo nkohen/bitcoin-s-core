@@ -495,14 +495,14 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
   }
 
   /**
-    * Takes the InputPSBTMap returns a UTXOSpendingInfoFull
+    * Takes the InputPSBTMap returns a NewSpendingInfoFull
     * that can be used to sign the input
     * @param txIn The transaction input that this InputPSBTMap represents
     * @param signers Signers that will be used to sign the input
     * @param conditionalPath Path that should be used for the script
-    * @return A corresponding UTXOSpendingInfoFull
+    * @return A corresponding NewSpendingInfoFull
     */
-  def toUTXOSpendingInfoUsingSigners(
+  def toNewSpendingInfoUsingSigners(
       txIn: TransactionInput,
       signers: Vector[Sign],
       conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): NewSpendingInfoFull[
@@ -510,7 +510,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
     require(!isFinalized, s"Cannot update an InputPSBTMap that is finalized")
 
     val infoSingle =
-      toUTXOSpendingInfoSingle(txIn, signers.head, conditionalPath)
+      toNewSpendingInfoSingle(txIn, signers.head, conditionalPath)
 
     NewSpendingInfoFull(
       infoSingle.inputInfo,
@@ -519,7 +519,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
     )
   }
 
-  def toUTXOSpendingInfoSingle(
+  def toNewSpendingInfoSingle(
       txIn: TransactionInput,
       signer: Sign,
       conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): NewSpendingInfoSingle[
@@ -537,7 +537,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
       tx.outputs(txIn.previousOutput.vout.toInt)
     } else {
       throw new UnsupportedOperationException(
-        "Not enough information in the InputPSBTMap to get a valid UTXOSpendingInfo")
+        "Not enough information in the InputPSBTMap to get a valid NewSpendingInfo")
     }
 
     val redeemScriptVec = getRecords(RedeemScriptKeyId)
@@ -629,11 +629,11 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
 object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
   import org.bitcoins.core.psbt.InputPSBTRecord._
 
-  /** Constructs a finalized InputPSBTMap from a UTXOSpendingInfoFull,
+  /** Constructs a finalized InputPSBTMap from a NewSpendingInfoFull,
     * the corresponding PSBT's unsigned transaction, and if this is
     * a non-witness spend, the transaction being spent
     */
-  def finalizedFromUTXOSpendingInfo(
+  def finalizedFromNewSpendingInfo(
       spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       nonWitnessTxOpt: Option[Transaction])(
@@ -673,10 +673,10 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
   }
 
   /** Constructs a full (ready to be finalized) but unfinalized InputPSBTMap
-    * from a UTXOSpendingInfoFull, the corresponding PSBT's unsigned transaction,
+    * from a NewSpendingInfoFull, the corresponding PSBT's unsigned transaction,
     * and if this is a non-witness spend, the transaction being spent
     */
-  def fromUTXOSpendingInfo(
+  def fromNewSpendingInfo(
       spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       nonWitnessTxOpt: Option[Transaction])(

@@ -174,15 +174,15 @@ sealed trait SpendingInfoDb extends DbRowAutoInc[SpendingInfoDb] {
   /** Converts a non-sensitive DB representation of a UTXO into
     * a signable (and sensitive) real-world UTXO
     */
-  def toUTXOSpendingInfo(
+  def toNewSpendingInfo(
       keyManager: BIP39KeyManager): NewSpendingInfo.AnyFull = {
 
     val sign: Sign = keyManager.toSign(privKeyPath = privKeyPath)
 
-    toUTXOSpendingInfo(sign = sign)
+    toNewSpendingInfo(sign = sign)
   }
 
-  def toUTXOSpendingInfo(sign: Sign): NewSpendingInfo.AnyFull = {
+  def toNewSpendingInfo(sign: Sign): NewSpendingInfo.AnyFull = {
     NewSpendingInfoFull(
       InputInfo(
         outPoint,
