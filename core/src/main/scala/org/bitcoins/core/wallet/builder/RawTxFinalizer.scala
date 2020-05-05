@@ -6,28 +6,14 @@ import org.bitcoins.core.policy.Policy
 import org.bitcoins.core.protocol.script.{
   EmptyScriptWitness,
   ScriptPubKey,
-  ScriptWitness,
   ScriptWitnessV0
 }
-import org.bitcoins.core.protocol.transaction.{
-  BaseTransaction,
-  EmptyWitness,
-  NonWitnessTransaction,
-  OutputReference,
-  Transaction,
-  TransactionInput,
-  TransactionOutput,
-  TransactionWitness,
-  WitnessTransaction
-}
+import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.wallet.fee.FeeUnit
 import org.bitcoins.core.wallet.signer.BitcoinSigner
-import org.bitcoins.core.wallet.utxo.{
-  BitcoinUTXOSpendingInfoFull,
-  ConditionalPath
-}
-import org.bitcoins.crypto.{DummyECDigitalSignature, ECPublicKey, Sign}
+import org.bitcoins.core.wallet.utxo.InputInfo
+import org.bitcoins.crypto.{DummyECDigitalSignature, Sign}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -62,13 +48,6 @@ case object FilterDustFinalizer extends RawTxFinalizer {
   }
 }
 
-case class InputInfo(
-    ref: OutputReference,
-    redeemScript: Option[ScriptPubKey],
-    witness: Option[ScriptWitness],
-    p2pkhPreImage: Option[ECPublicKey],
-    conditions: ConditionalPath = ConditionalPath.NoConditionsLeft)
-
 case class NonInteractiveWithChangeFinalizer(
     inputInfos: Vector[InputInfo],
     feeRate: FeeUnit,
@@ -82,11 +61,11 @@ case class NonInteractiveWithChangeFinalizer(
     val outputsWithChange = outputs :+ TransactionOutput(Satoshis.zero,
                                                          changeSPK)
     val totalCrediting = inputInfos
-      .map(_.ref.output.value)
+      .map(_.output.value)
       .foldLeft[CurrencyUnit](Satoshis.zero)(_ + _)
     val totalSpending =
       outputs.map(_.value).foldLeft[CurrencyUnit](Satoshis.zero)(_ + _)
-    val witnesses = inputInfos.map(_.witness)
+    val witnesses = inputInfos.map(_.scriptWitnessOpt)
     val txNoChangeFee = TransactionWitness.fromWitOpt(witnesses) match {
       case _: EmptyWitness =>
         BaseTransaction(version, inputs, outputsWithChange, lockTime)
@@ -97,20 +76,12 @@ case class NonInteractiveWithChangeFinalizer(
     // Add dummy signatures
     val mockInputFs = inputInfos.zipWithIndex.map {
       case (inputInfo, index) =>
-        val pubKeys =
-          inputInfo.ref.output.scriptPubKey.pubKeysFor(inputInfo)
-        val mockSigners = pubKeys.map { pubKey =>
+        val mockSigners = inputInfo.pubKeys.map { pubKey =>
           Sign(_ => Future.successful(DummyECDigitalSignature), pubKey)
         }
 
         val mockSpendingInfo =
-          BitcoinUTXOSpendingInfoFull(inputInfo.ref.outPoint,
-                                      inputInfo.ref.output,
-                                      mockSigners,
-                                      inputInfo.redeemScript,
-                                      inputInfo.witness,
-                                      HashType.sigHashAll,
-                                      inputInfo.conditions)
+          inputInfo.toSpendingInfo(mockSigners, HashType.sigHashAll)
 
         BitcoinSigner
           .sign(mockSpendingInfo, txNoChangeFee, isDummySignature = true)
