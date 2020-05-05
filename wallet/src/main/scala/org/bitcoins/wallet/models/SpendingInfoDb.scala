@@ -15,6 +15,7 @@ import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.wallet.utxo.{
   ConditionalPath,
   InputInfo,
+  NewSpendingInfo,
   NewSpendingInfoFull,
   TxoState
 }
@@ -174,14 +175,14 @@ sealed trait SpendingInfoDb extends DbRowAutoInc[SpendingInfoDb] {
     * a signable (and sensitive) real-world UTXO
     */
   def toUTXOSpendingInfo(
-      keyManager: BIP39KeyManager): NewSpendingInfoFull[InputInfo] = {
+      keyManager: BIP39KeyManager): NewSpendingInfo.AnyFull = {
 
     val sign: Sign = keyManager.toSign(privKeyPath = privKeyPath)
 
     toUTXOSpendingInfo(sign = sign)
   }
 
-  def toUTXOSpendingInfo(sign: Sign): NewSpendingInfoFull[InputInfo] = {
+  def toUTXOSpendingInfo(sign: Sign): NewSpendingInfo.AnyFull = {
     NewSpendingInfoFull(
       InputInfo(
         outPoint,

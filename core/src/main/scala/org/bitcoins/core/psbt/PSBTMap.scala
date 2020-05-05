@@ -634,7 +634,7 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
     * a non-witness spend, the transaction being spent
     */
   def finalizedFromUTXOSpendingInfo(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       nonWitnessTxOpt: Option[Transaction])(
       implicit ec: ExecutionContext): Future[InputPSBTMap] = {
@@ -678,7 +678,7 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
     * and if this is a non-witness spend, the transaction being spent
     */
   def fromUTXOSpendingInfo(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       nonWitnessTxOpt: Option[Transaction])(
       implicit ec: ExecutionContext): Future[InputPSBTMap] = {
