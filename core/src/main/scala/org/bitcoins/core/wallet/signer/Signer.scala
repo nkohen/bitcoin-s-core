@@ -37,7 +37,7 @@ sealed abstract class SignerUtils {
   }
 
   def signSingle(
-      spendingInfo: NewSpendingInfoSingle[InputInfo],
+      spendingInfo: NewSpendingInfo.AnySingle,
       unsignedTx: Transaction,
       isDummySignature: Boolean)(
       implicit ec: ExecutionContext): Future[PartialSignature] = {
@@ -56,7 +56,7 @@ sealed abstract class SignerUtils {
   protected val flags: Seq[ScriptFlag] = Policy.standardFlags
 
   protected def relevantInfo(
-      spendingInfo: NewSpendingInfo[InputInfo],
+      spendingInfo: NewSpendingInfo.Any,
       unsignedTx: Transaction): (Seq[Sign], TransactionOutput, UInt32, HashType) = {
     (spendingInfo.signers,
      spendingInfo.output,
@@ -65,7 +65,7 @@ sealed abstract class SignerUtils {
   }
 
   protected def inputIndex(
-      spendingInfo: NewSpendingInfo[InputInfo],
+      spendingInfo: NewSpendingInfo.Any,
       tx: Transaction): UInt32 = {
     tx.inputs.zipWithIndex
       .find(_._1.previousOutput == spendingInfo.outPoint) match {
@@ -77,7 +77,7 @@ sealed abstract class SignerUtils {
   }
 
   protected def sigComponent(
-      spendingInfo: NewSpendingInfo[InputInfo],
+      spendingInfo: NewSpendingInfo.Any,
       unsignedTx: Transaction): TxSigComponent = {
     val index = inputIndex(spendingInfo, unsignedTx)
 
@@ -153,7 +153,7 @@ sealed abstract class Signer[-InputType <: InputInfo] extends SignerUtils {
     * @return
     */
   def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[InputType])(
@@ -194,7 +194,7 @@ sealed abstract class Signer[-InputType <: InputInfo] extends SignerUtils {
 object BitcoinSigner extends SignerUtils {
 
   def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean)(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
@@ -202,10 +202,10 @@ object BitcoinSigner extends SignerUtils {
   }
 
   def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[InputInfo])(
+      spendingInfoToSatisfy: NewSpendingInfo.AnyFull)(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     def spendingFrom[Info <: InputInfo](
         inputInfo: Info): NewSpendingInfoFull[Info] = {
@@ -356,7 +356,7 @@ sealed abstract class RawSingleKeyBitcoinSigner[-InputType <: RawInputInfo]
       spendingInfo: NewSpendingInfo[InputType]): ScriptSignature
 
   override def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[InputType])(
@@ -384,7 +384,7 @@ sealed abstract class RawSingleKeyBitcoinSigner[-InputType <: RawInputInfo]
 sealed abstract class EmptySigner extends Signer[EmptyInputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[EmptyInputInfo])(
@@ -447,7 +447,7 @@ object P2PKWithTimeoutSigner extends P2PKWithTimeoutSigner
 sealed abstract class MultiSigSigner extends Signer[MultiSignatureInputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[MultiSignatureInputInfo])(
@@ -477,7 +477,7 @@ object MultiSigSigner extends MultiSigSigner
 /** Used to sign a [[org.bitcoins.core.protocol.script.P2SHScriptPubKey]] */
 sealed abstract class P2SHSigner extends Signer[P2SHInputInfo] {
   override def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[P2SHInputInfo])(
@@ -544,7 +544,7 @@ object P2SHSigner extends P2SHSigner
 sealed abstract class P2WPKHSigner extends Signer[P2WPKHV0InputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[P2WPKHV0InputInfo])(
@@ -616,7 +616,7 @@ object P2WPKHSigner extends P2WPKHSigner
 sealed abstract class P2WSHSigner extends Signer[P2WSHV0InputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[P2WSHV0InputInfo])(
@@ -663,7 +663,7 @@ object P2WSHSigner extends P2WSHSigner
 sealed abstract class LockTimeSigner extends Signer[LockTimeInputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[LockTimeInputInfo])(
@@ -685,7 +685,7 @@ object LockTimeSigner extends LockTimeSigner
 sealed abstract class ConditionalSigner extends Signer[ConditionalInputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfoFull[InputInfo],
+      spendingInfo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: NewSpendingInfoFull[ConditionalInputInfo])(

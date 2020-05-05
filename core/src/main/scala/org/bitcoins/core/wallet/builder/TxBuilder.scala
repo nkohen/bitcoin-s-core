@@ -61,7 +61,7 @@ sealed abstract class TxBuilder {
     */
   def utxoMap: TxBuilder.UTXOMap
 
-  def utxos: Seq[NewSpendingInfoFull[InputInfo]] = utxoMap.values.toSeq
+  def utxos: Seq[NewSpendingInfo.AnyFull] = utxoMap.values.toSeq
 
   /** This represents the rate, in [[org.bitcoins.core.wallet.fee.FeeUnit FeeUnit]], we
     * should pay for this transaction */
@@ -113,9 +113,8 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
   override def utxoMap: BitcoinTxBuilder.UTXOMap
 
   override def sign(implicit ec: ExecutionContext): Future[Transaction] = {
-    val f: (Seq[NewSpendingInfoFull[InputInfo]], Transaction) => Boolean = {
-      (_, _) =>
-        true
+    val f: (Seq[NewSpendingInfo.AnyFull], Transaction) => Boolean = { (_, _) =>
+      true
     }
     sign(f)
   }
@@ -186,8 +185,7 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
     * @param invariants - invariants that should hold true when we are done signing the transaction
     * @return the signed transaction, or a [[TxBuilderError]] indicating what went wrong when signing the tx
     */
-  def sign(
-      invariants: (Seq[NewSpendingInfoFull[InputInfo]], Transaction) => Boolean)(
+  def sign(invariants: (Seq[NewSpendingInfo.AnyFull], Transaction) => Boolean)(
       implicit ec: ExecutionContext): Future[Transaction] = {
     val utxos = utxoMap.values.toList
     val signedTxWithFee = unsignedTx.flatMap { utx: Transaction =>
@@ -212,7 +210,7 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
   }
 
   private def loop(
-      remaining: List[NewSpendingInfoFull[InputInfo]],
+      remaining: List[NewSpendingInfo.AnyFull],
       txInProgress: Transaction,
       dummySignatures: Boolean)(
       implicit ec: ExecutionContext): Future[Transaction] = remaining match {
@@ -229,7 +227,7 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
     * @return either the transaction with the signed input added, or a [[TxBuilderError]]
     */
   private def signAndAddInput(
-      utxo: NewSpendingInfoFull[InputInfo],
+      utxo: NewSpendingInfo.AnyFull,
       unsignedTx: Transaction,
       dummySignatures: Boolean)(
       implicit ec: ExecutionContext): Future[Transaction] = {
@@ -278,8 +276,7 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
     * locktime set to the same value (or higher) than the output it is spending.
     * See BIP65 for more info
     */
-  private def calcLockTime(
-      utxos: Seq[NewSpendingInfoFull[InputInfo]]): Try[UInt32] = {
+  private def calcLockTime(utxos: Seq[NewSpendingInfo.AnyFull]): Try[UInt32] = {
     def computeNextLockTime(
         currentLockTimeOpt: Option[UInt32],
         locktime: Long): Try[UInt32] = {
@@ -311,7 +308,7 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
 
     @tailrec
     def loop(
-        remaining: Seq[NewSpendingInfoFull[InputInfo]],
+        remaining: Seq[NewSpendingInfo.AnyFull],
         currentLockTimeOpt: Option[UInt32]): Try[UInt32] =
       remaining match {
         case Nil =>
@@ -376,11 +373,11 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
     * See BIP68/112 and BIP65 for more info
     */
   private def calcSequenceForInputs(
-      utxos: Seq[NewSpendingInfoFull[InputInfo]],
+      utxos: Seq[NewSpendingInfo.AnyFull],
       isRBFEnabled: Boolean): Seq[TransactionInput] = {
     @tailrec
     def loop(
-        remaining: Seq[NewSpendingInfoFull[InputInfo]],
+        remaining: Seq[NewSpendingInfo.AnyFull],
         accum: Seq[TransactionInput]): Seq[TransactionInput] =
       remaining match {
         case Nil => accum.reverse
@@ -447,7 +444,7 @@ object TxBuilder {
 
   /** This contains all the information needed to create a valid
     * [[org.bitcoins.core.protocol.transaction.TransactionInput TransactionInput]] that spends this utxo */
-  type UTXOMap = Map[TransactionOutPoint, NewSpendingInfoFull[InputInfo]]
+  type UTXOMap = Map[TransactionOutPoint, NewSpendingInfo.AnyFull]
   private val logger = BitcoinSLogger.logger
 
   /** Runs various sanity checks on the final version of the signed transaction from TxBuilder */
@@ -566,7 +563,7 @@ object TxBuilder {
 }
 
 object BitcoinTxBuilder {
-  type UTXOMap = Map[TransactionOutPoint, NewSpendingInfoFull[InputInfo]]
+  type UTXOMap = Map[TransactionOutPoint, NewSpendingInfo.AnyFull]
 
   private case class BitcoinTxBuilderImpl(
       destinations: Seq[TransactionOutput],
@@ -602,14 +599,12 @@ object BitcoinTxBuilder {
 
   def apply(
       destinations: Seq[TransactionOutput],
-      utxos: Seq[NewSpendingInfoFull[InputInfo]],
+      utxos: Seq[NewSpendingInfo.AnyFull],
       feeRate: FeeUnit,
       changeSPK: ScriptPubKey,
       network: BitcoinNetwork): Future[BitcoinTxBuilder] = {
     @tailrec
-    def loop(
-        utxos: Seq[NewSpendingInfoFull[InputInfo]],
-        accum: UTXOMap): UTXOMap =
+    def loop(utxos: Seq[NewSpendingInfo.AnyFull], accum: UTXOMap): UTXOMap =
       utxos match {
         case Nil => accum
         case h +: t =>

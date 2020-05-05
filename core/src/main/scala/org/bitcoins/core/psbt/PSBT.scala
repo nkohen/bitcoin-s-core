@@ -775,9 +775,8 @@ object PSBT extends Factory[PSBT] {
     * Wraps a Vector of pairs of UTXOSpendingInfos and the Transactions whose outputs are spent.
     * Note that this Transaction is only necessary when the output is non-segwit.
     */
-  case class SpendingInfoAndNonWitnessTxs(
-      infoAndTxOpts: Vector[
-        (NewSpendingInfoFull[InputInfo], Option[BaseTransaction])]) {
+  case class SpendingInfoAndNonWitnessTxs(infoAndTxOpts: Vector[
+    (NewSpendingInfo.AnyFull, Option[BaseTransaction])]) {
     val length: Int = infoAndTxOpts.length
 
     def matchesInputs(inputs: Seq[TransactionInput]): Boolean = {
@@ -788,9 +787,9 @@ object PSBT extends Factory[PSBT] {
         }
     }
 
-    def map[T](func: (
-        NewSpendingInfoFull[InputInfo],
-        Option[BaseTransaction]) => T): Vector[T] = {
+    def map[T](
+        func: (NewSpendingInfo.AnyFull, Option[BaseTransaction]) => T): Vector[
+      T] = {
       infoAndTxOpts.map { case (info, txOpt) => func(info, txOpt) }
     }
   }

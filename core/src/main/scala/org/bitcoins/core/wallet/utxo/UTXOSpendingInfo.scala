@@ -20,7 +20,6 @@ sealed trait NewSpendingInfo[+InputType <: InputInfo] {
   def conditionalPath: ConditionalPath = inputInfo.conditionalPath
 }
 
-// TODO: Use these types
 object NewSpendingInfo {
   type Any = NewSpendingInfo[InputInfo]
   type AnyFull = NewSpendingInfoFull[InputInfo]

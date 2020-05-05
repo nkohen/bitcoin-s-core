@@ -55,24 +55,23 @@ sealed trait InputInfo {
 
   def toSpendingInfo(
       signers: Vector[Sign],
-      hashType: HashType): NewSpendingInfoFull[InputInfo] = {
+      hashType: HashType): NewSpendingInfo.AnyFull = {
     NewSpendingInfoFull(this, signers, hashType)
   }
 
   def toSpendingInfo(
       signer: Sign,
-      hashType: HashType): NewSpendingInfoSingle[InputInfo] = {
+      hashType: HashType): NewSpendingInfo.AnySingle = {
     NewSpendingInfoSingle(this, signer, hashType)
   }
 
   def withSignFrom(
-      signerMaterial: NewSpendingInfoFull[InputInfo]): NewSpendingInfoFull[
-    this.type] = {
+      signerMaterial: NewSpendingInfo.AnyFull): NewSpendingInfoFull[this.type] = {
     signerMaterial.copy(inputInfo = this)
   }
 
   def withSignFrom(
-      signerMaterial: NewSpendingInfoSingle[InputInfo]): NewSpendingInfoSingle[
+      signerMaterial: NewSpendingInfo.AnySingle): NewSpendingInfoSingle[
     this.type] = {
     signerMaterial.copy(inputInfo = this)
   }
