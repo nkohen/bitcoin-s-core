@@ -18,7 +18,7 @@ import org.bitcoins.testkit.core.gen.{
 }
 import org.bitcoins.testkit.util.BitcoinSAsyncTest
 
-class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
+class InputInfoTest extends BitcoinSAsyncTest {
 
   def randomSPK: ScriptPubKey = {
     GenUtil.sample(ScriptGenerators.scriptPubKey.map(_._1))
@@ -32,61 +32,7 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     GenUtil.sample(ScriptGenerators.witnessScriptPubKeyV0.map(_._1))
   }
 
-  behavior of "UTXOSpendingInfo"
-
-  it must "fail given a bad P2WPKH script witness" in {
-    val privKey = ECPrivateKey.freshPrivateKey
-    val pubKey = privKey.publicKey
-
-    val p2wpkh = P2WPKHWitnessSPKV0(pubKey)
-    val (creditingTx, _) =
-      TransactionGenerators.buildCreditingTransaction(p2wpkh)
-    val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-
-    assertThrows[IllegalArgumentException] {
-      SegwitV0NativeUTXOSpendingInfoFull(
-        outPoint = outPoint,
-        amount = CurrencyUnits.zero,
-        scriptPubKey = p2wpkh,
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        scriptWitness = P2WPKHWitnessV0(ECPrivateKey.freshPrivateKey.publicKey),
-        conditionalPath = ConditionalPath.NoConditionsLeft
-      )
-    }
-  }
-
-  it must "fail given a bad P2WSH script witness" in {
-    val privKey = ECPrivateKey.freshPrivateKey
-    val pubKey = privKey.publicKey
-
-    val p2wsh = P2WSHWitnessSPKV0(P2PKScriptPubKey(pubKey))
-    val (creditingTx, _) =
-      TransactionGenerators.buildCreditingTransaction(p2wsh)
-    val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-
-    assertThrows[IllegalArgumentException] {
-      SegwitV0NativeUTXOSpendingInfoFull(
-        outPoint = outPoint,
-        amount = CurrencyUnits.zero,
-        scriptPubKey = p2wsh,
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        scriptWitness = P2WSHWitnessV0(randomRawSPK),
-        conditionalPath = ConditionalPath.NoConditionsLeft
-      )
-    }
-  }
-
-  it must "fail validation given invalid witnesses" in {
-    val p2wpkh = P2WPKHWitnessSPKV0(ECPublicKey.freshPublicKey)
-    val p2wsh = P2WSHWitnessSPKV0(randomRawSPK)
-    val p2wshWitness = P2WSHWitnessV0(randomRawSPK)
-    val p2WPKHWitness = P2WPKHWitnessV0(ECPublicKey.freshPublicKey)
-
-    assert(!BitcoinUTXOSpendingInfo.isValidScriptWitness(p2wpkh, p2wshWitness))
-    assert(!BitcoinUTXOSpendingInfo.isValidScriptWitness(p2wsh, p2WPKHWitness))
-  }
+  behavior of "InputInfo"
 
   it must "fail given no redeem script on P2SH" in {
     val privKey = ECPrivateKey.freshPrivateKey
@@ -96,11 +42,9 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     assertThrows[IllegalArgumentException] {
-      BitcoinUTXOSpendingInfoFull(
+      InputInfo(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
         conditionalPath = ConditionalPath.NoConditionsLeft
@@ -122,11 +66,9 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     assertThrows[IllegalArgumentException] {
-      BitcoinUTXOSpendingInfoFull(
+      InputInfo(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
         redeemScriptOpt = Some(P2WPKHWitnessSPKV0(pubKey)),
         scriptWitnessOpt = None,
         conditionalPath = ConditionalPath.NoConditionsLeft
@@ -148,11 +90,9 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     assertThrows[UnsupportedOperationException] {
-      BitcoinUTXOSpendingInfoFull(
+      InputInfo(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
         redeemScriptOpt = Some(P2WPKHWitnessSPKV0(pubKey)),
         scriptWitnessOpt = Some(EmptyScriptWitness),
         conditionalPath = ConditionalPath.NoConditionsLeft
@@ -171,11 +111,9 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     assertThrows[RuntimeException] {
-      BitcoinUTXOSpendingInfoFull(
+      InputInfo(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
         redeemScriptOpt = Some(unassingedWitnessSPK),
         scriptWitnessOpt = None,
         conditionalPath = ConditionalPath.NoConditionsLeft
@@ -193,11 +131,9 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     assertThrows[UnsupportedOperationException] {
-      BitcoinUTXOSpendingInfoFull(
+      InputInfo(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, p2wpkh),
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
         redeemScriptOpt = None,
         scriptWitnessOpt = Some(EmptyScriptWitness),
         conditionalPath = ConditionalPath.NoConditionsLeft
@@ -215,11 +151,9 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     assertThrows[IllegalArgumentException] {
-      BitcoinUTXOSpendingInfoFull(
+      InputInfo(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, p2wpkh),
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
         conditionalPath = ConditionalPath.NoConditionsLeft
@@ -240,27 +174,21 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     val spendingInfo =
-      BitcoinUTXOSpendingInfoFull(
+      InputInfo(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, unassingedWitnessSPK),
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
         conditionalPath = ConditionalPath.NoConditionsLeft
       )
 
     val expectedSpendingInfo =
-      UnassignedSegwitNativeUTXOSpendingInfo(
-        UnassignedSegwitNativeInputInfo(
-          outPoint = outPoint,
-          amount = CurrencyUnits.zero,
-          scriptPubKey = unassingedWitnessSPK,
-          scriptWitness = EmptyScriptWitness,
-          conditionalPath = ConditionalPath.NoConditionsLeft
-        ),
-        signers = Vector(privKey),
-        hashType = HashType.sigHashAll
+      UnassignedSegwitNativeInputInfo(
+        outPoint = outPoint,
+        amount = CurrencyUnits.zero,
+        scriptPubKey = unassingedWitnessSPK,
+        scriptWitness = EmptyScriptWitness,
+        conditionalPath = ConditionalPath.NoConditionsLeft
       )
 
     assert(spendingInfo == expectedSpendingInfo)
@@ -275,13 +203,11 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     assertThrows[UnsupportedOperationException] {
-      BitcoinUTXOSpendingInfoFull(
+      InputInfo(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, spk),
-        signers = Vector(privKey),
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        hashType = HashType.sigHashAll,
         conditionalPath = ConditionalPath.NoConditionsLeft
       )
     }
