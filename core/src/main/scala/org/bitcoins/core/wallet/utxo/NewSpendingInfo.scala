@@ -1,5 +1,6 @@
 package org.bitcoins.core.wallet.utxo
 
+import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.protocol.script.{ScriptPubKey, ScriptWitness}
 import org.bitcoins.core.protocol.transaction.{
   TransactionOutPoint,
@@ -13,6 +14,7 @@ sealed trait NewSpendingInfo[+InputType <: InputInfo] {
   def hashType: HashType
   def signers: Vector[Sign]
 
+  def amount: CurrencyUnit = inputInfo.amount
   def output: TransactionOutput = inputInfo.output
   def outPoint: TransactionOutPoint = inputInfo.outPoint
   def redeemScriptOpt: Option[ScriptPubKey] = inputInfo.redeemScriptOpt
@@ -53,6 +55,15 @@ case class NewSpendingInfoFull[+InputType <: InputInfo](
   def mapInfo[T <: InputInfo](func: InputType => T): NewSpendingInfoFull[T] = {
     this.copy(inputInfo = func(this.inputInfo))
   }
+}
+
+object NewSpendingInfoFull {
+
+  def apply[InputType <: InputInfo](
+      inputInfo: InputType,
+      signer: Sign,
+      hashType: HashType): NewSpendingInfoFull[InputType] =
+    NewSpendingInfoFull(inputInfo, Vector(signer), hashType)
 }
 
 case class NewSpendingInfoSingle[+InputType <: InputInfo](

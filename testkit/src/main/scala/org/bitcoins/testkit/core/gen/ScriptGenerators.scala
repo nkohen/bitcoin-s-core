@@ -21,13 +21,10 @@ import org.bitcoins.core.wallet.signer.{
 }
 import org.bitcoins.core.wallet.utxo.{
   MultiSignatureInputInfo,
-  MultiSignatureSpendingInfoFull,
+  NewSpendingInfoFull,
   P2PKHInputInfo,
-  P2PKHSpendingInfo,
   P2PKInputInfo,
-  P2PKSpendingInfo,
-  P2PKWithTimeoutInputInfo,
-  P2PKWithTimeoutSpendingInfo
+  P2PKWithTimeoutInputInfo
 }
 import org.bitcoins.crypto.{
   ECDigitalSignature,
@@ -583,7 +580,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
         creditingTx,
         scriptSig,
         outputIndex)
-      spendingInfo = P2PKSpendingInfo(
+      spendingInfo = NewSpendingInfoFull(
         P2PKInputInfo(TransactionOutPoint(creditingTx.txIdBE, inputIndex),
                       creditingTx.outputs(outputIndex.toInt).value,
                       scriptPubKey),
@@ -617,7 +614,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
         creditingTx,
         EmptyScriptSignature,
         outputIndex)
-      spendingInfo = P2PKHSpendingInfo(
+      spendingInfo = NewSpendingInfoFull(
         P2PKHInputInfo(TransactionOutPoint(creditingTx.txIdBE, inputIndex),
                        creditingTx.outputs(outputIndex.toInt).value,
                        privateKey.publicKey),
@@ -643,7 +640,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
         TransactionGenerators.buildCreditingTransaction(spk)
       val (spendingTx, inputIndex) = TransactionGenerators
         .buildSpendingTransaction(creditingTx, emptyScriptSig, outputIndex)
-      val spendingInfo = P2PKWithTimeoutSpendingInfo(
+      val spendingInfo = NewSpendingInfoFull(
         P2PKWithTimeoutInputInfo(
           TransactionOutPoint(creditingTx.txIdBE, inputIndex),
           creditingTx.outputs(outputIndex.toInt).value,
@@ -689,7 +686,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
         creditingTx,
         scriptSig,
         outputIndex)
-      spendingInfo = MultiSignatureSpendingInfoFull(
+      spendingInfo = NewSpendingInfoFull(
         MultiSignatureInputInfo(
           TransactionOutPoint(creditingTx.txIdBE, inputIndex),
           creditingTx.outputs(outputIndex.toInt).value,
