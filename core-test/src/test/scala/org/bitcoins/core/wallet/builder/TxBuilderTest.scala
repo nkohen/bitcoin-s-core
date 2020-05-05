@@ -2,7 +2,7 @@ package org.bitcoins.core.wallet.builder
 
 import org.bitcoins.core.config.RegTest
 import org.bitcoins.core.currency._
-import org.bitcoins.core.number.{Int64, UInt32}
+import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.script.{
   EmptyScriptPubKey,
   EmptyScriptSignature,
@@ -18,7 +18,7 @@ import org.bitcoins.core.protocol.transaction.{
 import org.bitcoins.core.script.control.OP_RETURN
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
-import org.bitcoins.core.wallet.utxo.{EmptyInputInfo, EmptySpendingInfo}
+import org.bitcoins.core.wallet.utxo.{EmptyInputInfo, NewSpendingInfoFull}
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import org.bitcoins.testkit.util.BitcoinSUnitTest
 
@@ -54,8 +54,9 @@ class TxBuilderTest extends BitcoinSUnitTest {
   private val txBuilderF = BitcoinTxBuilder(
     Vector(output),
     Vector(
-      EmptySpendingInfo(EmptyInputInfo(outPoint, Bitcoins.one + Bitcoins.one),
-                        HashType.sigHashAll)),
+      NewSpendingInfoFull(EmptyInputInfo(outPoint, Bitcoins.one + Bitcoins.one),
+                          Vector.empty,
+                          HashType.sigHashAll)),
     SatoshisPerVirtualByte(Satoshis.one),
     EmptyScriptPubKey,
     RegTest

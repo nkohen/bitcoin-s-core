@@ -1,7 +1,7 @@
 package org.bitcoins.core.psbt
 
 import org.bitcoins.core.psbt.OutputPSBTRecord.{RedeemScript, WitnessScript}
-import org.bitcoins.core.wallet.utxo.BitcoinUTXOSpendingInfoFull
+import org.bitcoins.core.wallet.utxo.NewSpendingInfo
 import org.bitcoins.testkit.core.gen._
 import org.bitcoins.testkit.util.BitcoinSAsyncTest
 
@@ -94,7 +94,7 @@ class PSBTTest extends BitcoinSAsyncTest {
       psbtWithBuilderF.flatMap {
         case (psbtNoSigs, utxos) =>
           val infos = utxos.toVector.zipWithIndex.map {
-            case (utxo: BitcoinUTXOSpendingInfoFull, index) =>
+            case (utxo: NewSpendingInfo.AnyFull, index) =>
               (index, utxo)
           }
           val signedPSBTF = infos.foldLeft(Future.successful(psbtNoSigs)) {
