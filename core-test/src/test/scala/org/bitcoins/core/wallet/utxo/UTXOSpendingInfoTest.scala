@@ -34,119 +34,6 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
 
   behavior of "UTXOSpendingInfo"
 
-  it must "fail given a bad P2SH script" in {
-    val privKey = ECPrivateKey.freshPrivateKey
-    val pubKey = privKey.publicKey
-    val p2sh = P2SHScriptPubKey(P2PKScriptPubKey(pubKey))
-    val (creditingTx, _) = TransactionGenerators.buildCreditingTransaction(p2sh)
-    val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-
-    assertThrows[IllegalArgumentException] {
-      P2SHNoNestSpendingInfoFull(
-        outPoint = outPoint,
-        amount = CurrencyUnits.zero,
-        scriptPubKey = p2sh,
-        signersWithPossibleExtra = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        redeemScript = randomRawSPK,
-        conditionalPath = ConditionalPath.NoConditionsLeft
-      )
-    }
-  }
-
-  it must "fail given a bad P2SH-P2WPKH redeem script" in {
-    val privKey = ECPrivateKey.freshPrivateKey
-    val pubKey = privKey.publicKey
-
-    val p2sh = P2SHScriptPubKey(P2WPKHWitnessSPKV0(pubKey))
-    val (creditingTx, _) = TransactionGenerators.buildCreditingTransaction(p2sh)
-    val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-
-    assertThrows[IllegalArgumentException] {
-      P2SHNestedSegwitV0UTXOSpendingInfoFull(
-        outPoint = outPoint,
-        amount = CurrencyUnits.zero,
-        scriptPubKey = p2sh,
-        signersWithPossibleExtra = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        redeemScript = randomWitnessSPK,
-        scriptWitness = P2WPKHWitnessV0(pubKey),
-        conditionalPath = ConditionalPath.NoConditionsLeft
-      )
-    }
-  }
-
-  it must "fail given a bad P2SH-P2WPKH script witness" in {
-    val privKey = ECPrivateKey.freshPrivateKey
-    val pubKey = privKey.publicKey
-
-    val p2sh = P2SHScriptPubKey(P2WPKHWitnessSPKV0(pubKey))
-    val creditingOutput = TransactionOutput(CurrencyUnits.zero, p2sh)
-    val creditingTx = BaseTransaction(version =
-                                        TransactionConstants.validLockVersion,
-                                      inputs = Nil,
-                                      outputs = Vector(creditingOutput),
-                                      lockTime = TransactionConstants.lockTime)
-    val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-
-    assertThrows[IllegalArgumentException] {
-      P2SHNestedSegwitV0UTXOSpendingInfoFull(
-        outPoint = outPoint,
-        amount = CurrencyUnits.zero,
-        scriptPubKey = p2sh,
-        signersWithPossibleExtra = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        redeemScript = P2WPKHWitnessSPKV0(pubKey),
-        scriptWitness = P2WPKHWitnessV0(ECPrivateKey.freshPrivateKey.publicKey),
-        conditionalPath = ConditionalPath.NoConditionsLeft
-      )
-    }
-  }
-
-  it must "fail given a bad P2SH-P2WSH redeem script" in {
-    val privKey = ECPrivateKey.freshPrivateKey
-    val pubKey = privKey.publicKey
-
-    val p2sh = P2SHScriptPubKey(P2WSHWitnessSPKV0(P2PKScriptPubKey(pubKey)))
-    val (creditingTx, _) = TransactionGenerators.buildCreditingTransaction(p2sh)
-    val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-
-    assertThrows[IllegalArgumentException] {
-      P2SHNestedSegwitV0UTXOSpendingInfoFull(
-        outPoint = outPoint,
-        amount = CurrencyUnits.zero,
-        scriptPubKey = p2sh,
-        signersWithPossibleExtra = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        redeemScript = randomWitnessSPK,
-        scriptWitness = P2WSHWitnessV0(P2PKScriptPubKey(pubKey)),
-        conditionalPath = ConditionalPath.NoConditionsLeft
-      )
-    }
-  }
-
-  it must "fail given a bad P2SH-P2WSH script witness" in {
-    val privKey = ECPrivateKey.freshPrivateKey
-    val pubKey = privKey.publicKey
-
-    val p2sh = P2SHScriptPubKey(P2WSHWitnessSPKV0(P2PKScriptPubKey(pubKey)))
-    val (creditingTx, _) = TransactionGenerators.buildCreditingTransaction(p2sh)
-    val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-
-    assertThrows[IllegalArgumentException] {
-      P2SHNestedSegwitV0UTXOSpendingInfoFull(
-        outPoint = outPoint,
-        amount = CurrencyUnits.zero,
-        scriptPubKey = p2sh,
-        signersWithPossibleExtra = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        redeemScript = P2WSHWitnessSPKV0(P2PKScriptPubKey(pubKey)),
-        scriptWitness = P2WSHWitnessV0(randomRawSPK),
-        conditionalPath = ConditionalPath.NoConditionsLeft
-      )
-    }
-  }
-
   it must "fail given a bad P2WPKH script witness" in {
     val privKey = ECPrivateKey.freshPrivateKey
     val pubKey = privKey.publicKey
@@ -283,7 +170,7 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
     val (creditingTx, _) = TransactionGenerators.buildCreditingTransaction(p2sh)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
-    assertThrows[UnsupportedOperationException] {
+    assertThrows[RuntimeException] {
       BitcoinUTXOSpendingInfoFull(
         outPoint = outPoint,
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
@@ -365,13 +252,15 @@ class UTXOSpendingInfoTest extends BitcoinSAsyncTest {
 
     val expectedSpendingInfo =
       UnassignedSegwitNativeUTXOSpendingInfo(
-        outPoint = outPoint,
-        amount = CurrencyUnits.zero,
-        scriptPubKey = unassingedWitnessSPK,
+        UnassignedSegwitNativeInputInfo(
+          outPoint = outPoint,
+          amount = CurrencyUnits.zero,
+          scriptPubKey = unassingedWitnessSPK,
+          scriptWitness = EmptyScriptWitness,
+          conditionalPath = ConditionalPath.NoConditionsLeft
+        ),
         signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        scriptWitness = EmptyScriptWitness,
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        hashType = HashType.sigHashAll
       )
 
     assert(spendingInfo == expectedSpendingInfo)

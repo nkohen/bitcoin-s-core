@@ -4,6 +4,7 @@ import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.protocol.script.{
   ConditionalScriptPubKey,
   EmptyScriptPubKey,
+  EmptyScriptWitness,
   LockTimeScriptPubKey,
   MultiSignatureScriptPubKey,
   NonStandardScriptPubKey,
@@ -21,6 +22,7 @@ import org.bitcoins.core.protocol.script.{
   ScriptWitnessV0,
   UnassignedWitnessScriptPubKey,
   WitnessCommitment,
+  WitnessScriptPubKey,
   WitnessScriptPubKeyV0
 }
 import org.bitcoins.core.protocol.transaction.{
@@ -106,12 +108,14 @@ object InputInfo {
                 P2SHNestedSegwitV0InputInfo(outPoint,
                                             output.value,
                                             witness,
-                                            conditionalPath)
+                                            conditionalPath,
+                                            p2pkhPreImageOpt)
               case nonWitnessSPK: RawScriptPubKey =>
                 P2SHNoNestInputInfo(outPoint,
                                     output.value,
                                     nonWitnessSPK,
-                                    conditionalPath)
+                                    conditionalPath,
+                                    p2pkhPreImageOpt)
               case _: P2SHScriptPubKey =>
                 throw new IllegalArgumentException("Cannot have nested P2SH")
               case _: UnassignedWitnessScriptPubKey =>
@@ -132,10 +136,15 @@ object InputInfo {
         SegwitV0NativeInputInfo(outPoint,
                                 output.value,
                                 witness,
-                                conditionalPath)
-      case _: UnassignedWitnessScriptPubKey =>
-        throw new UnsupportedOperationException(
-          "Only v0 Segwit is currently supported")
+                                conditionalPath,
+                                p2pkhPreImageOpt)
+      case wspk: UnassignedWitnessScriptPubKey =>
+        UnassignedSegwitNativeInputInfo(
+          outPoint,
+          output.value,
+          wspk,
+          scriptWitnessOpt.getOrElse(EmptyScriptWitness),
+          conditionalPath)
       case rawSPK: RawScriptPubKey =>
         RawInputInfo(outPoint,
                      output.value,
@@ -147,6 +156,8 @@ object InputInfo {
 }
 
 sealed trait RawInputInfo extends InputInfo {
+  override def scriptPubKey: RawScriptPubKey
+
   override val redeemScriptOpt: Option[ScriptPubKey] = None
 
   override val scriptWitnessOpt: Option[ScriptWitness] = None
@@ -188,15 +199,32 @@ object RawInputInfo {
       case multiSig: MultiSignatureScriptPubKey =>
         MultiSignatureInputInfo(outPoint, amount, multiSig)
       case conditional: ConditionalScriptPubKey =>
-        ConditionalInputInfo(outPoint, amount, conditional, conditionalPath)
+        ConditionalInputInfo(outPoint,
+                             amount,
+                             conditional,
+                             conditionalPath,
+                             p2pkhPreImageOpt)
       case lockTime: LockTimeScriptPubKey =>
-        LockTimeInputInfo(outPoint, amount, lockTime, conditionalPath)
-      case _: NonStandardScriptPubKey | EmptyScriptPubKey |
-          _: WitnessCommitment =>
+        LockTimeInputInfo(outPoint,
+                          amount,
+                          lockTime,
+                          conditionalPath,
+                          p2pkhPreImageOpt)
+      case EmptyScriptPubKey =>
+        EmptyInputInfo(outPoint, amount)
+      case _: NonStandardScriptPubKey | _: WitnessCommitment =>
         throw new UnsupportedOperationException(
           s"Currently unsupported ScriptPubKey $scriptPubKey")
     }
   }
+}
+
+case class EmptyInputInfo(outPoint: TransactionOutPoint, amount: CurrencyUnit)
+    extends RawInputInfo {
+  override def scriptPubKey: EmptyScriptPubKey.type = EmptyScriptPubKey
+  override def conditionalPath: ConditionalPath =
+    ConditionalPath.NoConditionsLeft
+  override def p2pkhPreImage: Option[ECPublicKey] = None
 }
 
 case class P2PKInputInfo(
@@ -255,10 +283,9 @@ case class ConditionalInputInfo(
     outPoint: TransactionOutPoint,
     amount: CurrencyUnit,
     scriptPubKey: ConditionalScriptPubKey,
-    conditionalPath: ConditionalPath)
+    conditionalPath: ConditionalPath,
+    p2pkhPreImage: Option[ECPublicKey] = None)
     extends RawInputInfo {
-  override def p2pkhPreImage: Option[ECPublicKey] = None
-
   lazy val (condition: Boolean, nextConditionalPath: ConditionalPath) =
     conditionalPath match {
       case ConditionalPath.ConditionTrue(nextCondition) =>
@@ -276,7 +303,11 @@ case class ConditionalInputInfo(
       scriptPubKey.falseSPK
     }
 
-    RawInputInfo(outPoint, amount, nestedSPK, nextConditionalPath)
+    RawInputInfo(outPoint,
+                 amount,
+                 nestedSPK,
+                 nextConditionalPath,
+                 p2pkhPreImage)
   }
 }
 
@@ -284,15 +315,16 @@ case class LockTimeInputInfo(
     outPoint: TransactionOutPoint,
     amount: CurrencyUnit,
     scriptPubKey: LockTimeScriptPubKey,
-    conditionalPath: ConditionalPath
+    conditionalPath: ConditionalPath,
+    p2pkhPreImage: Option[ECPublicKey] = None
 ) extends RawInputInfo {
-  override def p2pkhPreImage: Option[ECPublicKey] = None
 
   val nestedInputInfo: RawInputInfo = RawInputInfo(
     outPoint,
     amount,
     scriptPubKey.nestedScriptPubKey,
-    conditionalPath)
+    conditionalPath,
+    p2pkhPreImage)
 }
 
 sealed trait SegwitV0NativeInputInfo extends InputInfo {
@@ -308,12 +340,17 @@ object SegwitV0NativeInputInfo {
       outPoint: TransactionOutPoint,
       amount: CurrencyUnit,
       scriptWitness: ScriptWitnessV0,
-      conditionalPath: ConditionalPath): SegwitV0NativeInputInfo = {
+      conditionalPath: ConditionalPath,
+      p2pkhPreImage: Option[ECPublicKey] = None): SegwitV0NativeInputInfo = {
     scriptWitness match {
       case p2wpkh: P2WPKHWitnessV0 =>
         P2WPKHV0InputInfo(outPoint, amount, p2wpkh.pubKey)
       case p2wsh: P2WSHWitnessV0 =>
-        P2WSHV0InputInfo(outPoint, amount, p2wsh, conditionalPath)
+        P2WSHV0InputInfo(outPoint,
+                         amount,
+                         p2wsh,
+                         conditionalPath,
+                         p2pkhPreImage)
     }
   }
 }
@@ -337,15 +374,32 @@ case class P2WSHV0InputInfo(
     outPoint: TransactionOutPoint,
     amount: CurrencyUnit,
     scriptWitness: P2WSHWitnessV0,
-    conditionalPath: ConditionalPath)
+    conditionalPath: ConditionalPath,
+    override val p2pkhPreImage: Option[ECPublicKey] = None)
     extends SegwitV0NativeInputInfo {
   override def scriptPubKey: P2WSHWitnessSPKV0 =
     P2WSHWitnessSPKV0(scriptWitness.redeemScript)
 
+  val nestedInputInfo: RawInputInfo =
+    RawInputInfo(outPoint,
+                 amount,
+                 scriptWitness.redeemScript,
+                 conditionalPath,
+                 p2pkhPreImage)
+}
+
+case class UnassignedSegwitNativeInputInfo(
+    outPoint: TransactionOutPoint,
+    amount: CurrencyUnit,
+    scriptPubKey: WitnessScriptPubKey,
+    scriptWitness: ScriptWitness,
+    conditionalPath: ConditionalPath)
+    extends InputInfo {
   override def p2pkhPreImage: Option[ECPublicKey] = None
 
-  val nestedInputInfo: RawInputInfo =
-    RawInputInfo(outPoint, amount, scriptWitness.redeemScript, conditionalPath)
+  override def redeemScriptOpt: Option[ScriptPubKey] = None
+
+  override def scriptWitnessOpt: Option[ScriptWitness] = Some(scriptWitness)
 }
 
 sealed trait P2SHInputInfo extends InputInfo {
@@ -364,19 +418,21 @@ case class P2SHNoNestInputInfo(
     outPoint: TransactionOutPoint,
     amount: CurrencyUnit,
     redeemScript: RawScriptPubKey,
-    conditionalPath: ConditionalPath)
+    conditionalPath: ConditionalPath,
+    override val p2pkhPreImage: Option[ECPublicKey] = None)
     extends P2SHInputInfo {
   override val scriptWitnessOpt: Option[ScriptWitnessV0] = None
 
   override val nestedInputInfo: RawInputInfo =
-    RawInputInfo(outPoint, amount, redeemScript, conditionalPath)
+    RawInputInfo(outPoint, amount, redeemScript, conditionalPath, p2pkhPreImage)
 }
 
 case class P2SHNestedSegwitV0InputInfo(
     outPoint: TransactionOutPoint,
     amount: CurrencyUnit,
     scriptWitness: ScriptWitnessV0,
-    conditionalPath: ConditionalPath)
+    conditionalPath: ConditionalPath,
+    override val p2pkhPreImage: Option[ECPublicKey] = None)
     extends P2SHInputInfo {
   override def scriptWitnessOpt: Option[ScriptWitnessV0] = Some(scriptWitness)
 
@@ -386,5 +442,9 @@ case class P2SHNestedSegwitV0InputInfo(
   }
 
   override val nestedInputInfo: SegwitV0NativeInputInfo =
-    SegwitV0NativeInputInfo(outPoint, amount, scriptWitness, conditionalPath)
+    SegwitV0NativeInputInfo(outPoint,
+                            amount,
+                            scriptWitness,
+                            conditionalPath,
+                            p2pkhPreImage)
 }

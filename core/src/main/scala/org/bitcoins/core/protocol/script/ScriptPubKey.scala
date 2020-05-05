@@ -17,7 +17,11 @@ import org.bitcoins.core.script.locktime.{
 import org.bitcoins.core.script.reserved.UndefinedOP_NOP
 import org.bitcoins.core.script.stack.{OP_DROP, OP_DUP}
 import org.bitcoins.core.util._
-import org.bitcoins.core.wallet.utxo.{ConditionalPath, InputInfo}
+import org.bitcoins.core.wallet.utxo.{
+  ConditionalInputInfo,
+  ConditionalPath,
+  InputInfo
+}
 import org.bitcoins.crypto.{
   CryptoUtil,
   DoubleSha256Digest,
@@ -661,14 +665,20 @@ sealed trait ConditionalScriptPubKey extends RawScriptPubKey {
   }
 
   override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
-    inputInfo.conditionalPath match {
-      case ConditionalPath.NoConditionsLeft =>
+    inputInfo match {
+      case inputInfo: ConditionalInputInfo =>
+        inputInfo.conditionalPath match {
+          case ConditionalPath.NoConditionsLeft =>
+            throw new IllegalArgumentException(
+              "Input info did not contain valid conditional information")
+          case ConditionalPath.ConditionTrue(nextCondition) =>
+            trueSPK.pubKeysFor(inputInfo.copy(conditionalPath = nextCondition))
+          case ConditionalPath.ConditionFalse(nextCondition) =>
+            falseSPK.pubKeysFor(inputInfo.copy(conditionalPath = nextCondition))
+        }
+      case _: InputInfo =>
         throw new IllegalArgumentException(
-          "Input info did not contain valid conditional information")
-      case ConditionalPath.ConditionTrue(nextCondition) =>
-        trueSPK.pubKeysFor(inputInfo.copy(conditionalPath = nextCondition))
-      case ConditionalPath.ConditionFalse(nextCondition) =>
-        falseSPK.pubKeysFor(inputInfo.copy(conditionalPath = nextCondition))
+          s"ConditionalInputInfo required for $this, got $inputInfo")
     }
   }
 }

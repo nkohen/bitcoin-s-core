@@ -17,8 +17,10 @@ import org.bitcoins.core.wallet.utxo.{
   BitcoinUTXOSpendingInfoFull,
   BitcoinUTXOSpendingInfoSingle,
   ConditionalPath,
+  LockTimeInputInfo,
   LockTimeSpendingInfoFull,
   UTXOSpendingInfo,
+  UnassignedSegwitNativeInputInfo,
   UnassignedSegwitNativeUTXOSpendingInfo
 }
 import org.bitcoins.crypto.{DoubleSha256DigestBE, ECPrivateKey}
@@ -235,7 +237,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       outputs = Vector(creditingOutput),
                                       lockTime = tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-    assertThrows[IllegalArgumentException] {
+    assertThrows[RuntimeException] {
       BitcoinUTXOSpendingInfoFull(
         outPoint = outPoint,
         output = creditingOutput,
@@ -247,7 +249,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       )
     }
 
-    assertThrows[IllegalArgumentException] {
+    assertThrows[RuntimeException] {
       BitcoinUTXOSpendingInfoSingle(
         outPoint = outPoint,
         output = creditingOutput,
@@ -438,12 +440,13 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                        P2PKScriptPubKey(fundingPrivKey.publicKey))
 
     val cltvSpendingInfo = LockTimeSpendingInfoFull(
-      TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.zero),
-      Bitcoins.one,
-      cltvSPK,
+      LockTimeInputInfo(TransactionOutPoint(DoubleSha256DigestBE.empty,
+                                            UInt32.zero),
+                        Bitcoins.one,
+                        cltvSPK,
+                        ConditionalPath.NoConditionsLeft),
       Vector(fundingPrivKey),
-      HashType.sigHashAll,
-      ConditionalPath.NoConditionsLeft
+      HashType.sigHashAll
     )
 
     val txBuilderF =
@@ -472,12 +475,13 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                        P2PKScriptPubKey(fundingPrivKey.publicKey))
 
     val cltvSpendingInfo = LockTimeSpendingInfoFull(
-      TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.zero),
-      Bitcoins.one,
-      cltvSPK,
+      LockTimeInputInfo(TransactionOutPoint(DoubleSha256DigestBE.empty,
+                                            UInt32.zero),
+                        Bitcoins.one,
+                        cltvSPK,
+                        ConditionalPath.NoConditionsLeft),
       Vector(fundingPrivKey),
-      HashType.sigHashAll,
-      ConditionalPath.NoConditionsLeft
+      HashType.sigHashAll
     )
 
     val txBuilderF =
@@ -511,21 +515,23 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                        P2PKScriptPubKey(fundingPrivKey2.publicKey))
 
     val cltvSpendingInfo1 = LockTimeSpendingInfoFull(
-      TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.zero),
-      Bitcoins.one,
-      cltvSPK1,
+      LockTimeInputInfo(TransactionOutPoint(DoubleSha256DigestBE.empty,
+                                            UInt32.zero),
+                        Bitcoins.one,
+                        cltvSPK1,
+                        ConditionalPath.NoConditionsLeft),
       Vector(fundingPrivKey1),
-      HashType.sigHashAll,
-      ConditionalPath.NoConditionsLeft
+      HashType.sigHashAll
     )
 
     val cltvSpendingInfo2 = LockTimeSpendingInfoFull(
-      TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.one),
-      Bitcoins.one,
-      cltvSPK2,
+      LockTimeInputInfo(TransactionOutPoint(DoubleSha256DigestBE.empty,
+                                            UInt32.one),
+                        Bitcoins.one,
+                        cltvSPK2,
+                        ConditionalPath.NoConditionsLeft),
       Vector(fundingPrivKey2),
-      HashType.sigHashAll,
-      ConditionalPath.NoConditionsLeft
+      HashType.sigHashAll
     )
 
     val txBuilderF =
@@ -551,13 +557,15 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
 
     val spendingInfo =
       UnassignedSegwitNativeUTXOSpendingInfo(
-        outPoint = outPoint,
-        amount = Bitcoins.one + CurrencyUnits.oneMBTC,
-        scriptPubKey = P2WPKHWitnessSPKV0(pubKey),
+        UnassignedSegwitNativeInputInfo(
+          outPoint = outPoint,
+          amount = Bitcoins.one + CurrencyUnits.oneMBTC,
+          scriptPubKey = P2WPKHWitnessSPKV0(pubKey),
+          scriptWitness = P2WPKHWitnessV0(pubKey),
+          conditionalPath = ConditionalPath.NoConditionsLeft
+        ),
         signers = Vector(privKey),
-        hashType = HashType.sigHashAll,
-        scriptWitness = P2WPKHWitnessV0(pubKey),
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        hashType = HashType.sigHashAll
       )
 
     val txBuilderF = BitcoinTxBuilder(
