@@ -324,7 +324,8 @@ sealed abstract class CreditingTxGen {
                     creditingTx.outputs(outputIndex).scriptPubKey),
                   Some(spk),
                   Some(wit),
-                  ConditionalPath.NoConditionsLeft
+                  ConditionalPath.NoConditionsLeft,
+                  signers.headOption.map(_.publicKey)
                 ),
                 signers,
                 hashType

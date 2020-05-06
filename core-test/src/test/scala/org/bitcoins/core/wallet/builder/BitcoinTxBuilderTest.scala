@@ -281,7 +281,8 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                   creditingOutput,
                   None,
                   Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                  conditionalPath = ConditionalPath.NoConditionsLeft),
+                  conditionalPath = ConditionalPath.NoConditionsLeft,
+                  Some(privKey.publicKey)),
         privKey,
         HashType.sigHashAll
       )
@@ -293,7 +294,8 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                   creditingOutput,
                   None,
                   Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                  conditionalPath = ConditionalPath.NoConditionsLeft),
+                  conditionalPath = ConditionalPath.NoConditionsLeft,
+                  Some(privKey.publicKey)),
         privKey,
         HashType.sigHashAll
       )
@@ -420,7 +422,8 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                   creditingOutput,
                   None,
                   Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                  conditionalPath = ConditionalPath.NoConditionsLeft),
+                  conditionalPath = ConditionalPath.NoConditionsLeft,
+                  Some(privKey.publicKey)),
         privKey,
         HashType.sigHashAll
       )
@@ -432,7 +435,8 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                   creditingOutput,
                   None,
                   Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                  conditionalPath = ConditionalPath.NoConditionsLeft),
+                  conditionalPath = ConditionalPath.NoConditionsLeft,
+                  Some(privKey.publicKey)),
         privKey,
         HashType.sigHashAll
       )

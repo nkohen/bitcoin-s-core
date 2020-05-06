@@ -188,7 +188,9 @@ sealed trait SpendingInfoDb extends DbRowAutoInc[SpendingInfoDb] {
         output,
         redeemScriptOpt,
         scriptWitnessOpt,
-        ConditionalPath.NoConditionsLeft), // TODO: Migrate to add the Column for this (default: NoConditionsLeft)
+        ConditionalPath.NoConditionsLeft, // TODO: Migrate to add the Column for this (default: NoConditionsLeft)
+        Some(sign.publicKey)
+      ),
       Vector(sign),
       hashType
     )

@@ -502,7 +502,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
     * @param conditionalPath Path that should be used for the script
     * @return A corresponding NewSpendingInfoFull
     */
-  def toNewSpendingInfoUsingSigners(
+  def toUTXOSatisfyingInfoUsingSigners(
       txIn: TransactionInput,
       signers: Vector[Sign],
       conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): UTXOSatisfyingInfo[
@@ -510,7 +510,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
     require(!isFinalized, s"Cannot update an InputPSBTMap that is finalized")
 
     val infoSingle =
-      toNewSpendingInfoSingle(txIn, signers.head, conditionalPath)
+      toUTXOSigningInfo(txIn, signers.head, conditionalPath)
 
     UTXOSatisfyingInfo(
       infoSingle.inputInfo,
@@ -519,7 +519,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
     )
   }
 
-  def toNewSpendingInfoSingle(
+  def toUTXOSigningInfo(
       txIn: TransactionInput,
       signer: Sign,
       conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): UTXOSigningInfo[
