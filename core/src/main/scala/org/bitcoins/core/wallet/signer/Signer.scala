@@ -299,7 +299,7 @@ object BitcoinSigner extends SignerUtils {
     val spendingInfo =
       psbt
         .inputMaps(inputIndex)
-        .toNewSpendingInfoSingle(tx.inputs(inputIndex), signer, conditionalPath)
+        .toUTXOSigningInfo(tx.inputs(inputIndex), signer, conditionalPath)
 
     val txToSign = spendingInfo.output.scriptPubKey match {
       case _: WitnessScriptPubKey =>

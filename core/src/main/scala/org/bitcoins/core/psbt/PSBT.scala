@@ -155,9 +155,9 @@ case class PSBT(
     require(index >= 0 && index < inputMaps.size,
             s"Index must be within 0 and the number of inputs, got: $index")
     inputMaps(index)
-      .toNewSpendingInfoUsingSigners(transaction.inputs(index),
-                                     signers,
-                                     conditionalPath)
+      .toUTXOSatisfyingInfoUsingSigners(transaction.inputs(index),
+                                        signers,
+                                        conditionalPath)
   }
 
   /**
