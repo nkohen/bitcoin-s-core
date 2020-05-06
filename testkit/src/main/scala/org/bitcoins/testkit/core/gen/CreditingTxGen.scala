@@ -200,7 +200,8 @@ sealed abstract class CreditingTxGen {
           updatedOutput,
           Some(redeemScript),
           o.scriptWitnessOpt,
-          computeAllTrueConditionalPath(redeemScript, None, o.scriptWitnessOpt)
+          computeAllTrueConditionalPath(redeemScript, None, o.scriptWitnessOpt),
+          o.signers.headOption.map(_.publicKey)
         ),
         o.signers,
         hashType
@@ -221,11 +222,14 @@ sealed abstract class CreditingTxGen {
             val csvSPK = CLTVScriptPubKey(scriptNum, oldOutput.scriptPubKey)
             val updatedOutput = TransactionOutput(oldOutput.value, csvSPK)
             NewSpendingInfoFull(
-              InputInfo(TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
-                        updatedOutput,
-                        o.redeemScriptOpt,
-                        o.scriptWitnessOpt,
-                        ConditionalPath.NoConditionsLeft),
+              InputInfo(
+                TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
+                updatedOutput,
+                o.redeemScriptOpt,
+                o.scriptWitnessOpt,
+                ConditionalPath.NoConditionsLeft,
+                o.signers.headOption.map(_.publicKey)
+              ),
               o.signers,
               hashType
             )
@@ -245,11 +249,14 @@ sealed abstract class CreditingTxGen {
             val csvSPK = CSVScriptPubKey(scriptNum, oldOutput.scriptPubKey)
             val updatedOutput = TransactionOutput(oldOutput.value, csvSPK)
             NewSpendingInfoFull(
-              InputInfo(TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
-                        updatedOutput,
-                        o.redeemScriptOpt,
-                        o.scriptWitnessOpt,
-                        ConditionalPath.NoConditionsLeft),
+              InputInfo(
+                TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
+                updatedOutput,
+                o.redeemScriptOpt,
+                o.scriptWitnessOpt,
+                ConditionalPath.NoConditionsLeft,
+                o.signers.headOption.map(_.publicKey)
+              ),
               o.signers,
               hashType
             )
@@ -274,13 +281,13 @@ sealed abstract class CreditingTxGen {
       .suchThat(output =>
         !ScriptGenerators.redeemScriptTooBig(output.output.scriptPubKey))
       .flatMap {
-        case NewSpendingInfoFull(info, signer, _) =>
+        case NewSpendingInfoFull(info, signers, _) =>
           val spk = info.scriptPubKey
           spk match {
             case rspk: RawScriptPubKey =>
               val scriptWit = P2WSHWitnessV0(rspk)
               val witSPK = P2WSHWitnessSPKV0(rspk)
-              build(witSPK, signer, None, Some(scriptWit))
+              build(witSPK, signers, None, Some(scriptWit))
             case _ =>
               throw new IllegalArgumentException(
                 "nonP2WSHOutput created a non RawScriptPubKey")
@@ -389,7 +396,8 @@ sealed abstract class CreditingTxGen {
               TransactionOutput(old.value, spk),
               redeemScript,
               scriptWitness,
-              computeAllTrueConditionalPath(spk, redeemScript, scriptWitness)
+              computeAllTrueConditionalPath(spk, redeemScript, scriptWitness),
+              signers.headOption.map(_.publicKey)
             ),
             signers.toVector,
             hashType

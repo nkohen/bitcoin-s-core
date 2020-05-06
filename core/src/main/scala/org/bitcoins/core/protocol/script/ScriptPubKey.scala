@@ -20,7 +20,9 @@ import org.bitcoins.core.util._
 import org.bitcoins.core.wallet.utxo.{
   ConditionalInputInfo,
   ConditionalPath,
-  InputInfo
+  InputInfo,
+  P2SHInputInfo,
+  P2WSHV0InputInfo
 }
 import org.bitcoins.crypto.{
   BytesUtil,
@@ -303,11 +305,13 @@ object MultiSignatureScriptPubKey
 sealed trait P2SHScriptPubKey extends NonWitnessScriptPubKey {
 
   override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
-    require(inputInfo.redeemScriptOpt.exists(spk =>
-              CryptoUtil.sha256Hash160(spk.asmBytes) == scriptHash),
-            "Input info did not contain valid redeem script")
-
-    inputInfo.redeemScriptOpt.get.pubKeysFor(inputInfo)
+    inputInfo match {
+      case inputInfo: P2SHInputInfo =>
+        inputInfo.nestedInputInfo.pubKeys
+      case _: InputInfo =>
+        throw new IllegalArgumentException(
+          s"P2SHInputInfo required for $this, got $inputInfo")
+    }
   }
 
   /** The hash of the script for which this scriptPubKey is being created from */
@@ -668,15 +672,7 @@ sealed trait ConditionalScriptPubKey extends RawScriptPubKey {
   override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
     inputInfo match {
       case inputInfo: ConditionalInputInfo =>
-        inputInfo.conditionalPath match {
-          case ConditionalPath.NoConditionsLeft =>
-            throw new IllegalArgumentException(
-              "Input info did not contain valid conditional information")
-          case ConditionalPath.ConditionTrue(nextCondition) =>
-            trueSPK.pubKeysFor(inputInfo.copy(conditionalPath = nextCondition))
-          case ConditionalPath.ConditionFalse(nextCondition) =>
-            falseSPK.pubKeysFor(inputInfo.copy(conditionalPath = nextCondition))
-        }
+        inputInfo.nestedInputInfo.pubKeys
       case _: InputInfo =>
         throw new IllegalArgumentException(
           s"ConditionalInputInfo required for $this, got $inputInfo")
@@ -1267,16 +1263,12 @@ sealed abstract class P2WSHWitnessSPKV0 extends WitnessScriptPubKeyV0 {
   override def toString = s"wsh(${scriptHash.hex})"
 
   override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
-    inputInfo.scriptWitnessOpt match {
-      case None =>
-        throw new IllegalArgumentException("Input info did not contain witness")
-      case Some(wit: P2WSHWitnessV0) =>
-        require(CryptoUtil.sha256(wit.redeemScript.asmBytes) == scriptHash,
-                "Input info did not contain valid p2wsh witness")
-        wit.redeemScript.pubKeysFor(inputInfo)
-      case Some(wit) =>
+    inputInfo match {
+      case inputInfo: P2WSHV0InputInfo =>
+        inputInfo.nestedInputInfo.pubKeys
+      case _: InputInfo =>
         throw new IllegalArgumentException(
-          s"Input info did not contain p2wsh wintess, got $wit")
+          s"P2WSHV0InputInfo required for $this, got $inputInfo")
     }
   }
 }

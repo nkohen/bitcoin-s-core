@@ -264,7 +264,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
       pubKeys = privateKeys.map(_.publicKey)
       multiSignatureScriptPubKey = MultiSignatureScriptPubKey(requiredSigs,
                                                               pubKeys)
-    } yield (multiSignatureScriptPubKey, privateKeys)
+    } yield (multiSignatureScriptPubKey, privateKeys.take(requiredSigs))
 
   def smallMultiSigScriptPubKey: Gen[
     (MultiSignatureScriptPubKey, Seq[ECPrivateKey])] =
@@ -273,7 +273,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
       pubKeys = privateKeys.map(_.publicKey)
       multiSignatureScriptPubKey = MultiSignatureScriptPubKey(requiredSigs,
                                                               pubKeys)
-    } yield (multiSignatureScriptPubKey, privateKeys)
+    } yield (multiSignatureScriptPubKey, privateKeys.take(requiredSigs))
 
   /** Generates a random P2SHScriptPubKey as well as it's corresponding private keys and redeem script */
   def p2shScriptPubKey: Gen[
@@ -673,7 +673,8 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
       MultiSignatureScriptPubKey,
       Seq[ECPrivateKey])] =
     for {
-      (privateKeys, requiredSigs) <- CryptoGenerators.privateKeySeqWithRequiredSigs
+      (privateKeysWithExtra, requiredSigs) <- CryptoGenerators.privateKeySeqWithRequiredSigs
+      privateKeys = privateKeysWithExtra.take(requiredSigs)
       hashType <- CryptoGenerators.hashType
       publicKeys = privateKeys.map(_.publicKey)
       multiSigScriptPubKey = MultiSignatureScriptPubKey(requiredSigs,

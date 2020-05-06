@@ -52,11 +52,14 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       lockTime = tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
     val utxo = NewSpendingInfoFull(
-      InputInfo(outPoint = outPoint,
-                output = creditingOutput,
-                redeemScriptOpt = None,
-                scriptWitnessOpt = None,
-                conditionalPath = ConditionalPath.NoConditionsLeft),
+      InputInfo(
+        outPoint = outPoint,
+        output = creditingOutput,
+        redeemScriptOpt = None,
+        scriptWitnessOpt = None,
+        conditionalPath = ConditionalPath.NoConditionsLeft,
+        p2pkhPreImageOpt = Some(privKey.publicKey)
+      ),
       signer = privKey,
       hashType = HashType.sigHashAll
     )
@@ -93,11 +96,14 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       lockTime = tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
     val utxo = NewSpendingInfoFull(
-      InputInfo(outPoint = outPoint,
-                output = creditingOutput,
-                redeemScriptOpt = None,
-                scriptWitnessOpt = None,
-                conditionalPath = ConditionalPath.NoConditionsLeft),
+      InputInfo(
+        outPoint = outPoint,
+        output = creditingOutput,
+        redeemScriptOpt = None,
+        scriptWitnessOpt = None,
+        conditionalPath = ConditionalPath.NoConditionsLeft,
+        p2pkhPreImageOpt = Some(privKey.publicKey)
+      ),
       signer = privKey,
       hashType = HashType.sigHashAll
     )
@@ -124,11 +130,14 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       lockTime = tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
     val utxo = NewSpendingInfoFull(
-      InputInfo(outPoint = outPoint,
-                output = creditingOutput,
-                redeemScriptOpt = None,
-                scriptWitnessOpt = None,
-                conditionalPath = ConditionalPath.NoConditionsLeft),
+      InputInfo(
+        outPoint = outPoint,
+        output = creditingOutput,
+        redeemScriptOpt = None,
+        scriptWitnessOpt = None,
+        conditionalPath = ConditionalPath.NoConditionsLeft,
+        p2pkhPreImageOpt = Some(privKey.publicKey)
+      ),
       signer = privKey,
       hashType = HashType.sigHashAll
     )
@@ -159,7 +168,8 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                     None,
                                     None,
                                     conditionalPath =
-                                      ConditionalPath.NoConditionsLeft),
+                                      ConditionalPath.NoConditionsLeft,
+                                    Some(privKey.publicKey)),
                           privKey,
                           HashType.sigHashAll)
     val utxoMap: UTXOMap = Map(outPoint -> utxo)
@@ -192,11 +202,14 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
     val utxo = NewSpendingInfoFull(
-      InputInfo(outPoint = outPoint,
-                output = creditingOutput,
-                redeemScriptOpt = None,
-                scriptWitnessOpt = None,
-                conditionalPath = ConditionalPath.NoConditionsLeft),
+      InputInfo(
+        outPoint = outPoint,
+        output = creditingOutput,
+        redeemScriptOpt = None,
+        scriptWitnessOpt = None,
+        conditionalPath = ConditionalPath.NoConditionsLeft,
+        p2pkhPreImageOpt = Some(privKey.publicKey)
+      ),
       signer = privKey,
       hashType = HashType.sigHashAll
     )
@@ -302,7 +315,8 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                 creditingOutput,
                 None,
                 Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                conditionalPath = ConditionalPath.NoConditionsLeft),
+                conditionalPath = ConditionalPath.NoConditionsLeft,
+                Some(privKey.publicKey)),
       privKey,
       HashType.sigHashAll
     )
@@ -337,7 +351,8 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
         output = creditingOutput,
         redeemScriptOpt = None,
         scriptWitnessOpt = Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoConditionsLeft,
+        p2pkhPreImageOpt = Some(privKey.publicKey)
       ),
       signer = privKey,
       hashType = HashType.sigHashAll
