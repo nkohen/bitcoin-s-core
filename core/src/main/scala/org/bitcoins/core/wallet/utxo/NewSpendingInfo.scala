@@ -14,6 +14,10 @@ sealed trait NewSpendingInfo[+InputType <: InputInfo] {
   def hashType: HashType
   def signers: Vector[Sign]
 
+  private val keysToSignFor = inputInfo.pubKeys
+  require(signers.map(_.publicKey).forall(keysToSignFor.contains),
+          s"Cannot have signers that do not sign for one of $keysToSignFor")
+
   def amount: CurrencyUnit = inputInfo.amount
   def output: TransactionOutput = inputInfo.output
   def outPoint: TransactionOutPoint = inputInfo.outPoint
