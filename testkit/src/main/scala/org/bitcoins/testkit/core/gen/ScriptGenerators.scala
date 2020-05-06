@@ -21,10 +21,10 @@ import org.bitcoins.core.wallet.signer.{
 }
 import org.bitcoins.core.wallet.utxo.{
   MultiSignatureInputInfo,
-  NewSpendingInfoFull,
   P2PKHInputInfo,
   P2PKInputInfo,
-  P2PKWithTimeoutInputInfo
+  P2PKWithTimeoutInputInfo,
+  UTXOSatisfyingInfo
 }
 import org.bitcoins.crypto.{
   ECDigitalSignature,
@@ -580,7 +580,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
         creditingTx,
         scriptSig,
         outputIndex)
-      spendingInfo = NewSpendingInfoFull(
+      spendingInfo = UTXOSatisfyingInfo(
         P2PKInputInfo(TransactionOutPoint(creditingTx.txIdBE, inputIndex),
                       creditingTx.outputs(outputIndex.toInt).value,
                       scriptPubKey),
@@ -614,7 +614,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
         creditingTx,
         EmptyScriptSignature,
         outputIndex)
-      spendingInfo = NewSpendingInfoFull(
+      spendingInfo = UTXOSatisfyingInfo(
         P2PKHInputInfo(TransactionOutPoint(creditingTx.txIdBE, inputIndex),
                        creditingTx.outputs(outputIndex.toInt).value,
                        privateKey.publicKey),
@@ -640,7 +640,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
         TransactionGenerators.buildCreditingTransaction(spk)
       val (spendingTx, inputIndex) = TransactionGenerators
         .buildSpendingTransaction(creditingTx, emptyScriptSig, outputIndex)
-      val spendingInfo = NewSpendingInfoFull(
+      val spendingInfo = UTXOSatisfyingInfo(
         P2PKWithTimeoutInputInfo(
           TransactionOutPoint(creditingTx.txIdBE, inputIndex),
           creditingTx.outputs(outputIndex.toInt).value,
@@ -687,7 +687,7 @@ sealed abstract class ScriptGenerators extends BitcoinSLogger {
         creditingTx,
         scriptSig,
         outputIndex)
-      spendingInfo = NewSpendingInfoFull(
+      spendingInfo = UTXOSatisfyingInfo(
         MultiSignatureInputInfo(
           TransactionOutPoint(creditingTx.txIdBE, inputIndex),
           creditingTx.outputs(outputIndex.toInt).value,

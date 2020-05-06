@@ -150,7 +150,7 @@ case class PSBT(
   def getSpendingInfoUsingSigners(
       index: Int,
       signers: Vector[Sign],
-      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): NewSpendingInfoFull[
+      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): UTXOSatisfyingInfo[
     InputInfo] = {
     require(index >= 0 && index < inputMaps.size,
             s"Index must be within 0 and the number of inputs, got: $index")
@@ -776,7 +776,7 @@ object PSBT extends Factory[PSBT] {
     * Note that this Transaction is only necessary when the output is non-segwit.
     */
   case class SpendingInfoAndNonWitnessTxs(infoAndTxOpts: Vector[
-    (NewSpendingInfo.AnyFull, Option[BaseTransaction])]) {
+    (UTXOInfo.AnySatisfying, Option[BaseTransaction])]) {
     val length: Int = infoAndTxOpts.length
 
     def matchesInputs(inputs: Seq[TransactionInput]): Boolean = {
@@ -788,7 +788,7 @@ object PSBT extends Factory[PSBT] {
     }
 
     def map[T](
-        func: (NewSpendingInfo.AnyFull, Option[BaseTransaction]) => T): Vector[
+        func: (UTXOInfo.AnySatisfying, Option[BaseTransaction]) => T): Vector[
       T] = {
       infoAndTxOpts.map { case (info, txOpt) => func(info, txOpt) }
     }

@@ -17,9 +17,9 @@ import org.bitcoins.core.wallet.utxo.{
   ConditionalPath,
   InputInfo,
   LockTimeInputInfo,
-  NewSpendingInfo,
-  NewSpendingInfoFull,
-  NewSpendingInfoSingle,
+  UTXOInfo,
+  UTXOSatisfyingInfo,
+  UTXOSigningInfo,
   UnassignedSegwitNativeInputInfo
 }
 import org.bitcoins.crypto.{DoubleSha256DigestBE, ECPrivateKey}
@@ -51,7 +51,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       outputs = Seq(creditingOutput),
                                       lockTime = tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-    val utxo = NewSpendingInfoFull(
+    val utxo = UTXOSatisfyingInfo(
       InputInfo(
         outPoint = outPoint,
         output = creditingOutput,
@@ -95,7 +95,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       outputs = Vector(creditingOutput),
                                       lockTime = tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-    val utxo = NewSpendingInfoFull(
+    val utxo = UTXOSatisfyingInfo(
       InputInfo(
         outPoint = outPoint,
         output = creditingOutput,
@@ -129,7 +129,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       outputs = Vector(creditingOutput),
                                       lockTime = tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-    val utxo = NewSpendingInfoFull(
+    val utxo = UTXOSatisfyingInfo(
       InputInfo(
         outPoint = outPoint,
         output = creditingOutput,
@@ -163,15 +163,15 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
     val utxo =
-      NewSpendingInfoFull(InputInfo(outPoint,
-                                    creditingOutput,
-                                    None,
-                                    None,
-                                    conditionalPath =
-                                      ConditionalPath.NoConditionsLeft,
-                                    Some(privKey.publicKey)),
-                          privKey,
-                          HashType.sigHashAll)
+      UTXOSatisfyingInfo(InputInfo(outPoint,
+                                   creditingOutput,
+                                   None,
+                                   None,
+                                   conditionalPath =
+                                     ConditionalPath.NoConditionsLeft,
+                                   Some(privKey.publicKey)),
+                         privKey,
+                         HashType.sigHashAll)
     val utxoMap: UTXOMap = Map(outPoint -> utxo)
     val feeUnit = SatoshisPerVirtualByte(currencyUnit = Satoshis(1))
     val txBuilder = BitcoinTxBuilder(destinations = destinations,
@@ -180,7 +180,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                      changeSPK = EmptyScriptPubKey,
                                      network = TestNet3)
     //trivially false
-    val f = (_: Seq[NewSpendingInfo.AnyFull], _: Transaction) => false
+    val f = (_: Seq[UTXOInfo.AnySatisfying], _: Transaction) => false
     val resultFuture = txBuilder.flatMap(_.sign(f))
     recoverToSucceededIf[IllegalArgumentException] {
       resultFuture
@@ -201,7 +201,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       lockTime = tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
 
-    val utxo = NewSpendingInfoFull(
+    val utxo = UTXOSatisfyingInfo(
       InputInfo(
         outPoint = outPoint,
         output = creditingOutput,
@@ -251,7 +251,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     )
 
     assertThrows[RuntimeException] {
-      NewSpendingInfoFull(
+      UTXOSatisfyingInfo(
         inputInfo = inputInfo,
         signer = privKey,
         hashType = HashType.sigHashAll
@@ -259,7 +259,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     }
 
     assertThrows[RuntimeException] {
-      NewSpendingInfoSingle(
+      UTXOSigningInfo(
         inputInfo = inputInfo,
         signer = privKey,
         hashType = HashType.sigHashAll
@@ -276,7 +276,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
     assertThrows[IllegalArgumentException] {
-      NewSpendingInfoFull(
+      UTXOSatisfyingInfo(
         InputInfo(outPoint,
                   creditingOutput,
                   None,
@@ -288,7 +288,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     }
 
     assertThrows[IllegalArgumentException] {
-      NewSpendingInfoSingle(
+      UTXOSigningInfo(
         InputInfo(outPoint,
                   creditingOutput,
                   None,
@@ -310,7 +310,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       Vector(creditingOutput),
                                       tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
-    val utxo = NewSpendingInfoFull(
+    val utxo = UTXOSatisfyingInfo(
       InputInfo(outPoint,
                 creditingOutput,
                 None,
@@ -345,7 +345,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       lockTime = tc.lockTime)
     val outPoint =
       TransactionOutPoint(txId = creditingTx.txId, vout = UInt32.zero)
-    val utxo = NewSpendingInfoFull(
+    val utxo = UTXOSatisfyingInfo(
       InputInfo(
         outPoint = outPoint,
         output = creditingOutput,
@@ -390,7 +390,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     )
 
     assertThrows[IllegalArgumentException] {
-      NewSpendingInfoFull(
+      UTXOSatisfyingInfo(
         inputInfo = inputInfo,
         signer = privKey,
         hashType = HashType.sigHashAll
@@ -398,7 +398,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     }
 
     assertThrows[IllegalArgumentException] {
-      NewSpendingInfoSingle(
+      UTXOSigningInfo(
         inputInfo = inputInfo,
         signer = privKey,
         hashType = HashType.sigHashAll
@@ -415,7 +415,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
     assertThrows[IllegalArgumentException] {
-      NewSpendingInfoFull(
+      UTXOSatisfyingInfo(
         InputInfo(outPoint,
                   creditingOutput,
                   None,
@@ -427,7 +427,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     }
 
     assertThrows[IllegalArgumentException] {
-      NewSpendingInfoSingle(
+      UTXOSigningInfo(
         InputInfo(outPoint,
                   creditingOutput,
                   None,
@@ -448,7 +448,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       CLTVScriptPubKey(ScriptNumber(lockTime),
                        P2PKScriptPubKey(fundingPrivKey.publicKey))
 
-    val cltvSpendingInfo = NewSpendingInfoFull(
+    val cltvSpendingInfo = UTXOSatisfyingInfo(
       LockTimeInputInfo(TransactionOutPoint(DoubleSha256DigestBE.empty,
                                             UInt32.zero),
                         Bitcoins.one,
@@ -483,7 +483,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       CLTVScriptPubKey(ScriptNumber(lockTime),
                        P2PKScriptPubKey(fundingPrivKey.publicKey))
 
-    val cltvSpendingInfo = NewSpendingInfoFull(
+    val cltvSpendingInfo = UTXOSatisfyingInfo(
       LockTimeInputInfo(TransactionOutPoint(DoubleSha256DigestBE.empty,
                                             UInt32.zero),
                         Bitcoins.one,
@@ -523,7 +523,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       CLTVScriptPubKey(ScriptNumber(lockTime2),
                        P2PKScriptPubKey(fundingPrivKey2.publicKey))
 
-    val cltvSpendingInfo1 = NewSpendingInfoFull(
+    val cltvSpendingInfo1 = UTXOSatisfyingInfo(
       LockTimeInputInfo(TransactionOutPoint(DoubleSha256DigestBE.empty,
                                             UInt32.zero),
                         Bitcoins.one,
@@ -533,7 +533,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       HashType.sigHashAll
     )
 
-    val cltvSpendingInfo2 = NewSpendingInfoFull(
+    val cltvSpendingInfo2 = UTXOSatisfyingInfo(
       LockTimeInputInfo(TransactionOutPoint(DoubleSha256DigestBE.empty,
                                             UInt32.one),
                         Bitcoins.one,
@@ -565,7 +565,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     val pubKey = privKey.publicKey
 
     val spendingInfo =
-      NewSpendingInfoFull(
+      UTXOSatisfyingInfo(
         UnassignedSegwitNativeInputInfo(
           outPoint = outPoint,
           amount = Bitcoins.one + CurrencyUnits.oneMBTC,
@@ -590,9 +590,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     }
   }
 
-  def verifyScript(
-      tx: Transaction,
-      utxos: Vector[NewSpendingInfo.Any]): Boolean = {
+  def verifyScript(tx: Transaction, utxos: Vector[UTXOInfo.Any]): Boolean = {
     val programs: Vector[PreExecutionScriptProgram] =
       tx.inputs.zipWithIndex.toVector.map {
         case (input: TransactionInput, idx: Int) =>

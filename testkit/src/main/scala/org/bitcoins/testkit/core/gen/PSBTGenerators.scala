@@ -15,7 +15,7 @@ import org.bitcoins.core.psbt.PSBTInputKeyId.PartialSignatureKeyId
 import org.bitcoins.core.psbt._
 import org.bitcoins.core.wallet.builder.BitcoinTxBuilder
 import org.bitcoins.core.wallet.fee.FeeUnit
-import org.bitcoins.core.wallet.utxo.NewSpendingInfo
+import org.bitcoins.core.wallet.utxo.UTXOInfo
 import org.scalacheck.Gen
 import scodec.bits.ByteVector
 
@@ -146,7 +146,7 @@ object PSBTGenerators {
   }
 
   def psbtToBeSigned(implicit ec: ExecutionContext): Gen[
-    Future[(PSBT, Seq[NewSpendingInfo.AnyFull])]] = {
+    Future[(PSBT, Seq[UTXOInfo.AnySatisfying])]] = {
     psbtWithBuilder(finalized = false).map { psbtAndBuilderF =>
       psbtAndBuilderF.flatMap {
         case (psbt, builder) =>
@@ -164,7 +164,7 @@ object PSBTGenerators {
 
   def spendingInfoAndNonWitnessTxsFromSpendingInfos(
       unsignedTx: Transaction,
-      creditingTxsInfo: Vector[NewSpendingInfo.AnyFull]): SpendingInfoAndNonWitnessTxs = {
+      creditingTxsInfo: Vector[UTXOInfo.AnySatisfying]): SpendingInfoAndNonWitnessTxs = {
     val elements = unsignedTx.inputs.toVector.map { input =>
       val infoOpt =
         creditingTxsInfo.find(_.outPoint == input.previousOutput)
@@ -186,7 +186,7 @@ object PSBTGenerators {
 
   def psbtAndBuilderFromInputs(
       finalized: Boolean,
-      creditingTxsInfo: Seq[NewSpendingInfo.AnyFull],
+      creditingTxsInfo: Seq[UTXOInfo.AnySatisfying],
       destinations: Seq[TransactionOutput],
       changeSPK: ScriptPubKey,
       network: BitcoinNetwork,

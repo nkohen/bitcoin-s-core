@@ -9,7 +9,7 @@ import org.bitcoins.core.protocol.transaction.{
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.crypto.Sign
 
-sealed trait NewSpendingInfo[+InputType <: InputInfo] {
+sealed trait UTXOInfo[+InputType <: InputInfo] {
   def inputInfo: InputType
   def hashType: HashType
   def signers: Vector[Sign]
@@ -26,17 +26,17 @@ sealed trait NewSpendingInfo[+InputType <: InputInfo] {
   def conditionalPath: ConditionalPath = inputInfo.conditionalPath
 }
 
-object NewSpendingInfo {
-  type Any = NewSpendingInfo[InputInfo]
-  type AnyFull = NewSpendingInfoFull[InputInfo]
-  type AnySingle = NewSpendingInfoSingle[InputInfo]
+object UTXOInfo {
+  type Any = UTXOInfo[InputInfo]
+  type AnySatisfying = UTXOSatisfyingInfo[InputInfo]
+  type AnySigning = UTXOSigningInfo[InputInfo]
 }
 
-case class NewSpendingInfoFull[+InputType <: InputInfo](
+case class UTXOSatisfyingInfo[+InputType <: InputInfo](
     inputInfo: InputType,
     signers: Vector[Sign],
     hashType: HashType)
-    extends NewSpendingInfo[InputType] {
+    extends UTXOInfo[InputType] {
 
   def signer: Sign = {
     require(
@@ -46,39 +46,38 @@ case class NewSpendingInfoFull[+InputType <: InputInfo](
     signers.head
   }
 
-  def toSingle(index: Int): NewSpendingInfoSingle[InputType] = {
-    NewSpendingInfoSingle(inputInfo, signers(index), hashType)
+  def toSingle(index: Int): UTXOSigningInfo[InputType] = {
+    UTXOSigningInfo(inputInfo, signers(index), hashType)
   }
 
-  def toSingles: Vector[NewSpendingInfoSingle[InputType]] = {
+  def toSingles: Vector[UTXOSigningInfo[InputType]] = {
     signers.map { signer =>
-      NewSpendingInfoSingle(inputInfo, signer, hashType)
+      UTXOSigningInfo(inputInfo, signer, hashType)
     }
   }
 
-  def mapInfo[T <: InputInfo](func: InputType => T): NewSpendingInfoFull[T] = {
+  def mapInfo[T <: InputInfo](func: InputType => T): UTXOSatisfyingInfo[T] = {
     this.copy(inputInfo = func(this.inputInfo))
   }
 }
 
-object NewSpendingInfoFull {
+object UTXOSatisfyingInfo {
 
   def apply[InputType <: InputInfo](
       inputInfo: InputType,
       signer: Sign,
-      hashType: HashType): NewSpendingInfoFull[InputType] =
-    NewSpendingInfoFull(inputInfo, Vector(signer), hashType)
+      hashType: HashType): UTXOSatisfyingInfo[InputType] =
+    UTXOSatisfyingInfo(inputInfo, Vector(signer), hashType)
 }
 
-case class NewSpendingInfoSingle[+InputType <: InputInfo](
+case class UTXOSigningInfo[+InputType <: InputInfo](
     inputInfo: InputType,
     signer: Sign,
     hashType: HashType)
-    extends NewSpendingInfo[InputType] {
+    extends UTXOInfo[InputType] {
   override def signers: Vector[Sign] = Vector(signer)
 
-  def mapInfo[T <: InputInfo](
-      func: InputType => T): NewSpendingInfoSingle[T] = {
+  def mapInfo[T <: InputInfo](func: InputType => T): UTXOSigningInfo[T] = {
     this.copy(inputInfo = func(this.inputInfo))
   }
 }
