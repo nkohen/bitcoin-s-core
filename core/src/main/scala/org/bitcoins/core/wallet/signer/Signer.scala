@@ -37,7 +37,7 @@ sealed abstract class SignerUtils {
   }
 
   def signSingle(
-      spendingInfo: NewSpendingInfo.AnySingle,
+      spendingInfo: UTXOInfo.AnySigning,
       unsignedTx: Transaction,
       isDummySignature: Boolean)(
       implicit ec: ExecutionContext): Future[PartialSignature] = {
@@ -56,7 +56,7 @@ sealed abstract class SignerUtils {
   protected val flags: Seq[ScriptFlag] = Policy.standardFlags
 
   protected def relevantInfo(
-      spendingInfo: NewSpendingInfo.Any,
+      spendingInfo: UTXOInfo.Any,
       unsignedTx: Transaction): (Seq[Sign], TransactionOutput, UInt32, HashType) = {
     (spendingInfo.signers,
      spendingInfo.output,
@@ -65,7 +65,7 @@ sealed abstract class SignerUtils {
   }
 
   protected def inputIndex(
-      spendingInfo: NewSpendingInfo.Any,
+      spendingInfo: UTXOInfo.Any,
       tx: Transaction): UInt32 = {
     tx.inputs.zipWithIndex
       .find(_._1.previousOutput == spendingInfo.outPoint) match {
@@ -77,7 +77,7 @@ sealed abstract class SignerUtils {
   }
 
   protected def sigComponent(
-      spendingInfo: NewSpendingInfo.Any,
+      spendingInfo: UTXOInfo.Any,
       unsignedTx: Transaction): TxSigComponent = {
     val index = inputIndex(spendingInfo, unsignedTx)
 
@@ -132,7 +132,7 @@ sealed abstract class Signer[-InputType <: InputInfo] extends SignerUtils {
     * @return
     */
   def sign(
-      spendingInfo: NewSpendingInfoFull[InputType],
+      spendingInfo: UTXOSatisfyingInfo[InputType],
       unsignedTx: Transaction,
       isDummySignature: Boolean)(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
@@ -153,10 +153,10 @@ sealed abstract class Signer[-InputType <: InputInfo] extends SignerUtils {
     * @return
     */
   def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[InputType])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[InputType])(
       implicit ec: ExecutionContext): Future[TxSigComponent]
 
   /** Creates a BaseTxSigComponent by replacing the unsignedTx input at inputIndex
@@ -194,7 +194,7 @@ sealed abstract class Signer[-InputType <: InputInfo] extends SignerUtils {
 object BitcoinSigner extends SignerUtils {
 
   def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean)(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
@@ -202,13 +202,13 @@ object BitcoinSigner extends SignerUtils {
   }
 
   def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfo.AnyFull)(
+      spendingInfoToSatisfy: UTXOInfo.AnySatisfying)(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     def spendingFrom[Info <: InputInfo](
-        inputInfo: Info): NewSpendingInfoFull[Info] = {
+        inputInfo: Info): UTXOSatisfyingInfo[Info] = {
       spendingInfoToSatisfy.copy(inputInfo = inputInfo)
     }
 
@@ -351,13 +351,13 @@ sealed abstract class RawSingleKeyBitcoinSigner[-InputType <: RawInputInfo]
   def keyAndSigToScriptSig(
       key: ECPublicKey,
       sig: ECDigitalSignature,
-      spendingInfo: NewSpendingInfo[InputType]): ScriptSignature
+      spendingInfo: UTXOInfo[InputType]): ScriptSignature
 
   override def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[InputType])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[InputType])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     val (_, output, inputIndex, _) =
       relevantInfo(spendingInfo, unsignedTx)
@@ -382,10 +382,10 @@ sealed abstract class RawSingleKeyBitcoinSigner[-InputType <: RawInputInfo]
 sealed abstract class EmptySigner extends Signer[EmptyInputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[EmptyInputInfo])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[EmptyInputInfo])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     val (_, output, inputIndex, _) = relevantInfo(spendingInfo, unsignedTx)
 
@@ -408,7 +408,7 @@ sealed abstract class P2PKSigner
   override def keyAndSigToScriptSig(
       key: ECPublicKey,
       sig: ECDigitalSignature,
-      spendingInfo: NewSpendingInfo[P2PKInputInfo]): ScriptSignature = {
+      spendingInfo: UTXOInfo[P2PKInputInfo]): ScriptSignature = {
     P2PKScriptSignature(sig)
   }
 }
@@ -422,7 +422,7 @@ sealed abstract class P2PKHSigner
   override def keyAndSigToScriptSig(
       key: ECPublicKey,
       sig: ECDigitalSignature,
-      spendingInfo: NewSpendingInfo[P2PKHInputInfo]): ScriptSignature = {
+      spendingInfo: UTXOInfo[P2PKHInputInfo]): ScriptSignature = {
     P2PKHScriptSignature(sig, key)
   }
 }
@@ -435,7 +435,7 @@ sealed abstract class P2PKWithTimeoutSigner
   override def keyAndSigToScriptSig(
       key: ECPublicKey,
       sig: ECDigitalSignature,
-      spendingInfo: NewSpendingInfo[P2PKWithTimeoutInputInfo]): ScriptSignature = {
+      spendingInfo: UTXOInfo[P2PKWithTimeoutInputInfo]): ScriptSignature = {
     P2PKWithTimeoutScriptSignature(spendingInfo.inputInfo.isBeforeTimeout, sig)
   }
 }
@@ -445,10 +445,10 @@ object P2PKWithTimeoutSigner extends P2PKWithTimeoutSigner
 sealed abstract class MultiSigSigner extends Signer[MultiSignatureInputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[MultiSignatureInputInfo])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[MultiSignatureInputInfo])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     val (_, output, inputIndex, _) =
       relevantInfo(spendingInfo, unsignedTx)
@@ -475,10 +475,10 @@ object MultiSigSigner extends MultiSigSigner
 /** Used to sign a [[org.bitcoins.core.protocol.script.P2SHScriptPubKey]] */
 sealed abstract class P2SHSigner extends Signer[P2SHInputInfo] {
   override def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[P2SHInputInfo])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[P2SHInputInfo])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     if (spendingInfoToSatisfy != spendingInfo) {
       Future.fromTry(TxBuilderError.WrongSigner)
@@ -542,10 +542,10 @@ object P2SHSigner extends P2SHSigner
 sealed abstract class P2WPKHSigner extends Signer[P2WPKHV0InputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[P2WPKHV0InputInfo])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[P2WPKHV0InputInfo])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     if (spendingInfoToSatisfy != spendingInfo) {
       Future.fromTry(TxBuilderError.WrongSigner)
@@ -614,10 +614,10 @@ object P2WPKHSigner extends P2WPKHSigner
 sealed abstract class P2WSHSigner extends Signer[P2WSHV0InputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[P2WSHV0InputInfo])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[P2WSHV0InputInfo])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     if (spendingInfoToSatisfy != spendingInfo) {
       Future.fromTry(TxBuilderError.WrongSigner)
@@ -661,10 +661,10 @@ object P2WSHSigner extends P2WSHSigner
 sealed abstract class LockTimeSigner extends Signer[LockTimeInputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[LockTimeInputInfo])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[LockTimeInputInfo])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     val nestedSpendingInfo = spendingInfoToSatisfy.copy(
       inputInfo = spendingInfoToSatisfy.inputInfo.nestedInputInfo)
@@ -683,10 +683,10 @@ object LockTimeSigner extends LockTimeSigner
 sealed abstract class ConditionalSigner extends Signer[ConditionalInputInfo] {
 
   override def sign(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: NewSpendingInfoFull[ConditionalInputInfo])(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[ConditionalInputInfo])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     val (_, output, inputIndex, _) = relevantInfo(spendingInfo, unsignedTx)
 

@@ -505,14 +505,14 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
   def toNewSpendingInfoUsingSigners(
       txIn: TransactionInput,
       signers: Vector[Sign],
-      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): NewSpendingInfoFull[
+      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): UTXOSatisfyingInfo[
     InputInfo] = {
     require(!isFinalized, s"Cannot update an InputPSBTMap that is finalized")
 
     val infoSingle =
       toNewSpendingInfoSingle(txIn, signers.head, conditionalPath)
 
-    NewSpendingInfoFull(
+    UTXOSatisfyingInfo(
       infoSingle.inputInfo,
       signers,
       infoSingle.hashType
@@ -522,7 +522,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
   def toNewSpendingInfoSingle(
       txIn: TransactionInput,
       signer: Sign,
-      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): NewSpendingInfoSingle[
+      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): UTXOSigningInfo[
     InputInfo] = {
     require(!isFinalized, s"Cannot update an InputPSBTMap that is finalized")
     val outPoint = txIn.previousOutput
@@ -569,7 +569,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
                               conditionalPath,
                               Some(signer.publicKey))
 
-    NewSpendingInfoSingle(inputInfo, signer, hashType)
+    UTXOSigningInfo(inputInfo, signer, hashType)
   }
 
   private def changeToWitnessUTXO(
@@ -634,7 +634,7 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
     * a non-witness spend, the transaction being spent
     */
   def finalizedFromNewSpendingInfo(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       nonWitnessTxOpt: Option[Transaction])(
       implicit ec: ExecutionContext): Future[InputPSBTMap] = {
@@ -678,7 +678,7 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
     * and if this is a non-witness spend, the transaction being spent
     */
   def fromNewSpendingInfo(
-      spendingInfo: NewSpendingInfo.AnyFull,
+      spendingInfo: UTXOInfo.AnySatisfying,
       unsignedTx: Transaction,
       nonWitnessTxOpt: Option[Transaction])(
       implicit ec: ExecutionContext): Future[InputPSBTMap] = {

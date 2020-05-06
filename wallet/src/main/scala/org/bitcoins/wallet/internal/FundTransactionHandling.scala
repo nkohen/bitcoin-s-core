@@ -50,7 +50,7 @@ trait FundTransactionHandling extends WalletLogger { self: WalletApi =>
     * which can be used with signing, or you can just directly call [[BitcoinTxBuilder.sign sign]] to sign the transaction with this instance
     * of [[BitcoinTxBuilder]]
     *
-    * If you pass in a [[org.bitcoins.keymanager.KeyManager]], the [[org.bitcoins.core.wallet.utxo.NewSpendingInfoFull.signers signers]]
+    * If you pass in a [[org.bitcoins.keymanager.KeyManager]], the [[org.bitcoins.core.wallet.utxo.UTXOSatisfyingInfo.signers signers]]
     * will be populated with valid signers that can be used to produce valid [[org.bitcoins.crypto.ECDigitalSignature signatures]]
     *
     * If you do not pass in a key manager, the transaction built by [[BitcoinTxBuilder txbuilder]] will contain [[org.bitcoins.core.protocol.script.EmptyScriptSignature EmptyScriptSignature]]

@@ -55,24 +55,21 @@ sealed trait InputInfo {
 
   def toSpendingInfo(
       signers: Vector[Sign],
-      hashType: HashType): NewSpendingInfo.AnyFull = {
-    NewSpendingInfoFull(this, signers, hashType)
+      hashType: HashType): UTXOInfo.AnySatisfying = {
+    UTXOSatisfyingInfo(this, signers, hashType)
   }
 
-  def toSpendingInfo(
-      signer: Sign,
-      hashType: HashType): NewSpendingInfo.AnySingle = {
-    NewSpendingInfoSingle(this, signer, hashType)
+  def toSpendingInfo(signer: Sign, hashType: HashType): UTXOInfo.AnySigning = {
+    UTXOSigningInfo(this, signer, hashType)
   }
 
   def withSignFrom(
-      signerMaterial: NewSpendingInfo.AnyFull): NewSpendingInfoFull[this.type] = {
+      signerMaterial: UTXOInfo.AnySatisfying): UTXOSatisfyingInfo[this.type] = {
     signerMaterial.copy(inputInfo = this)
   }
 
   def withSignFrom(
-      signerMaterial: NewSpendingInfo.AnySingle): NewSpendingInfoSingle[
-    this.type] = {
+      signerMaterial: UTXOInfo.AnySigning): UTXOSigningInfo[this.type] = {
     signerMaterial.copy(inputInfo = this)
   }
 }
