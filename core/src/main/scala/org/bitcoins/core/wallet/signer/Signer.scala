@@ -85,7 +85,7 @@ sealed abstract class SignerUtils {
       case _: WitnessScriptPubKey =>
         val wtx = {
           val noWitnessWtx = WitnessTransaction.toWitnessTx(unsignedTx)
-          spendingInfo.scriptWitnessOpt match {
+          InputInfo.getScriptWitness(spendingInfo.inputInfo) match {
             case None =>
               noWitnessWtx
             case Some(scriptWitness) =>
@@ -96,17 +96,19 @@ sealed abstract class SignerUtils {
         WitnessTxSigComponent(wtx, index, spendingInfo.output, flags)
       case _: P2SHScriptPubKey =>
         val emptyInput = unsignedTx.inputs(index.toInt)
+        val redeemScript = InputInfo.getRedeemScript(spendingInfo.inputInfo).get
         val newInput = TransactionInput(
           emptyInput.previousOutput,
-          P2SHScriptSignature(EmptyScriptSignature,
-                              spendingInfo.redeemScriptOpt.get),
+          P2SHScriptSignature(EmptyScriptSignature, redeemScript),
           emptyInput.sequence)
         val updatedTx = unsignedTx.updateInput(index.toInt, newInput)
-        spendingInfo.redeemScriptOpt.get match {
+        redeemScript match {
           case _: WitnessScriptPubKey =>
             val wtx = WitnessTransaction.toWitnessTx(updatedTx)
             val updatedWtx =
-              wtx.updateWitness(index.toInt, spendingInfo.scriptWitnessOpt.get)
+              wtx.updateWitness(
+                index.toInt,
+                InputInfo.getScriptWitness(spendingInfo.inputInfo).get)
 
             WitnessTxSigComponentP2SH(updatedWtx,
                                       index,

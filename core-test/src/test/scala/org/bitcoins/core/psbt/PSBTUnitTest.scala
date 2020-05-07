@@ -13,7 +13,7 @@ import org.bitcoins.core.psbt.InputPSBTRecord.{
 }
 import org.bitcoins.core.psbt.PSBTGlobalKeyId.XPubKeyKeyId
 import org.bitcoins.core.script.crypto.HashType
-import org.bitcoins.core.wallet.utxo.ConditionalPath
+import org.bitcoins.core.wallet.utxo.{ConditionalPath, InputInfo}
 import org.bitcoins.crypto.{DoubleSha256Digest, ECPublicKey, Sha256Digest, Sign}
 import org.bitcoins.testkit.util.BitcoinSAsyncTest
 import scodec.bits._
@@ -269,10 +269,11 @@ class PSBTUnitTest extends BitcoinSAsyncTest {
           "2c5486126c4978079a814e13715d65f36459e4d6ccaded266d0508645bafa632")))
     assert(spendingInfo.signers == dummySigners)
     assert(spendingInfo.hashType == HashType.sigHashAll)
-    assert(spendingInfo.redeemScriptOpt.isEmpty)
+    assert(InputInfo.getRedeemScript(spendingInfo.inputInfo).isEmpty)
     assert(
-      spendingInfo.scriptWitnessOpt.contains(
-        P2WSHWitnessV0(RawScriptPubKey.fromAsmHex(
+      InputInfo
+        .getScriptWitness(spendingInfo.inputInfo)
+        .contains(P2WSHWitnessV0(RawScriptPubKey.fromAsmHex(
           "5221029da12cdb5b235692b91536afefe5c91c3ab9473d8e43b533836ab456299c88712103372b34234ed7cf9c1fea5d05d441557927be9542b162eb02e1ab2ce80224c00b52ae"))))
     assert(spendingInfo.conditionalPath == ConditionalPath.NoConditionsLeft)
   }

@@ -194,13 +194,15 @@ sealed abstract class CreditingTxGen {
       val redeemScript = o.output.scriptPubKey
       val p2sh = P2SHScriptPubKey(redeemScript)
       val updatedOutput = TransactionOutput(oldOutput.value, p2sh)
+      val scriptWitnessOpt = InputInfo.getScriptWitness(o.inputInfo)
+
       UTXOSatisfyingInfo(
         InputInfo(
           TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
           updatedOutput,
           Some(redeemScript),
-          o.scriptWitnessOpt,
-          computeAllTrueConditionalPath(redeemScript, None, o.scriptWitnessOpt),
+          scriptWitnessOpt,
+          computeAllTrueConditionalPath(redeemScript, None, scriptWitnessOpt),
           o.signers.headOption.map(_.publicKey)
         ),
         o.signers,
@@ -225,8 +227,8 @@ sealed abstract class CreditingTxGen {
               InputInfo(
                 TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
                 updatedOutput,
-                o.redeemScriptOpt,
-                o.scriptWitnessOpt,
+                InputInfo.getRedeemScript(o.inputInfo),
+                InputInfo.getScriptWitness(o.inputInfo),
                 ConditionalPath.NoConditionsLeft,
                 o.signers.headOption.map(_.publicKey)
               ),
@@ -252,8 +254,8 @@ sealed abstract class CreditingTxGen {
               InputInfo(
                 TransactionOutPoint(o.outPoint.txId, o.outPoint.vout),
                 updatedOutput,
-                o.redeemScriptOpt,
-                o.scriptWitnessOpt,
+                InputInfo.getRedeemScript(o.inputInfo),
+                InputInfo.getScriptWitness(o.inputInfo),
                 ConditionalPath.NoConditionsLeft,
                 o.signers.headOption.map(_.publicKey)
               ),

@@ -1204,7 +1204,7 @@ sealed abstract class P2WPKHWitnessSPKV0 extends WitnessScriptPubKeyV0 {
   override def toString = s"wpkh(${pubKeyHash.hex})"
 
   override def pubKeysFor(inputInfo: InputInfo): Vector[ECPublicKey] = {
-    inputInfo.scriptWitnessOpt match {
+    InputInfo.getScriptWitness(inputInfo) match {
       case None =>
         throw new IllegalArgumentException("Input info did not contain witness")
       case Some(wit: P2WPKHWitnessV0) =>

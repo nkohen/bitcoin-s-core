@@ -31,8 +31,8 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(debug = true))
         .text("Print debugging information"),
       opt[Int]("rpcport")
-          .action((port,conf) => conf.copy(rpcPort = port))
-          .text(s"The port to send our rpc request to on the server"),
+        .action((port, conf) => conf.copy(rpcPort = port))
+        .text(s"The port to send our rpc request to on the server"),
       help('h', "help").text("Display this help message and exit"),
       note(sys.props("line.separator") + "Commands:"),
       note(sys.props("line.separator") + "===Blockchain ==="),

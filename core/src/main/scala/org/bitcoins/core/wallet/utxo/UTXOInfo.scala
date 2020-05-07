@@ -1,7 +1,6 @@
 package org.bitcoins.core.wallet.utxo
 
 import org.bitcoins.core.currency.CurrencyUnit
-import org.bitcoins.core.protocol.script.{ScriptPubKey, ScriptWitness}
 import org.bitcoins.core.protocol.transaction.{
   TransactionOutPoint,
   TransactionOutput
@@ -21,8 +20,6 @@ sealed trait UTXOInfo[+InputType <: InputInfo] {
   def amount: CurrencyUnit = inputInfo.amount
   def output: TransactionOutput = inputInfo.output
   def outPoint: TransactionOutPoint = inputInfo.outPoint
-  def redeemScriptOpt: Option[ScriptPubKey] = inputInfo.redeemScriptOpt
-  def scriptWitnessOpt: Option[ScriptWitness] = inputInfo.scriptWitnessOpt
   def conditionalPath: ConditionalPath = inputInfo.conditionalPath
 }
 

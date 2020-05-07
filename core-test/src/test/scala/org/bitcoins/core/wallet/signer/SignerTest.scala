@@ -42,6 +42,7 @@ import org.bitcoins.core.script.interpreter.ScriptInterpreter
 import org.bitcoins.core.wallet.builder.BitcoinTxBuilder
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{
+  InputInfo,
   P2WPKHV0InputInfo,
   P2WSHV0InputInfo,
   UTXOInfo,
@@ -77,8 +78,9 @@ class SignerTest extends BitcoinSAsyncTest {
         p2wpkh.outPoint,
         p2wpkh.amount,
         p2wpkh.output.scriptPubKey.asInstanceOf[WitnessScriptPubKey],
-        p2wpkh.scriptWitnessOpt.get,
-        p2wpkh.conditionalPath),
+        InputInfo.getScriptWitness(p2wpkh.inputInfo).get,
+        p2wpkh.conditionalPath
+      ),
       p2wpkh.signers,
       p2wpkh.hashType
     )
@@ -158,18 +160,19 @@ class SignerTest extends BitcoinSAsyncTest {
               val (info, index) = infoAndIndexOpt.get
               val sigs = singleSigs(index)
 
-              val expectedSigs = if (info.scriptWitnessOpt.isEmpty) {
-                input.scriptSignature.signatures
-              } else {
-                signedTx
-                  .asInstanceOf[WitnessTransaction]
-                  .witness
-                  .witnesses(inputIndex) match {
-                  case p2wpkh: P2WPKHWitnessV0 => Vector(p2wpkh.signature)
-                  case p2wsh: P2WSHWitnessV0   => p2wsh.signatures
-                  case EmptyScriptWitness      => Vector.empty
+              val expectedSigs =
+                if (InputInfo.getScriptWitness(info.inputInfo).isEmpty) {
+                  input.scriptSignature.signatures
+                } else {
+                  signedTx
+                    .asInstanceOf[WitnessTransaction]
+                    .witness
+                    .witnesses(inputIndex) match {
+                    case p2wpkh: P2WPKHWitnessV0 => Vector(p2wpkh.signature)
+                    case p2wsh: P2WSHWitnessV0   => p2wsh.signatures
+                    case EmptyScriptWitness      => Vector.empty
+                  }
                 }
-              }
 
               assert(sigs.length == expectedSigs.length)
               assert(sigs.forall(expectedSigs.contains))
@@ -291,7 +294,9 @@ class SignerTest extends BitcoinSAsyncTest {
                 val idx = inputIndex(spendInfo, unsignedTx)
                 psbt
                   .addWitnessUTXOToInput(spendInfo.output, idx)
-                  .addScriptWitnessToInput(spendInfo.scriptWitnessOpt.get, idx)
+                  .addScriptWitnessToInput(
+                    InputInfo.getScriptWitness(spendInfo.inputInfo).get,
+                    idx)
                   .addSignatures(singleSigs(idx), idx)
             }
 

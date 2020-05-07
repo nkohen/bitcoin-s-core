@@ -43,10 +43,6 @@ sealed trait InputInfo {
     TransactionOutput(amount, scriptPubKey)
   }
 
-  def redeemScriptOpt: Option[ScriptPubKey]
-
-  def scriptWitnessOpt: Option[ScriptWitness]
-
   def p2pkhPreImage: Option[ECPublicKey]
 
   def conditionalPath: ConditionalPath
@@ -75,6 +71,24 @@ sealed trait InputInfo {
 }
 
 object InputInfo {
+
+  def getRedeemScript(inputInfo: InputInfo): Option[ScriptPubKey] = {
+    inputInfo match {
+      case _: RawInputInfo | _: SegwitV0NativeInputInfo |
+          _: UnassignedSegwitNativeInputInfo =>
+        None
+      case info: P2SHInputInfo => Some(info.redeemScript)
+    }
+  }
+
+  def getScriptWitness(inputInfo: InputInfo): Option[ScriptWitness] = {
+    inputInfo match {
+      case _: RawInputInfo | _: P2SHNoNestInputInfo => None
+      case info: SegwitV0NativeInputInfo            => Some(info.scriptWitness)
+      case info: P2SHNestedSegwitV0InputInfo        => Some(info.scriptWitness)
+      case info: UnassignedSegwitNativeInputInfo    => Some(info.scriptWitness)
+    }
+  }
 
   def apply(
       outPoint: TransactionOutPoint,
@@ -153,10 +167,6 @@ object InputInfo {
 
 sealed trait RawInputInfo extends InputInfo {
   override def scriptPubKey: RawScriptPubKey
-
-  override val redeemScriptOpt: Option[ScriptPubKey] = None
-
-  override val scriptWitnessOpt: Option[ScriptWitness] = None
 }
 
 object RawInputInfo {
@@ -325,9 +335,6 @@ case class LockTimeInputInfo(
 
 sealed trait SegwitV0NativeInputInfo extends InputInfo {
   def scriptWitness: ScriptWitnessV0
-
-  override val redeemScriptOpt: Option[ScriptPubKey] = None
-  override val scriptWitnessOpt: Option[ScriptWitnessV0] = Some(scriptWitness)
 }
 
 object SegwitV0NativeInputInfo {
@@ -392,18 +399,12 @@ case class UnassignedSegwitNativeInputInfo(
     conditionalPath: ConditionalPath)
     extends InputInfo {
   override def p2pkhPreImage: Option[ECPublicKey] = None
-
-  override def redeemScriptOpt: Option[ScriptPubKey] = None
-
-  override def scriptWitnessOpt: Option[ScriptWitness] = Some(scriptWitness)
 }
 
 sealed trait P2SHInputInfo extends InputInfo {
   override val p2pkhPreImage: Option[ECPublicKey] = None
 
   def redeemScript: ScriptPubKey
-
-  override val redeemScriptOpt: Option[ScriptPubKey] = Some(redeemScript)
 
   override def scriptPubKey: P2SHScriptPubKey = P2SHScriptPubKey(redeemScript)
 
@@ -417,7 +418,6 @@ case class P2SHNoNestInputInfo(
     conditionalPath: ConditionalPath,
     override val p2pkhPreImage: Option[ECPublicKey] = None)
     extends P2SHInputInfo {
-  override val scriptWitnessOpt: Option[ScriptWitnessV0] = None
 
   override val nestedInputInfo: RawInputInfo =
     RawInputInfo(outPoint, amount, redeemScript, conditionalPath, p2pkhPreImage)
@@ -430,7 +430,6 @@ case class P2SHNestedSegwitV0InputInfo(
     conditionalPath: ConditionalPath,
     override val p2pkhPreImage: Option[ECPublicKey] = None)
     extends P2SHInputInfo {
-  override def scriptWitnessOpt: Option[ScriptWitnessV0] = Some(scriptWitness)
 
   override def redeemScript: WitnessScriptPubKeyV0 = scriptWitness match {
     case p2wpkh: P2WPKHWitnessV0 => P2WPKHWitnessSPKV0(p2wpkh.pubKey)

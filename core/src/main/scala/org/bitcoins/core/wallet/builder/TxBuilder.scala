@@ -84,7 +84,8 @@ sealed abstract class TxBuilder {
   def outPoints: Seq[TransactionOutPoint] = utxoMap.keys.toSeq
 
   /** The script witnesses that are needed in this transaction */
-  def scriptWitOpt: Seq[Option[ScriptWitness]] = utxos.map(_.scriptWitnessOpt)
+  def scriptWitOpt: Seq[Option[ScriptWitness]] =
+    utxos.map(utxo => InputInfo.getScriptWitness(utxo.inputInfo))
 
   /**
     * The unsigned version of the tx with dummy signatures instead of real signatures in
