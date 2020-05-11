@@ -3,12 +3,20 @@ package org.bitcoins.core.wallet.utxo
 import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.transaction.{
+  OutputReference,
   TransactionOutPoint,
   TransactionOutput
 }
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.crypto.{ECPublicKey, Sign}
 
+/** An InputInfo contains all information other than private keys about
+  * a particular spending condition in a UTXO.
+  *
+  * Note that while some pieces of information (TxOutPoint, amount, etc.)
+  * apply to all input types, other pieces are specific to particular ones
+  * such as a witness to a SegWit input.
+  */
 sealed trait InputInfo {
   def outPoint: TransactionOutPoint
 
@@ -18,6 +26,10 @@ sealed trait InputInfo {
 
   def output: TransactionOutput = {
     TransactionOutput(amount, scriptPubKey)
+  }
+
+  def outputReference: OutputReference = {
+    OutputReference(outPoint, output)
   }
 
   def p2pkhPreImage: Option[ECPublicKey]
