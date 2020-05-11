@@ -37,7 +37,7 @@ sealed abstract class SignerUtils {
   }
 
   def signSingle(
-      spendingInfo: UTXOInfo.AnySigning,
+      spendingInfo: UTXOSigningInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean)(
       implicit ec: ExecutionContext): Future[PartialSignature] = {
@@ -56,7 +56,7 @@ sealed abstract class SignerUtils {
   protected val flags: Seq[ScriptFlag] = Policy.standardFlags
 
   protected def relevantInfo(
-      spendingInfo: UTXOInfo.Any,
+      spendingInfo: UTXOInfo[InputInfo],
       unsignedTx: Transaction): (Seq[Sign], TransactionOutput, UInt32, HashType) = {
     (spendingInfo.signers,
      spendingInfo.output,
@@ -65,7 +65,7 @@ sealed abstract class SignerUtils {
   }
 
   protected def inputIndex(
-      spendingInfo: UTXOInfo.Any,
+      spendingInfo: UTXOInfo[InputInfo],
       tx: Transaction): UInt32 = {
     tx.inputs.zipWithIndex
       .find(_._1.previousOutput == spendingInfo.outPoint) match {
@@ -77,7 +77,7 @@ sealed abstract class SignerUtils {
   }
 
   protected def sigComponent(
-      spendingInfo: UTXOInfo.Any,
+      spendingInfo: UTXOInfo[InputInfo],
       unsignedTx: Transaction): TxSigComponent = {
     val index = inputIndex(spendingInfo, unsignedTx)
 
@@ -155,7 +155,7 @@ sealed abstract class Signer[-InputType <: InputInfo] extends SignerUtils {
     * @return
     */
   def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[InputType])(
@@ -196,7 +196,7 @@ sealed abstract class Signer[-InputType <: InputInfo] extends SignerUtils {
 object BitcoinSigner extends SignerUtils {
 
   def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean)(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
@@ -204,10 +204,10 @@ object BitcoinSigner extends SignerUtils {
   }
 
   def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
-      spendingInfoToSatisfy: UTXOInfo.AnySatisfying)(
+      spendingInfoToSatisfy: UTXOSatisfyingInfo[InputInfo])(
       implicit ec: ExecutionContext): Future[TxSigComponent] = {
     def spendingFrom[Info <: InputInfo](
         inputInfo: Info): UTXOSatisfyingInfo[Info] = {
@@ -284,7 +284,7 @@ object BitcoinSigner extends SignerUtils {
       psbt: PSBT,
       inputIndex: Int,
       signer: Sign,
-      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft,
+      conditionalPath: ConditionalPath = ConditionalPath.NoCondition,
       isDummySignature: Boolean = false)(
       implicit ec: ExecutionContext): Future[PSBT] = {
     // if already signed by this signer
@@ -356,7 +356,7 @@ sealed abstract class RawSingleKeyBitcoinSigner[-InputType <: RawInputInfo]
       spendingInfo: UTXOInfo[InputType]): ScriptSignature
 
   override def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[InputType])(
@@ -384,7 +384,7 @@ sealed abstract class RawSingleKeyBitcoinSigner[-InputType <: RawInputInfo]
 sealed abstract class EmptySigner extends Signer[EmptyInputInfo] {
 
   override def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[EmptyInputInfo])(
@@ -447,7 +447,7 @@ object P2PKWithTimeoutSigner extends P2PKWithTimeoutSigner
 sealed abstract class MultiSigSigner extends Signer[MultiSignatureInputInfo] {
 
   override def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[MultiSignatureInputInfo])(
@@ -477,7 +477,7 @@ object MultiSigSigner extends MultiSigSigner
 /** Used to sign a [[org.bitcoins.core.protocol.script.P2SHScriptPubKey]] */
 sealed abstract class P2SHSigner extends Signer[P2SHInputInfo] {
   override def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[P2SHInputInfo])(
@@ -544,7 +544,7 @@ object P2SHSigner extends P2SHSigner
 sealed abstract class P2WPKHSigner extends Signer[P2WPKHV0InputInfo] {
 
   override def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[P2WPKHV0InputInfo])(
@@ -616,7 +616,7 @@ object P2WPKHSigner extends P2WPKHSigner
 sealed abstract class P2WSHSigner extends Signer[P2WSHV0InputInfo] {
 
   override def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[P2WSHV0InputInfo])(
@@ -663,7 +663,7 @@ object P2WSHSigner extends P2WSHSigner
 sealed abstract class LockTimeSigner extends Signer[LockTimeInputInfo] {
 
   override def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[LockTimeInputInfo])(
@@ -685,7 +685,7 @@ object LockTimeSigner extends LockTimeSigner
 sealed abstract class ConditionalSigner extends Signer[ConditionalInputInfo] {
 
   override def sign(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       isDummySignature: Boolean,
       spendingInfoToSatisfy: UTXOSatisfyingInfo[ConditionalInputInfo])(

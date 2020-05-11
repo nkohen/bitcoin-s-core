@@ -47,7 +47,7 @@ class InputInfoTest extends BitcoinSAsyncTest {
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition
       )
     }
   }
@@ -71,7 +71,7 @@ class InputInfoTest extends BitcoinSAsyncTest {
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
         redeemScriptOpt = Some(P2WPKHWitnessSPKV0(pubKey)),
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition
       )
     }
   }
@@ -95,7 +95,7 @@ class InputInfoTest extends BitcoinSAsyncTest {
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
         redeemScriptOpt = Some(P2WPKHWitnessSPKV0(pubKey)),
         scriptWitnessOpt = Some(EmptyScriptWitness),
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition
       )
     }
   }
@@ -116,7 +116,7 @@ class InputInfoTest extends BitcoinSAsyncTest {
         output = TransactionOutput(CurrencyUnits.zero, p2sh),
         redeemScriptOpt = Some(unassingedWitnessSPK),
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition
       )
     }
   }
@@ -136,7 +136,7 @@ class InputInfoTest extends BitcoinSAsyncTest {
         output = TransactionOutput(CurrencyUnits.zero, p2wpkh),
         redeemScriptOpt = None,
         scriptWitnessOpt = Some(EmptyScriptWitness),
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition
       )
     }
   }
@@ -156,7 +156,7 @@ class InputInfoTest extends BitcoinSAsyncTest {
         output = TransactionOutput(CurrencyUnits.zero, p2wpkh),
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition
       )
     }
   }
@@ -179,7 +179,7 @@ class InputInfoTest extends BitcoinSAsyncTest {
         output = TransactionOutput(CurrencyUnits.zero, unassingedWitnessSPK),
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition
       )
 
     val expectedSpendingInfo =
@@ -188,7 +188,8 @@ class InputInfoTest extends BitcoinSAsyncTest {
         amount = CurrencyUnits.zero,
         scriptPubKey = unassingedWitnessSPK,
         scriptWitness = EmptyScriptWitness,
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition,
+        pubKeys = Vector.empty
       )
 
     assert(spendingInfo == expectedSpendingInfo)
@@ -208,7 +209,7 @@ class InputInfoTest extends BitcoinSAsyncTest {
         output = TransactionOutput(CurrencyUnits.zero, spk),
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft
+        conditionalPath = ConditionalPath.NoCondition
       )
     }
   }

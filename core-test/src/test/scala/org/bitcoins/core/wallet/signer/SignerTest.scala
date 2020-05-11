@@ -47,6 +47,7 @@ import org.bitcoins.core.wallet.utxo.{
   P2WSHV0InputInfo,
   UTXOInfo,
   UTXOSatisfyingInfo,
+  UTXOSigningInfo,
   UnassignedSegwitNativeInputInfo
 }
 import org.bitcoins.crypto.ECDigitalSignature
@@ -79,7 +80,8 @@ class SignerTest extends BitcoinSAsyncTest {
         p2wpkh.amount,
         p2wpkh.output.scriptPubKey.asInstanceOf[WitnessScriptPubKey],
         InputInfo.getScriptWitness(p2wpkh.inputInfo).get,
-        p2wpkh.conditionalPath
+        p2wpkh.conditionalPath,
+        p2wpkh.signers.map(_.publicKey)
       ),
       p2wpkh.signers,
       p2wpkh.hashType
@@ -134,7 +136,7 @@ class SignerTest extends BitcoinSAsyncTest {
           signedTx <- builder.sign
 
           singleSigs: Vector[Vector[ECDigitalSignature]] <- {
-            val singleInfosVec: Vector[Vector[UTXOInfo.AnySigning]] =
+            val singleInfosVec: Vector[Vector[UTXOSigningInfo[InputInfo]]] =
               creditingTxsInfos.toVector.map(_.toSingles)
             val sigVecFs = singleInfosVec.map { singleInfos =>
               val sigFs = singleInfos.map { singleInfo =>
@@ -183,7 +185,7 @@ class SignerTest extends BitcoinSAsyncTest {
     }
   }
 
-  def inputIndex(spendingInfo: UTXOInfo.Any, tx: Transaction): Int = {
+  def inputIndex(spendingInfo: UTXOInfo[InputInfo], tx: Transaction): Int = {
     tx.inputs.zipWithIndex
       .find(_._1.previousOutput == spendingInfo.outPoint) match {
       case Some((_, index)) => index
@@ -196,7 +198,7 @@ class SignerTest extends BitcoinSAsyncTest {
   def createProgram(
       tx: Transaction,
       idx: Int,
-      utxo: UTXOInfo.Any): PreExecutionScriptProgram = {
+      utxo: UTXOInfo[InputInfo]): PreExecutionScriptProgram = {
     val output = utxo.output
 
     val spk = output.scriptPubKey
@@ -239,7 +241,9 @@ class SignerTest extends BitcoinSAsyncTest {
     PreExecutionScriptProgram(txSigComponent)
   }
 
-  def verifyScripts(tx: Transaction, utxos: Vector[UTXOInfo.Any]): Boolean = {
+  def verifyScripts(
+      tx: Transaction,
+      utxos: Vector[UTXOInfo[InputInfo]]): Boolean = {
     val programs: Vector[PreExecutionScriptProgram] =
       tx.inputs.zipWithIndex.toVector.map {
         case (input: TransactionInput, idx: Int) =>
@@ -265,7 +269,7 @@ class SignerTest extends BitcoinSAsyncTest {
           unsignedTx <- builder.unsignedTx
 
           singleSigs: Vector[Vector[PartialSignature]] <- {
-            val singleInfosVec: Vector[Vector[UTXOInfo.AnySigning]] =
+            val singleInfosVec: Vector[Vector[UTXOSigningInfo[InputInfo]]] =
               creditingTxsInfos.toVector.map(_.toSingles)
             val sigVecFs = singleInfosVec.map { singleInfos =>
               val sigFs = singleInfos.map { singleInfo =>

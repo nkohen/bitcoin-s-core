@@ -275,7 +275,7 @@ class PSBTUnitTest extends BitcoinSAsyncTest {
         .getScriptWitness(spendingInfo.inputInfo)
         .contains(P2WSHWitnessV0(RawScriptPubKey.fromAsmHex(
           "5221029da12cdb5b235692b91536afefe5c91c3ab9473d8e43b533836ab456299c88712103372b34234ed7cf9c1fea5d05d441557927be9542b162eb02e1ab2ce80224c00b52ae"))))
-    assert(spendingInfo.conditionalPath == ConditionalPath.NoConditionsLeft)
+    assert(spendingInfo.conditionalPath == ConditionalPath.NoCondition)
   }
 
   it must "fail to create a valid UTXOSpendingInfo from a PSBTInputMap with insufficient data" in {

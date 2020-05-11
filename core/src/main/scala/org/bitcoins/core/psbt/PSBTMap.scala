@@ -505,7 +505,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
   def toUTXOSatisfyingInfoUsingSigners(
       txIn: TransactionInput,
       signers: Vector[Sign],
-      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): UTXOSatisfyingInfo[
+      conditionalPath: ConditionalPath = ConditionalPath.NoCondition): UTXOSatisfyingInfo[
     InputInfo] = {
     require(!isFinalized, s"Cannot update an InputPSBTMap that is finalized")
 
@@ -522,7 +522,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
   def toUTXOSigningInfo(
       txIn: TransactionInput,
       signer: Sign,
-      conditionalPath: ConditionalPath = ConditionalPath.NoConditionsLeft): UTXOSigningInfo[
+      conditionalPath: ConditionalPath = ConditionalPath.NoCondition): UTXOSigningInfo[
     InputInfo] = {
     require(!isFinalized, s"Cannot update an InputPSBTMap that is finalized")
     val outPoint = txIn.previousOutput
@@ -634,7 +634,7 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
     * a non-witness spend, the transaction being spent
     */
   def finalizedFromNewSpendingInfo(
-      spendingInfo: UTXOInfo.AnySatisfying,
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       nonWitnessTxOpt: Option[Transaction])(
       implicit ec: ExecutionContext): Future[InputPSBTMap] = {
@@ -645,7 +645,7 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
       val utxos = spendingInfo.inputInfo match {
         case _: SegwitV0NativeInputInfo | _: P2SHNestedSegwitV0InputInfo =>
           Vector(WitnessUTXO(spendingInfo.output))
-        case _: RawInputInfo | _: P2SHNoNestInputInfo |
+        case _: RawInputInfo | _: P2SHNonSegwitInputInfo |
             _: UnassignedSegwitNativeInputInfo =>
           nonWitnessTxOpt match {
             case None => Vector.empty
@@ -676,8 +676,8 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
     * from a NewSpendingInfoFull, the corresponding PSBT's unsigned transaction,
     * and if this is a non-witness spend, the transaction being spent
     */
-  def fromNewSpendingInfo(
-      spendingInfo: UTXOInfo.AnySatisfying,
+  def fromUTXOInfo(
+      spendingInfo: UTXOSatisfyingInfo[InputInfo],
       unsignedTx: Transaction,
       nonWitnessTxOpt: Option[Transaction])(
       implicit ec: ExecutionContext): Future[InputPSBTMap] = {
@@ -695,7 +695,7 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
       spendingInfo.inputInfo match {
         case _: SegwitV0NativeInputInfo | _: P2SHNestedSegwitV0InputInfo =>
           builder.+=(WitnessUTXO(spendingInfo.output))
-        case _: RawInputInfo | _: P2SHNoNestInputInfo |
+        case _: RawInputInfo | _: P2SHNonSegwitInputInfo |
             _: UnassignedSegwitNativeInputInfo =>
           nonWitnessTxOpt match {
             case None => ()
@@ -710,7 +710,7 @@ object InputPSBTMap extends PSBTMapFactory[InputPSBTRecord, InputPSBTMap] {
       builder.+=(sigHashType)
 
       spendingInfo.inputInfo match {
-        case p2sh: P2SHNoNestInputInfo =>
+        case p2sh: P2SHNonSegwitInputInfo =>
           builder.+=(RedeemScript(p2sh.redeemScript))
         case p2sh: P2SHNestedSegwitV0InputInfo =>
           builder.+=(RedeemScript(p2sh.redeemScript))

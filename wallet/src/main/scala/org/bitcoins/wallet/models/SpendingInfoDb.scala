@@ -16,7 +16,6 @@ import org.bitcoins.core.wallet.utxo.{
   ConditionalPath,
   InputInfo,
   TxoState,
-  UTXOInfo,
   UTXOSatisfyingInfo
 }
 import org.bitcoins.crypto.{DoubleSha256DigestBE, Sign}
@@ -174,21 +173,21 @@ sealed trait SpendingInfoDb extends DbRowAutoInc[SpendingInfoDb] {
   /** Converts a non-sensitive DB representation of a UTXO into
     * a signable (and sensitive) real-world UTXO
     */
-  def toNewSpendingInfo(keyManager: BIP39KeyManager): UTXOInfo.AnySatisfying = {
+  def toUTXOInfo(keyManager: BIP39KeyManager): UTXOSatisfyingInfo[InputInfo] = {
 
     val sign: Sign = keyManager.toSign(privKeyPath = privKeyPath)
 
-    toNewSpendingInfo(sign = sign)
+    toUTXOInfo(sign = sign)
   }
 
-  def toNewSpendingInfo(sign: Sign): UTXOInfo.AnySatisfying = {
+  def toUTXOInfo(sign: Sign): UTXOSatisfyingInfo[InputInfo] = {
     UTXOSatisfyingInfo(
       InputInfo(
         outPoint,
         output,
         redeemScriptOpt,
         scriptWitnessOpt,
-        ConditionalPath.NoConditionsLeft, // TODO: Migrate to add the Column for this (default: NoConditionsLeft)
+        ConditionalPath.NoCondition, // TODO: Migrate to add the Column for this (default: NoConditionsLeft)
         Some(sign.publicKey)
       ),
       Vector(sign),

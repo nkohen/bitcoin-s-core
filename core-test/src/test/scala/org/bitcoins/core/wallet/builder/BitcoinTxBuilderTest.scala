@@ -57,7 +57,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
         output = creditingOutput,
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft,
+        conditionalPath = ConditionalPath.NoCondition,
         p2pkhPreImageOpt = Some(privKey.publicKey)
       ),
       signer = privKey,
@@ -101,7 +101,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
         output = creditingOutput,
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft,
+        conditionalPath = ConditionalPath.NoCondition,
         p2pkhPreImageOpt = Some(privKey.publicKey)
       ),
       signer = privKey,
@@ -135,7 +135,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
         output = creditingOutput,
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft,
+        conditionalPath = ConditionalPath.NoCondition,
         p2pkhPreImageOpt = Some(privKey.publicKey)
       ),
       signer = privKey,
@@ -163,15 +163,15 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                       tc.lockTime)
     val outPoint = TransactionOutPoint(creditingTx.txId, UInt32.zero)
     val utxo =
-      UTXOSatisfyingInfo(InputInfo(outPoint,
-                                   creditingOutput,
-                                   None,
-                                   None,
-                                   conditionalPath =
-                                     ConditionalPath.NoConditionsLeft,
-                                   Some(privKey.publicKey)),
-                         privKey,
-                         HashType.sigHashAll)
+      UTXOSatisfyingInfo(
+        InputInfo(outPoint,
+                  creditingOutput,
+                  None,
+                  None,
+                  conditionalPath = ConditionalPath.NoCondition,
+                  Some(privKey.publicKey)),
+        privKey,
+        HashType.sigHashAll)
     val utxoMap: UTXOMap = Map(outPoint -> utxo)
     val feeUnit = SatoshisPerVirtualByte(currencyUnit = Satoshis(1))
     val txBuilder = BitcoinTxBuilder(destinations = destinations,
@@ -180,7 +180,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                      changeSPK = EmptyScriptPubKey,
                                      network = TestNet3)
     //trivially false
-    val f = (_: Seq[UTXOInfo.AnySatisfying], _: Transaction) => false
+    val f = (_: Seq[UTXOSatisfyingInfo[InputInfo]], _: Transaction) => false
     val resultFuture = txBuilder.flatMap(_.sign(f))
     recoverToSucceededIf[IllegalArgumentException] {
       resultFuture
@@ -207,7 +207,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
         output = creditingOutput,
         redeemScriptOpt = None,
         scriptWitnessOpt = None,
-        conditionalPath = ConditionalPath.NoConditionsLeft,
+        conditionalPath = ConditionalPath.NoCondition,
         p2pkhPreImageOpt = Some(privKey.publicKey)
       ),
       signer = privKey,
@@ -247,7 +247,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       output = creditingOutput,
       redeemScriptOpt = Some(EmptyScriptPubKey),
       scriptWitnessOpt = None,
-      conditionalPath = ConditionalPath.NoConditionsLeft
+      conditionalPath = ConditionalPath.NoCondition
     )
 
     assertThrows[RuntimeException] {
@@ -281,7 +281,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                   creditingOutput,
                   None,
                   Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                  conditionalPath = ConditionalPath.NoConditionsLeft,
+                  conditionalPath = ConditionalPath.NoCondition,
                   Some(privKey.publicKey)),
         privKey,
         HashType.sigHashAll
@@ -294,7 +294,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                   creditingOutput,
                   None,
                   Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                  conditionalPath = ConditionalPath.NoConditionsLeft,
+                  conditionalPath = ConditionalPath.NoCondition,
                   Some(privKey.publicKey)),
         privKey,
         HashType.sigHashAll
@@ -317,7 +317,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                 creditingOutput,
                 None,
                 Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                conditionalPath = ConditionalPath.NoConditionsLeft,
+                conditionalPath = ConditionalPath.NoCondition,
                 Some(privKey.publicKey)),
       privKey,
       HashType.sigHashAll
@@ -353,7 +353,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
         output = creditingOutput,
         redeemScriptOpt = None,
         scriptWitnessOpt = Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-        conditionalPath = ConditionalPath.NoConditionsLeft,
+        conditionalPath = ConditionalPath.NoCondition,
         p2pkhPreImageOpt = Some(privKey.publicKey)
       ),
       signer = privKey,
@@ -388,7 +388,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
       output = creditingOutput,
       redeemScriptOpt = None,
       scriptWitnessOpt = Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-      conditionalPath = ConditionalPath.NoConditionsLeft
+      conditionalPath = ConditionalPath.NoCondition
     )
 
     assertThrows[IllegalArgumentException] {
@@ -422,7 +422,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                   creditingOutput,
                   None,
                   Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                  conditionalPath = ConditionalPath.NoConditionsLeft,
+                  conditionalPath = ConditionalPath.NoCondition,
                   Some(privKey.publicKey)),
         privKey,
         HashType.sigHashAll
@@ -435,7 +435,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                   creditingOutput,
                   None,
                   Some(P2WSHWitnessV0(EmptyScriptPubKey)),
-                  conditionalPath = ConditionalPath.NoConditionsLeft,
+                  conditionalPath = ConditionalPath.NoCondition,
                   Some(privKey.publicKey)),
         privKey,
         HashType.sigHashAll
@@ -457,7 +457,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                             UInt32.zero),
                         Bitcoins.one,
                         cltvSPK,
-                        ConditionalPath.NoConditionsLeft),
+                        ConditionalPath.NoCondition),
       Vector(fundingPrivKey),
       HashType.sigHashAll
     )
@@ -492,7 +492,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                             UInt32.zero),
                         Bitcoins.one,
                         cltvSPK,
-                        ConditionalPath.NoConditionsLeft),
+                        ConditionalPath.NoCondition),
       Vector(fundingPrivKey),
       HashType.sigHashAll
     )
@@ -532,7 +532,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                             UInt32.zero),
                         Bitcoins.one,
                         cltvSPK1,
-                        ConditionalPath.NoConditionsLeft),
+                        ConditionalPath.NoCondition),
       Vector(fundingPrivKey1),
       HashType.sigHashAll
     )
@@ -542,7 +542,7 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
                                             UInt32.one),
                         Bitcoins.one,
                         cltvSPK2,
-                        ConditionalPath.NoConditionsLeft),
+                        ConditionalPath.NoCondition),
       Vector(fundingPrivKey2),
       HashType.sigHashAll
     )
@@ -575,7 +575,8 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
           amount = Bitcoins.one + CurrencyUnits.oneMBTC,
           scriptPubKey = P2WPKHWitnessSPKV0(pubKey),
           scriptWitness = P2WPKHWitnessV0(pubKey),
-          conditionalPath = ConditionalPath.NoConditionsLeft
+          conditionalPath = ConditionalPath.NoCondition,
+          Vector(pubKey)
         ),
         signers = Vector(privKey),
         hashType = HashType.sigHashAll
@@ -594,7 +595,9 @@ class BitcoinTxBuilderTest extends BitcoinSAsyncTest {
     }
   }
 
-  def verifyScript(tx: Transaction, utxos: Vector[UTXOInfo.Any]): Boolean = {
+  def verifyScript(
+      tx: Transaction,
+      utxos: Vector[UTXOInfo[InputInfo]]): Boolean = {
     val programs: Vector[PreExecutionScriptProgram] =
       tx.inputs.zipWithIndex.toVector.map {
         case (input: TransactionInput, idx: Int) =>

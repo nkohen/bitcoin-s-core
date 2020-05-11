@@ -23,12 +23,6 @@ sealed trait UTXOInfo[+InputType <: InputInfo] {
   def conditionalPath: ConditionalPath = inputInfo.conditionalPath
 }
 
-object UTXOInfo {
-  type Any = UTXOInfo[InputInfo]
-  type AnySatisfying = UTXOSatisfyingInfo[InputInfo]
-  type AnySigning = UTXOSigningInfo[InputInfo]
-}
-
 case class UTXOSatisfyingInfo[+InputType <: InputInfo](
     inputInfo: InputType,
     signers: Vector[Sign],

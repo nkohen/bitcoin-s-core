@@ -1,30 +1,7 @@
 package org.bitcoins.core.wallet.utxo
 
 import org.bitcoins.core.currency.CurrencyUnit
-import org.bitcoins.core.protocol.script.{
-  ConditionalScriptPubKey,
-  EmptyScriptPubKey,
-  EmptyScriptWitness,
-  LockTimeScriptPubKey,
-  MultiSignatureScriptPubKey,
-  NonStandardScriptPubKey,
-  P2PKHScriptPubKey,
-  P2PKScriptPubKey,
-  P2PKWithTimeoutScriptPubKey,
-  P2SHScriptPubKey,
-  P2WPKHWitnessSPKV0,
-  P2WPKHWitnessV0,
-  P2WSHWitnessSPKV0,
-  P2WSHWitnessV0,
-  RawScriptPubKey,
-  ScriptPubKey,
-  ScriptWitness,
-  ScriptWitnessV0,
-  UnassignedWitnessScriptPubKey,
-  WitnessCommitment,
-  WitnessScriptPubKey,
-  WitnessScriptPubKeyV0
-}
+import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.transaction.{
   TransactionOutPoint,
   TransactionOutput
@@ -47,25 +24,28 @@ sealed trait InputInfo {
 
   def conditionalPath: ConditionalPath
 
-  def pubKeys: Vector[ECPublicKey] = scriptPubKey.pubKeysFor(this)
+  def pubKeys: Vector[ECPublicKey]
 
   def toSpendingInfo(
       signers: Vector[Sign],
-      hashType: HashType): UTXOInfo.AnySatisfying = {
+      hashType: HashType): UTXOSatisfyingInfo[InputInfo] = {
     UTXOSatisfyingInfo(this, signers, hashType)
   }
 
-  def toSpendingInfo(signer: Sign, hashType: HashType): UTXOInfo.AnySigning = {
+  def toSpendingInfo(
+      signer: Sign,
+      hashType: HashType): UTXOSigningInfo[InputInfo] = {
     UTXOSigningInfo(this, signer, hashType)
   }
 
   def withSignFrom(
-      signerMaterial: UTXOInfo.AnySatisfying): UTXOSatisfyingInfo[this.type] = {
+      signerMaterial: UTXOSatisfyingInfo[InputInfo]): UTXOSatisfyingInfo[
+    this.type] = {
     signerMaterial.copy(inputInfo = this)
   }
 
-  def withSignFrom(
-      signerMaterial: UTXOInfo.AnySigning): UTXOSigningInfo[this.type] = {
+  def withSignFrom(signerMaterial: UTXOSigningInfo[InputInfo]): UTXOSigningInfo[
+    this.type] = {
     signerMaterial.copy(inputInfo = this)
   }
 }
@@ -83,10 +63,10 @@ object InputInfo {
 
   def getScriptWitness(inputInfo: InputInfo): Option[ScriptWitness] = {
     inputInfo match {
-      case _: RawInputInfo | _: P2SHNoNestInputInfo => None
-      case info: SegwitV0NativeInputInfo            => Some(info.scriptWitness)
-      case info: P2SHNestedSegwitV0InputInfo        => Some(info.scriptWitness)
-      case info: UnassignedSegwitNativeInputInfo    => Some(info.scriptWitness)
+      case _: RawInputInfo | _: P2SHNonSegwitInputInfo => None
+      case info: SegwitV0NativeInputInfo               => Some(info.scriptWitness)
+      case info: P2SHNestedSegwitV0InputInfo           => Some(info.scriptWitness)
+      case info: UnassignedSegwitNativeInputInfo       => Some(info.scriptWitness)
     }
   }
 
@@ -121,11 +101,11 @@ object InputInfo {
                                             conditionalPath,
                                             p2pkhPreImageOpt)
               case nonWitnessSPK: RawScriptPubKey =>
-                P2SHNoNestInputInfo(outPoint,
-                                    output.value,
-                                    nonWitnessSPK,
-                                    conditionalPath,
-                                    p2pkhPreImageOpt)
+                P2SHNonSegwitInputInfo(outPoint,
+                                       output.value,
+                                       nonWitnessSPK,
+                                       conditionalPath,
+                                       p2pkhPreImageOpt)
               case _: P2SHScriptPubKey =>
                 throw new IllegalArgumentException("Cannot have nested P2SH")
               case _: UnassignedWitnessScriptPubKey =>
@@ -154,7 +134,8 @@ object InputInfo {
           output.value,
           wspk,
           scriptWitnessOpt.getOrElse(EmptyScriptWitness),
-          conditionalPath)
+          conditionalPath,
+          Vector.empty)
       case rawSPK: RawScriptPubKey =>
         RawInputInfo(outPoint,
                      output.value,
@@ -229,8 +210,9 @@ case class EmptyInputInfo(outPoint: TransactionOutPoint, amount: CurrencyUnit)
     extends RawInputInfo {
   override def scriptPubKey: EmptyScriptPubKey.type = EmptyScriptPubKey
   override def conditionalPath: ConditionalPath =
-    ConditionalPath.NoConditionsLeft
+    ConditionalPath.NoCondition
   override def p2pkhPreImage: Option[ECPublicKey] = None
+  override def pubKeys: Vector[ECPublicKey] = Vector.empty
 }
 
 case class P2PKInputInfo(
@@ -241,7 +223,9 @@ case class P2PKInputInfo(
   override def p2pkhPreImage: Option[ECPublicKey] = None
 
   override def conditionalPath: ConditionalPath =
-    ConditionalPath.NoConditionsLeft
+    ConditionalPath.NoCondition
+
+  override def pubKeys: Vector[ECPublicKey] = Vector(scriptPubKey.publicKey)
 }
 
 case class P2PKHInputInfo(
@@ -254,7 +238,9 @@ case class P2PKHInputInfo(
   override def p2pkhPreImage: Option[ECPublicKey] = Some(pubKey)
 
   override def conditionalPath: ConditionalPath =
-    ConditionalPath.NoConditionsLeft
+    ConditionalPath.NoCondition
+
+  override def pubKeys: Vector[ECPublicKey] = Vector(pubKey)
 }
 
 case class P2PKWithTimeoutInputInfo(
@@ -272,6 +258,9 @@ case class P2PKWithTimeoutInputInfo(
       ConditionalPath.nonNestedFalse
     }
   }
+
+  override def pubKeys: Vector[ECPublicKey] =
+    Vector(scriptPubKey.pubKey, scriptPubKey.timeoutPubKey)
 }
 
 case class MultiSignatureInputInfo(
@@ -282,7 +271,9 @@ case class MultiSignatureInputInfo(
   override def p2pkhPreImage: Option[ECPublicKey] = None
 
   override def conditionalPath: ConditionalPath =
-    ConditionalPath.NoConditionsLeft
+    ConditionalPath.NoCondition
+
+  override def pubKeys: Vector[ECPublicKey] = scriptPubKey.publicKeys.toVector
 }
 
 case class ConditionalInputInfo(
@@ -298,7 +289,7 @@ case class ConditionalInputInfo(
         (true, nextCondition)
       case ConditionalPath.ConditionFalse(nextCondition) =>
         (false, nextCondition)
-      case ConditionalPath.NoConditionsLeft =>
+      case ConditionalPath.NoCondition =>
         throw new IllegalArgumentException("Must specify True or False")
     }
 
@@ -315,6 +306,8 @@ case class ConditionalInputInfo(
                  nextConditionalPath,
                  p2pkhPreImage)
   }
+
+  override def pubKeys: Vector[ECPublicKey] = nestedInputInfo.pubKeys
 }
 
 case class LockTimeInputInfo(
@@ -331,6 +324,8 @@ case class LockTimeInputInfo(
     scriptPubKey.nestedScriptPubKey,
     conditionalPath,
     p2pkhPreImage)
+
+  override def pubKeys: Vector[ECPublicKey] = nestedInputInfo.pubKeys
 }
 
 sealed trait SegwitV0NativeInputInfo extends InputInfo {
@@ -370,7 +365,9 @@ case class P2WPKHV0InputInfo(
   override def p2pkhPreImage: Option[ECPublicKey] = None
 
   override def conditionalPath: ConditionalPath =
-    ConditionalPath.NoConditionsLeft
+    ConditionalPath.NoCondition
+
+  override def pubKeys: Vector[ECPublicKey] = Vector(pubKey)
 }
 
 case class P2WSHV0InputInfo(
@@ -389,6 +386,8 @@ case class P2WSHV0InputInfo(
                  scriptWitness.redeemScript,
                  conditionalPath,
                  p2pkhPreImage)
+
+  override def pubKeys: Vector[ECPublicKey] = nestedInputInfo.pubKeys
 }
 
 case class UnassignedSegwitNativeInputInfo(
@@ -396,7 +395,8 @@ case class UnassignedSegwitNativeInputInfo(
     amount: CurrencyUnit,
     scriptPubKey: WitnessScriptPubKey,
     scriptWitness: ScriptWitness,
-    conditionalPath: ConditionalPath)
+    conditionalPath: ConditionalPath,
+    pubKeys: Vector[ECPublicKey])
     extends InputInfo {
   override def p2pkhPreImage: Option[ECPublicKey] = None
 }
@@ -409,9 +409,11 @@ sealed trait P2SHInputInfo extends InputInfo {
   override def scriptPubKey: P2SHScriptPubKey = P2SHScriptPubKey(redeemScript)
 
   def nestedInputInfo: InputInfo
+
+  override def pubKeys: Vector[ECPublicKey] = nestedInputInfo.pubKeys
 }
 
-case class P2SHNoNestInputInfo(
+case class P2SHNonSegwitInputInfo(
     outPoint: TransactionOutPoint,
     amount: CurrencyUnit,
     redeemScript: RawScriptPubKey,

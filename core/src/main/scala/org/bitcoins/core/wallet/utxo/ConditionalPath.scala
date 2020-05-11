@@ -14,25 +14,31 @@ sealed trait ConditionalPath {
   def headOption: Option[Boolean]
 }
 
+sealed trait Conditional extends ConditionalPath {
+  def condition: Boolean
+
+  override def headOption: Option[Boolean] = Some(condition)
+}
+
 object ConditionalPath {
-  case object NoConditionsLeft extends ConditionalPath {
+  case object NoCondition extends ConditionalPath {
     override val headOption: Option[Boolean] = None
   }
-  case class ConditionTrue(nextCondition: ConditionalPath)
-      extends ConditionalPath {
-    override val headOption: Option[Boolean] = Some(true)
+
+  case class ConditionTrue(nextCondition: ConditionalPath) extends Conditional {
+    override val condition: Boolean = true
   }
   case class ConditionFalse(nextCondition: ConditionalPath)
-      extends ConditionalPath {
-    override val headOption: Option[Boolean] = Some(false)
+      extends Conditional {
+    override val condition: Boolean = false
   }
 
-  val nonNestedTrue: ConditionalPath = ConditionTrue(NoConditionsLeft)
-  val nonNestedFalse: ConditionalPath = ConditionFalse(NoConditionsLeft)
+  val nonNestedTrue: ConditionalPath = ConditionTrue(NoCondition)
+  val nonNestedFalse: ConditionalPath = ConditionFalse(NoCondition)
 
   def fromBranch(branch: Vector[Boolean]): ConditionalPath = {
     if (branch.isEmpty) {
-      NoConditionsLeft
+      NoCondition
     } else {
       if (branch.head) {
         ConditionTrue(fromBranch(branch.tail))
