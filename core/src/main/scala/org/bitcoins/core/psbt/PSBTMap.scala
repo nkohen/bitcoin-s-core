@@ -567,7 +567,7 @@ case class InputPSBTMap(elements: Vector[InputPSBTRecord])
                               redeemScriptOpt,
                               scriptWitnessOpt,
                               conditionalPath,
-                              Some(signer.publicKey))
+                              Vector(signer.publicKey))
 
     UTXOSigningInfo(inputInfo, signer, hashType)
   }

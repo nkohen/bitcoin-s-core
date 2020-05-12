@@ -204,7 +204,7 @@ sealed abstract class CreditingTxGen {
             Some(redeemScript),
             scriptWitnessOpt,
             computeAllTrueConditionalPath(redeemScript, None, scriptWitnessOpt),
-            o.signers.headOption.map(_.publicKey)
+            o.signers.map(_.publicKey)
           ),
           o.signers,
           hashType
@@ -231,7 +231,7 @@ sealed abstract class CreditingTxGen {
                 InputInfo.getRedeemScript(o.inputInfo),
                 InputInfo.getScriptWitness(o.inputInfo),
                 ConditionalPath.NoCondition,
-                o.signers.headOption.map(_.publicKey)
+                o.signers.map(_.publicKey)
               ),
               o.signers,
               hashType
@@ -258,7 +258,7 @@ sealed abstract class CreditingTxGen {
                 InputInfo.getRedeemScript(o.inputInfo),
                 InputInfo.getScriptWitness(o.inputInfo),
                 ConditionalPath.NoCondition,
-                o.signers.headOption.map(_.publicKey)
+                o.signers.map(_.publicKey)
               ),
               o.signers,
               hashType
@@ -332,7 +332,7 @@ sealed abstract class CreditingTxGen {
                     Some(spk),
                     Some(wit),
                     ConditionalPath.NoCondition,
-                    signers.headOption.map(_.publicKey)
+                    signers.map(_.publicKey)
                   ),
                   signers,
                   hashType
@@ -403,7 +403,7 @@ sealed abstract class CreditingTxGen {
               redeemScript,
               scriptWitness,
               computeAllTrueConditionalPath(spk, redeemScript, scriptWitness),
-              signers.headOption.map(_.publicKey)
+              signers.toVector.map(_.publicKey)
             ),
             signers.toVector,
             hashType
