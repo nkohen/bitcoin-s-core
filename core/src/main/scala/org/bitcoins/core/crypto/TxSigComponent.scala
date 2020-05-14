@@ -77,6 +77,19 @@ object TxSigComponent {
         BaseTxSigComponent(transaction, inputIndex, output, flags)
     }
   }
+
+  def getScriptWitness(
+      txSigComponent: TxSigComponent): Option[ScriptWitness] = {
+    txSigComponent.transaction match {
+      case _: NonWitnessTransaction => None
+      case wtx: WitnessTransaction =>
+        val witness = wtx.witness.witnesses(txSigComponent.inputIndex.toInt)
+        witness match {
+          case EmptyScriptWitness => None
+          case _: ScriptWitness   => Some(witness)
+        }
+    }
+  }
 }
 
 /**

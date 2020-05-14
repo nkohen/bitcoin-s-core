@@ -18,7 +18,7 @@ import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-/**
+/** TODO: Delete this and move tests into correct files
   * High level class to create a signed transaction that spends a set of
   * unspent transaction outputs.
   *
@@ -147,12 +147,12 @@ sealed abstract class BitcoinTxBuilder extends TxBuilder {
       utxnf =>
         val dummySignTx = loop(utxos, utxnf, true)
         dummySignTx.map { dtx =>
-          logger.debug(s"dummySignTx $dtx")
+          //println(s"old dummySignTx $dtx")
           val fee = feeRate.calc(dtx)
-          logger.debug(s"fee $fee")
+          //println(s"old (correct) fee $fee")
           val change = creditingAmount - destinationAmount - fee
           val newChangeOutput = TransactionOutput(change, changeSPK)
-          logger.debug(s"newChangeOutput $newChangeOutput")
+          //println(s"old change output $newChangeOutput")
           //if the change output is below the dust threshold after calculating the fee, don't add it
           //to the tx
           val newOutputs = if (newChangeOutput.value <= Policy.dustThreshold) {
@@ -619,33 +619,5 @@ object BitcoinTxBuilder {
       }
     val map = loop(utxos, Map.empty)
     BitcoinTxBuilder(destinations, map, feeRate, changeSPK, network)
-  }
-
-  /**
-    * Sets the ScriptSignature for every input in the given transaction to an EmptyScriptSignature
-    * as well as sets the witness to an EmptyWitness
-    * @param tx Transaction to empty signatures
-    * @return Transaction with no signatures
-    */
-  def emptyAllScriptSigs(tx: Transaction): Transaction = {
-    val newInputs = tx.inputs.map { input =>
-      TransactionInput(input.previousOutput,
-                       EmptyScriptSignature,
-                       input.sequence)
-    }
-
-    tx match {
-      case btx: NonWitnessTransaction =>
-        BaseTransaction(version = btx.version,
-                        inputs = newInputs,
-                        outputs = btx.outputs,
-                        lockTime = btx.lockTime)
-      case wtx: WitnessTransaction =>
-        WitnessTransaction(version = wtx.version,
-                           inputs = newInputs,
-                           outputs = wtx.outputs,
-                           lockTime = wtx.lockTime,
-                           witness = EmptyWitness.fromInputs(newInputs))
-    }
   }
 }

@@ -10,6 +10,7 @@ import org.bitcoins.core.hd.{HDAccount, HDCoin, HDPurposes}
 import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.core.protocol.transaction._
+import org.bitcoins.core.wallet.builder.RawTxSigner
 import org.bitcoins.core.wallet.fee.FeeUnit
 import org.bitcoins.core.wallet.utxo.TxoState
 import org.bitcoins.core.wallet.utxo.TxoState.{
@@ -217,17 +218,21 @@ abstract class Wallet
     logger.info(s"Sending $amount to $address at feerate $feeRate")
     val destination = TransactionOutput(amount, address.scriptPubKey)
     for {
-      txBuilder <- fundRawTransactionInternal(
+      (txBuilder, utxoInfos) <- fundRawTransactionInternal(
         destinations = Vector(destination),
         feeRate = feeRate,
         fromAccount = fromAccount,
         keyManagerOpt = Some(keyManager))
-      signed <- txBuilder.sign
+      utx <- txBuilder.result()
+      signed <- RawTxSigner.sign(utx, utxoInfos, feeRate)
       ourOuts <- findOurOuts(signed)
+      creditingAmount = utxoInfos.foldLeft(CurrencyUnits.zero)(_ + _.amount)
+      destinationAmount = signed.outputs.foldLeft(CurrencyUnits.zero)(
+        _ + _.value)
       _ <- processOurTransaction(transaction = signed,
                                  feeRate = feeRate,
-                                 inputAmount = txBuilder.creditingAmount,
-                                 sentAmount = txBuilder.destinationAmount,
+                                 inputAmount = creditingAmount,
+                                 sentAmount = destinationAmount,
                                  blockHashOpt = None)
     } yield {
       logger.debug(
@@ -268,17 +273,22 @@ abstract class Wallet
       fromAccount: AccountDb,
       reserveUtxos: Boolean): Future[Transaction] = {
     for {
-      txBuilder <- fundRawTransactionInternal(destinations = outputs,
-                                              feeRate = feeRate,
-                                              fromAccount = fromAccount,
-                                              keyManagerOpt = Some(keyManager),
-                                              markAsReserved = reserveUtxos)
-      signed <- txBuilder.sign
+      (txBuilder, utxoInfos) <- fundRawTransactionInternal(
+        destinations = outputs,
+        feeRate = feeRate,
+        fromAccount = fromAccount,
+        keyManagerOpt = Some(keyManager),
+        markAsReserved = reserveUtxos)
+      utx <- txBuilder.result()
+      signed <- RawTxSigner.sign(utx, utxoInfos, feeRate)
       ourOuts <- findOurOuts(signed)
+      creditingAmount = utxoInfos.foldLeft(CurrencyUnits.zero)(_ + _.amount)
+      destinationAmount = signed.outputs.foldLeft(CurrencyUnits.zero)(
+        _ + _.value)
       _ <- processOurTransaction(transaction = signed,
                                  feeRate = feeRate,
-                                 inputAmount = txBuilder.creditingAmount,
-                                 sentAmount = txBuilder.destinationAmount,
+                                 inputAmount = creditingAmount,
+                                 sentAmount = destinationAmount,
                                  blockHashOpt = None)
     } yield {
       logger.debug(

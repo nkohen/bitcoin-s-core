@@ -36,6 +36,8 @@ sealed trait InputInfo {
 
   def pubKeys: Vector[ECPublicKey]
 
+  def requiredSigs: Int
+
   def toSpendingInfo(
       signers: Vector[Sign],
       hashType: HashType): UTXOSatisfyingInfo[InputInfo] = {
@@ -46,6 +48,14 @@ sealed trait InputInfo {
       signer: Sign,
       hashType: HashType): UTXOSigningInfo[InputInfo] = {
     UTXOSigningInfo(this, signer, hashType)
+  }
+
+  def genericWithSignFrom(
+      signerMaterial: UTXOInfo[InputInfo]): UTXOInfo[this.type] = {
+    signerMaterial match {
+      case info: UTXOSatisfyingInfo[InputInfo] => withSignFrom(info)
+      case info: UTXOSigningInfo[InputInfo]    => withSignFrom(info)
+    }
   }
 
   def withSignFrom(
@@ -244,6 +254,7 @@ case class EmptyInputInfo(outPoint: TransactionOutPoint, amount: CurrencyUnit)
   override def conditionalPath: ConditionalPath =
     ConditionalPath.NoCondition
   override def pubKeys: Vector[ECPublicKey] = Vector.empty
+  override def requiredSigs: Int = 0
 }
 
 case class P2PKInputInfo(
@@ -255,6 +266,8 @@ case class P2PKInputInfo(
     ConditionalPath.NoCondition
 
   override def pubKeys: Vector[ECPublicKey] = Vector(scriptPubKey.publicKey)
+
+  override def requiredSigs: Int = 1
 }
 
 case class P2PKHInputInfo(
@@ -268,6 +281,8 @@ case class P2PKHInputInfo(
     ConditionalPath.NoCondition
 
   override def pubKeys: Vector[ECPublicKey] = Vector(pubKey)
+
+  override def requiredSigs: Int = 1
 }
 
 case class P2PKWithTimeoutInputInfo(
@@ -286,6 +301,8 @@ case class P2PKWithTimeoutInputInfo(
 
   override def pubKeys: Vector[ECPublicKey] =
     Vector(scriptPubKey.pubKey, scriptPubKey.timeoutPubKey)
+
+  override def requiredSigs: Int = 1
 }
 
 case class MultiSignatureInputInfo(
@@ -297,6 +314,8 @@ case class MultiSignatureInputInfo(
     ConditionalPath.NoCondition
 
   override def pubKeys: Vector[ECPublicKey] = scriptPubKey.publicKeys.toVector
+
+  override def requiredSigs: Int = scriptPubKey.requiredSigs
 }
 
 case class ConditionalInputInfo(
@@ -331,6 +350,8 @@ case class ConditionalInputInfo(
   }
 
   override def pubKeys: Vector[ECPublicKey] = nestedInputInfo.pubKeys
+
+  override def requiredSigs: Int = nestedInputInfo.requiredSigs
 }
 
 case class LockTimeInputInfo(
@@ -349,6 +370,8 @@ case class LockTimeInputInfo(
     hashPreImages)
 
   override def pubKeys: Vector[ECPublicKey] = nestedInputInfo.pubKeys
+
+  override def requiredSigs: Int = nestedInputInfo.requiredSigs
 }
 
 sealed trait SegwitV0NativeInputInfo extends InputInfo {
@@ -389,6 +412,8 @@ case class P2WPKHV0InputInfo(
     ConditionalPath.NoCondition
 
   override def pubKeys: Vector[ECPublicKey] = Vector(pubKey)
+
+  override def requiredSigs: Int = 1
 }
 
 case class P2WSHV0InputInfo(
@@ -409,6 +434,8 @@ case class P2WSHV0InputInfo(
                  hashPreImages)
 
   override def pubKeys: Vector[ECPublicKey] = nestedInputInfo.pubKeys
+
+  override def requiredSigs: Int = nestedInputInfo.requiredSigs
 }
 
 case class UnassignedSegwitNativeInputInfo(
@@ -418,7 +445,9 @@ case class UnassignedSegwitNativeInputInfo(
     scriptWitness: ScriptWitness,
     conditionalPath: ConditionalPath,
     pubKeys: Vector[ECPublicKey])
-    extends InputInfo
+    extends InputInfo {
+  override def requiredSigs: Int = pubKeys.length
+}
 
 sealed trait P2SHInputInfo extends InputInfo {
   def hashPreImages: Vector[NetworkElement]
@@ -430,6 +459,8 @@ sealed trait P2SHInputInfo extends InputInfo {
   def nestedInputInfo: InputInfo
 
   override def pubKeys: Vector[ECPublicKey] = nestedInputInfo.pubKeys
+
+  override def requiredSigs: Int = nestedInputInfo.requiredSigs
 }
 
 case class P2SHNonSegwitInputInfo(

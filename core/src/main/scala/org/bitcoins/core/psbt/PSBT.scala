@@ -11,7 +11,7 @@ import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.script.interpreter.ScriptInterpreter
 import org.bitcoins.core.script.result.ScriptOk
 import org.bitcoins.core.util.BitcoinSLogger
-import org.bitcoins.core.wallet.builder.BitcoinTxBuilder
+import org.bitcoins.core.wallet.builder.RawTxBuilder
 import org.bitcoins.core.wallet.signer.BitcoinSigner
 import org.bitcoins.core.wallet.utxo._
 import org.bitcoins.crypto.{
@@ -829,7 +829,7 @@ object PSBT extends Factory[PSBT] {
       spendingInfoAndNonWitnessTxs.matchesInputs(unsignedTx.inputs),
       "NewSpendingInfos must correspond to transaction inputs"
     )
-    val emptySigTx = BitcoinTxBuilder.emptyAllScriptSigs(unsignedTx)
+    val emptySigTx = RawTxBuilder.emptyAllScriptSigs(unsignedTx)
     val btx = emptySigTx match {
       case wtx: WitnessTransaction =>
         BaseTransaction(wtx.version, wtx.inputs, wtx.outputs, wtx.lockTime)

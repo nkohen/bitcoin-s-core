@@ -3,19 +3,13 @@ package org.bitcoins.core.wallet.builder
 import org.bitcoins.core.currency.{CurrencyUnit, Satoshis}
 import org.bitcoins.core.number.{Int32, UInt32}
 import org.bitcoins.core.policy.Policy
-import org.bitcoins.core.protocol.script.{
-  EmptyScriptWitness,
-  ScriptPubKey,
-  ScriptWitnessV0
-}
+import org.bitcoins.core.protocol.script.ScriptPubKey
 import org.bitcoins.core.protocol.transaction._
-import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.wallet.fee.FeeUnit
-import org.bitcoins.core.wallet.signer.BitcoinSigner
-import org.bitcoins.core.wallet.utxo.InputInfo
-import org.bitcoins.crypto.{DummyECDigitalSignature, Sign}
+import org.bitcoins.core.wallet.utxo.{InputInfo, UTXOInfo}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
 sealed trait RawTxFinalizer {
 
@@ -73,43 +67,9 @@ case class NonInteractiveWithChangeFinalizer(
         WitnessTransaction(version, inputs, outputsWithChange, lockTime, wit)
     }
 
-    // Add dummy signatures
-    val mockInputFs = inputInfos.zipWithIndex.map {
-      case (inputInfo, index) =>
-        val mockSigners = inputInfo.pubKeys.map { pubKey =>
-          Sign(_ => Future.successful(DummyECDigitalSignature), pubKey)
-        }
+    val dummyTxF = Transaction.addDummySigs(txNoChangeFee, inputInfos)
 
-        val mockSpendingInfo =
-          inputInfo.toSpendingInfo(mockSigners, HashType.sigHashAll)
-
-        BitcoinSigner
-          .sign(mockSpendingInfo, txNoChangeFee, isDummySignature = true)
-          .map(_.transaction)
-          .map { tx =>
-            val witnessOpt = tx match {
-              case _: NonWitnessTransaction => None
-              case wtx: WitnessTransaction =>
-                wtx.witness.witnesses(index) match {
-                  case EmptyScriptWitness   => None
-                  case wit: ScriptWitnessV0 => Some(wit)
-                }
-            }
-
-            (tx.inputs(index), witnessOpt)
-          }
-    }
-
-    Future.sequence(mockInputFs).map { inputsAndWitnesses =>
-      val inputs = inputsAndWitnesses.map(_._1)
-      val txWitnesses = inputsAndWitnesses.map(_._2)
-      val dummyTx = TransactionWitness.fromWitOpt(txWitnesses) match {
-        case _: EmptyWitness =>
-          BaseTransaction(version, inputs, outputsWithChange, lockTime)
-        case wit: TransactionWitness =>
-          WitnessTransaction(version, inputs, outputsWithChange, lockTime, wit)
-      }
-
+    val txF = dummyTxF.map { dummyTx =>
       val fee = feeRate.calc(dummyTx)
       val change = totalCrediting - totalSpending - fee
       val newChangeOutput = TransactionOutput(change, changeSPK)
@@ -125,6 +85,79 @@ case class NonInteractiveWithChangeFinalizer(
         case WitnessTransaction(version, inputs, _, lockTime, witness) =>
           WitnessTransaction(version, inputs, newOutputs, lockTime, witness)
       }
+    }
+
+    txF.flatMap { tx =>
+      val passInOutChecksT =
+        NonInteractiveWithChangeFinalizer.sanityDestinationChecks(
+          expectedOutPoints = inputs.map(_.previousOutput),
+          expectedOutputs = outputs,
+          changeSPK = changeSPK,
+          finalizedTx = tx)
+
+      val passChecksT = passInOutChecksT.flatMap { _ =>
+        Transaction.sanityChecks(forSigned = false,
+                                 inputInfos = inputInfos,
+                                 expectedFeeRate = feeRate,
+                                 tx = tx)
+      }
+
+      Future.fromTry(passChecksT.map(_ => tx))
+    }
+  }
+}
+
+object NonInteractiveWithChangeFinalizer {
+
+  def sanityDestinationChecks(
+      expectedOutPoints: Vector[TransactionOutPoint],
+      expectedOutputs: Vector[TransactionOutput],
+      changeSPK: ScriptPubKey,
+      finalizedTx: Transaction): Try[Unit] = {
+    //make sure we send coins to the appropriate destinations
+    val isMissingDestination =
+      !expectedOutputs.forall(finalizedTx.outputs.contains)
+    val hasExtraOutputs =
+      if (finalizedTx.outputs.size == expectedOutputs.size) {
+        false
+      } else {
+        //the extra output should be the changeOutput
+        !(finalizedTx.outputs.size == (expectedOutputs.size + 1) &&
+          finalizedTx.outputs.map(_.scriptPubKey).contains(changeSPK))
+      }
+    val spendingTxOutPoints = finalizedTx.inputs.map(_.previousOutput)
+    val hasExtraOutPoints =
+      !spendingTxOutPoints.forall(expectedOutPoints.contains)
+    if (isMissingDestination) {
+      TxBuilderError.MissingDestinationOutput
+    } else if (hasExtraOutputs) {
+      TxBuilderError.ExtraOutputsAdded
+    } else if (hasExtraOutPoints) {
+      TxBuilderError.ExtraOutPoints
+    } else {
+      Success(())
+    }
+  }
+
+  def txFrom(
+      outputs: Seq[TransactionOutput],
+      utxos: Seq[UTXOInfo[InputInfo]],
+      feeRate: FeeUnit,
+      changeSPK: ScriptPubKey)(
+      implicit ec: ExecutionContext): Future[Transaction] = {
+    val builder = RawTxBuilder()
+
+    val finalizerF = Future {
+      val inputs = UTXOInfo.calcSequenceForInputs(utxos, Policy.isRBFEnabled)
+      val lockTime = RawTxBuilder.calcLockTime(utxos).get
+      builder.setLockTime(lockTime) ++= outputs ++= inputs
+      NonInteractiveWithChangeFinalizer(utxos.toVector.map(_.inputInfo),
+                                        feeRate,
+                                        changeSPK)
+    }
+
+    finalizerF.flatMap { finalizer =>
+      builder.setFinalizer(finalizer).result()
     }
   }
 }

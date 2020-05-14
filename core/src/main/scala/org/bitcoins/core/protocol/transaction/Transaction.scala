@@ -1,17 +1,33 @@
 package org.bitcoins.core.protocol.transaction
 
+import org.bitcoins.core.currency.{CurrencyUnit, CurrencyUnits, Satoshis}
 import org.bitcoins.core.number.{Int32, UInt32}
-import org.bitcoins.core.protocol.script.{EmptyScriptWitness, ScriptWitness}
+import org.bitcoins.core.policy.Policy
+import org.bitcoins.core.protocol.script.{
+  EmptyScriptWitness,
+  ScriptWitness,
+  ScriptWitnessV0
+}
+import org.bitcoins.core.script.control.OP_RETURN
+import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.util.BytesUtil
+import org.bitcoins.core.wallet.builder.RawTxSigner.logger
+import org.bitcoins.core.wallet.builder.TxBuilderError
+import org.bitcoins.core.wallet.fee.FeeUnit
+import org.bitcoins.core.wallet.signer.BitcoinSigner
+import org.bitcoins.core.wallet.utxo.InputInfo
 import org.bitcoins.crypto.{
   CryptoUtil,
   DoubleSha256Digest,
   DoubleSha256DigestBE,
+  DummyECDigitalSignature,
   Factory,
-  NetworkElement
+  NetworkElement,
+  Sign
 }
 import scodec.bits.ByteVector
 
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 sealed abstract class Transaction extends NetworkElement {
@@ -107,6 +123,160 @@ object Transaction extends Factory[Transaction] {
     Try(WitnessTransaction(bytes)) match {
       case Success(wtx) => wtx
       case Failure(_)   => BaseTransaction(bytes)
+    }
+  }
+
+  def addDummySigs(utx: Transaction, inputInfos: Vector[InputInfo])(
+      implicit ec: ExecutionContext): Future[Transaction] = {
+    val dummyInputAndWitnnessFs = inputInfos.zipWithIndex.map {
+      case (inputInfo, index) =>
+        val mockSigners = inputInfo.pubKeys.take(inputInfo.requiredSigs).map {
+          pubKey =>
+            Sign(_ => Future.successful(DummyECDigitalSignature), pubKey)
+        }
+
+        val mockSpendingInfo =
+          inputInfo.toSpendingInfo(mockSigners, HashType.sigHashAll)
+
+        BitcoinSigner
+          .sign(mockSpendingInfo, utx, isDummySignature = true)
+          .map(_.transaction)
+          .map { tx =>
+            val witnessOpt = tx match {
+              case _: NonWitnessTransaction => None
+              case wtx: WitnessTransaction =>
+                wtx.witness.witnesses(index) match {
+                  case EmptyScriptWitness   => None
+                  case wit: ScriptWitnessV0 => Some(wit)
+                }
+            }
+
+            (tx.inputs(index), witnessOpt)
+          }
+    }
+
+    Future.sequence(dummyInputAndWitnnessFs).map { inputsAndWitnesses =>
+      val inputs = inputsAndWitnesses.map(_._1)
+      val txWitnesses = inputsAndWitnesses.map(_._2)
+      TransactionWitness.fromWitOpt(txWitnesses) match {
+        case _: EmptyWitness =>
+          BaseTransaction(utx.version, inputs, utx.outputs, utx.lockTime)
+        case wit: TransactionWitness =>
+          WitnessTransaction(utx.version,
+                             inputs,
+                             utx.outputs,
+                             utx.lockTime,
+                             wit)
+      }
+    }
+  }
+
+  /** Runs various sanity checks on a transaction */
+  def sanityChecks(
+      forSigned: Boolean,
+      inputInfos: Vector[InputInfo],
+      expectedFeeRate: FeeUnit,
+      tx: Transaction): Try[Unit] = {
+    val dustT = if (forSigned) {
+      sanityDustCheck(tx)
+    } else {
+      Success(())
+    }
+
+    dustT.flatMap { _ =>
+      sanityAmountChecks(forSigned, inputInfos, expectedFeeRate, tx)
+    }
+  }
+
+  def sanityDustCheck(tx: Transaction): Try[Unit] = {
+    if (tx.outputs
+          .filterNot(_.scriptPubKey.asm.contains(OP_RETURN))
+          .map(_.value)
+          .exists(_ < Policy.dustThreshold)) {
+      TxBuilderError.OutputBelowDustThreshold
+    } else {
+      Success(())
+    }
+  }
+
+  /**
+    * Checks that the creditingAmount >= destinationAmount
+    * and then does a sanity check on the transaction's fee
+    */
+  def sanityAmountChecks(
+      forSigned: Boolean,
+      inputInfos: Vector[InputInfo],
+      expectedFeeRate: FeeUnit,
+      tx: Transaction): Try[Unit] = {
+    val spentAmount = tx.outputs.foldLeft(CurrencyUnits.zero)(_ + _.value)
+    val creditingAmount =
+      inputInfos.foldLeft(CurrencyUnits.zero)(_ + _.amount)
+    if (spentAmount > creditingAmount) {
+      TxBuilderError.MintsMoney
+    } else {
+      val expectedTx = if (forSigned) {
+        tx
+      } else {
+        import scala.concurrent.ExecutionContext.Implicits.global
+        import scala.concurrent.duration.DurationInt
+
+        Await.result(addDummySigs(tx, inputInfos), 5.seconds)
+      }
+
+      val actualFee = creditingAmount - spentAmount
+      val estimatedFee = expectedFeeRate * expectedTx
+      val feeResult =
+        isValidFeeRange(estimatedFee, actualFee, expectedFeeRate)
+
+      if (!forSigned && feeResult.isFailure) {
+        println(s"Before: $tx")
+        println(s"After $expectedTx")
+      }
+
+      feeResult
+    }
+  }
+
+  /**
+    * Checks if the fee is within a 'valid' range
+    * @param estimatedFee the estimated amount of fee we should pay
+    * @param actualFee the actual amount of fee the transaction pays
+    * @param feeRate the fee rate in satoshis/vbyte we paid per byte on this tx
+    * @return
+    */
+  def isValidFeeRange(
+      estimatedFee: CurrencyUnit,
+      actualFee: CurrencyUnit,
+      feeRate: FeeUnit): Try[Unit] = {
+
+    //what the number '40' represents is the allowed variance -- in bytes -- between the size of the two
+    //versions of signed tx. I believe the two signed version can vary in size because the digital
+    //signature might have changed in size. It could become larger or smaller depending on the digital
+    //signatures produced.
+
+    //Personally I think 40 seems like a little high. As you shouldn't vary more than a 2 bytes per input in the tx i think?
+    //bumping for now though as I don't want to spend time debugging
+    //I think there is something incorrect that errors to the low side of fee estimation
+    //for p2sh(p2wpkh) txs
+
+    //See this link for more info on variance in size on ECDigitalSignatures
+    //https://en.bitcoin.it/wiki/Elliptic_Curve_Digital_Signature_Algorithm
+
+    val acceptableVariance = 40 * feeRate.toLong
+    val min = Satoshis(-acceptableVariance)
+    val max = Satoshis(acceptableVariance)
+    val difference = estimatedFee - actualFee
+    if (difference <= min) {
+      logger.error(
+        s"Fee was too high. Estimated fee $estimatedFee, actualFee $actualFee, difference $difference, acceptableVariance $acceptableVariance")
+      TxBuilderError.HighFee
+    } else if (difference >= max) {
+      logger.error(
+        s"Fee was too low. Estimated fee $estimatedFee, actualFee $actualFee, difference $difference, acceptableVariance $acceptableVariance")
+
+      TxBuilderError.LowFee
+    } else {
+      Success(())
     }
   }
 }
