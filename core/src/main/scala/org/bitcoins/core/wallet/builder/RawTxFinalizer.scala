@@ -213,19 +213,33 @@ object NonInteractiveWithChangeFinalizer {
   }
 }
 
-case class SubtractFeeFromOutputFinalizer(feeRate: FeeUnit)
+case class SubtractFeeFromOutputFinalizer(
+    inputInfos: Vector[InputInfo],
+    feeRate: FeeUnit)
     extends RawTxFinalizer {
   override def buildTx(txBuilderResult: RawTxBuilderResult)(
       implicit ec: ExecutionContext): Future[Transaction] = {
     val RawTxBuilderResult(version, inputs, outputs, lockTime) = txBuilderResult
 
-    val outputsAfterFee = SubtractFeeFromOutputFinalizer.subtractFees(
-      txBuilderResult.toBaseTransaction,
-      feeRate,
-      outputs.map(_.scriptPubKey))
+    val witnesses = inputInfos.map(InputInfo.getScriptWitness)
+    val txWithPossibleWitness = TransactionWitness.fromWitOpt(witnesses) match {
+      case _: EmptyWitness =>
+        BaseTransaction(version, inputs, outputs, lockTime)
+      case wit: TransactionWitness =>
+        WitnessTransaction(version, inputs, outputs, lockTime, wit)
+    }
 
-    Future.successful(
-      BaseTransaction(version, inputs, outputsAfterFee, lockTime))
+    val dummyTxF = TxUtil.addDummySigs(txWithPossibleWitness, inputInfos)
+
+    val outputsAfterFeeF = dummyTxF.map { dummyTx =>
+      SubtractFeeFromOutputFinalizer.subtractFees(dummyTx,
+                                                  feeRate,
+                                                  outputs.map(_.scriptPubKey))
+    }
+
+    outputsAfterFeeF.map { outputsAfterFee =>
+      BaseTransaction(version, inputs, outputsAfterFee, lockTime)
+    }
   }
 }
 

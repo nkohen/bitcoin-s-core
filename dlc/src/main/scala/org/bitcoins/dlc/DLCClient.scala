@@ -1222,10 +1222,11 @@ object DLCClient {
       feeRate: FeeUnit,
       utxos: Vector[ScriptSignatureParams[InputInfo]])(
       implicit ec: ExecutionContext): Future[Transaction] = {
-    val finalizer = SubtractFeeFromOutputFinalizer(feeRate).andThen(
-      NonInteractiveWithChangeFinalizer(utxos.map(_.inputInfo),
-                                        feeRate,
-                                        EmptyScriptPubKey))
+    val finalizer =
+      SubtractFeeFromOutputFinalizer(utxos.map(_.inputInfo), feeRate).andThen(
+        NonInteractiveWithChangeFinalizer(utxos.map(_.inputInfo),
+                                          feeRate,
+                                          EmptyScriptPubKey))
 
     // This invariant ensures that emptyChangeSPK is never used above
     val noEmptyOutputs: (
