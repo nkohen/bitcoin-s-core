@@ -82,9 +82,11 @@ object InputUtil {
                                    defaultSequence)
                 loop(newRemaining, input +: accum)
               } else {
+                val sequence = solveSequenceForCSV(
+                  p2pkWithTimeout.scriptPubKey.lockTime)
                 val input = TransactionInput(p2pkWithTimeout.outPoint,
                                              EmptyScriptSignature,
-                                             UInt32.zero)
+                                             sequence)
                 loop(newRemaining, input +: accum)
               }
             case p2sh: P2SHInputInfo =>
