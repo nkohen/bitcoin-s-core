@@ -120,6 +120,25 @@ case class WalletRoutes(wallet: WalletApi, node: Node)(
         }
       }
 
+    case ServerCommand("getdlcs", _) =>
+      complete {
+        wallet.listDLCs().map { dlcs =>
+          Server.httpSuccess(dlcs)
+        }
+      }
+
+    case ServerCommand("getdlc", arr) =>
+      GetDLC.fromJsArr(arr) match {
+        case Failure(exception) =>
+          reject(ValidationRejection("failure", Some(exception)))
+        case Success(GetDLC(eventId)) =>
+          complete {
+            wallet.getDLC(eventId).map { dlc =>
+              Server.httpSuccess(dlc)
+            }
+          }
+      }
+
     case ServerCommand("createdlcoffer", arr) =>
       CreateDLCOffer.fromJsArr(arr) match {
         case Failure(exception) =>

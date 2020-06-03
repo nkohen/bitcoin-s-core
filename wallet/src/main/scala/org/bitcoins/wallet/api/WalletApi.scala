@@ -4,6 +4,7 @@ import java.time.Instant
 
 import org.bitcoins.commons.jsonmodels.wallet.CoinSelectionAlgo
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage._
+import org.bitcoins.commons.jsonmodels.dlc.DLCStatus
 import org.bitcoins.core.api.{ChainQueryApi, NodeApi}
 import org.bitcoins.core.bloom.BloomFilter
 import org.bitcoins.core.config.NetworkParameters
@@ -480,6 +481,10 @@ trait WalletApi extends WalletLogger {
       tx <- sendWithAlgo(address, amount, feeRate, algo, account)
     } yield tx
   }
+
+  def listDLCs(): Future[Vector[DLCStatus]]
+
+  def getDLC(eventId: Sha256DigestBE): Future[Option[DLCStatus]]
 
   def createDLCOffer(
       oracleInfo: OracleInfo,
