@@ -46,7 +46,9 @@ case class WalletRoutes(wallet: WalletApi, node: Node)(
     if (noBroadcast) {
       Future.successful(tx)
     } else {
-      node.broadcastTransaction(tx).map(_ => tx.txIdBE)
+      wallet.processTransaction(tx, None).flatMap { _ =>
+        node.broadcastTransaction(tx).map(_ => tx.txIdBE)
+      }
     }
   }
 
@@ -250,8 +252,8 @@ case class WalletRoutes(wallet: WalletApi, node: Node)(
         case Success(BroadcastDLCFundingTx(eventId)) =>
           complete {
             wallet.getDLCFundingTx(eventId).flatMap { tx =>
-              node.broadcastTransaction(tx).map { _ =>
-                Server.httpSuccess(tx.txIdBE.hex)
+              handleBroadcastable(tx, noBroadcast = false).map { txId =>
+                Server.httpSuccess(txId.hex)
               }
             }
           }

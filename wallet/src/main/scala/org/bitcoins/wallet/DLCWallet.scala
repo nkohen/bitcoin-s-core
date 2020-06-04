@@ -129,42 +129,49 @@ abstract class DLCWallet extends Wallet {
                                              remoteTxId)
                               txs <- transactionDAO.findByTxIds(txIds)
                             } yield {
-                              val fundSpendTx = txs.head
-                              if (fundSpendTx.txId == mutualTxId) {
-                                client
-                                  .createMutualCloseSig(eventId, oracleSig)
-                                  .map { closeSig =>
-                                    confirmed
-                                      .toCloseOffered(closeSig)
-                                      .toClosed(fundSpendTx.transaction)
-                                  }
-                              } else if (fundSpendTx.txId == refundTxId) {
-                                Future.successful(
-                                  confirmed.toRefunded(fundSpendTx.transaction))
-                              } else if (fundSpendTx.txId == localTxId) {
-                                clientAndSetupFromDb(dlcDb,
-                                                     dlcOffer,
-                                                     dlcAccept,
-                                                     fundingInputsDb,
-                                                     cetSigsDb).flatMap {
-                                  case (_, setup) =>
-                                    val claiming = confirmed.toClaiming(
-                                      oracleSig,
-                                      fundSpendTx.transaction)
+                              txs.headOption match {
+                                case None =>
+                                  client
+                                    .createMutualCloseSig(eventId, oracleSig)
+                                    .map(confirmed.toCloseOffered)
+                                case Some(fundSpendTx) =>
+                                  if (fundSpendTx.txId == mutualTxId) {
                                     client
-                                      .executeUnilateralDLC(setup, oracleSig)
-                                      .map { outcome =>
-                                        val closingTx = outcome
-                                          .asInstanceOf[
-                                            UnilateralDLCOutcomeWithClosing]
-                                          .closingTx
-                                        claiming.toClaimed(closingTx)
+                                      .createMutualCloseSig(eventId, oracleSig)
+                                      .map { closeSig =>
+                                        confirmed
+                                          .toCloseOffered(closeSig)
+                                          .toClosed(fundSpendTx.transaction)
                                       }
-                                }
-                              } else {
-                                val remoteClaiming = confirmed.toRemoteClaiming(
-                                  fundSpendTx.transaction)
-                                Future.successful(remoteClaiming)
+                                  } else if (fundSpendTx.txId == refundTxId) {
+                                    Future.successful(confirmed.toRefunded(
+                                      fundSpendTx.transaction))
+                                  } else if (fundSpendTx.txId == localTxId) {
+                                    clientAndSetupFromDb(dlcDb,
+                                                         dlcOffer,
+                                                         dlcAccept,
+                                                         fundingInputsDb,
+                                                         cetSigsDb).flatMap {
+                                      case (_, setup) =>
+                                        val claiming = confirmed.toClaiming(
+                                          oracleSig,
+                                          fundSpendTx.transaction)
+                                        client
+                                          .executeUnilateralDLC(setup,
+                                                                oracleSig)
+                                          .map { outcome =>
+                                            val closingTx = outcome
+                                              .asInstanceOf[
+                                                UnilateralDLCOutcomeWithClosing]
+                                              .closingTx
+                                            claiming.toClaimed(closingTx)
+                                          }
+                                    }
+                                  } else {
+                                    val remoteClaiming = confirmed
+                                      .toRemoteClaiming(fundSpendTx.transaction)
+                                    Future.successful(remoteClaiming)
+                                  }
                               }
                             }
                             statusFF.flatMap(identity)
