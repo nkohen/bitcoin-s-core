@@ -123,7 +123,9 @@ case class WalletRoutes(wallet: WalletApi, node: Node)(
     case ServerCommand("getdlcs", _) =>
       complete {
         wallet.listDLCs().map { dlcs =>
-          Server.httpSuccess(dlcs)
+          val dlcJsons = dlcs.map(_.toJson)
+          val str = ujson.Arr(dlcJsons: _*).render(indent = 2)
+          Server.httpSuccess(str)
         }
       }
 
@@ -133,7 +135,10 @@ case class WalletRoutes(wallet: WalletApi, node: Node)(
           reject(ValidationRejection("failure", Some(exception)))
         case Success(GetDLC(eventId)) =>
           complete {
-            wallet.getDLC(eventId).map { dlc =>
+            wallet.getDLC(eventId).map { dlcOpt =>
+              val dlc = dlcOpt.getOrElse(
+                throw new IllegalArgumentException(
+                  s"No dlc found with event ID: $eventId"))
               Server.httpSuccess(dlc)
             }
           }

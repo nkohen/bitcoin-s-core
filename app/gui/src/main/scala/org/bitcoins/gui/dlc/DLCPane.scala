@@ -244,7 +244,7 @@ class DLCPane(glassPane: VBox) {
       }
     }
 
-    new TableView[DLCStatus] {
+    new TableView[DLCStatus](model.dlcs) {
       columns ++= Seq(eventIdCol,
                       statusCol,
                       initiatorCol,
@@ -256,6 +256,8 @@ class DLCPane(glassPane: VBox) {
       selectionModel().selectionMode = SelectionMode.Multiple
     }
   }
+
+  model.setUp()
 
   private val textAreasAndTableViewVBox = new VBox {
     children = Seq(textAreaHBox, tableView)
