@@ -744,22 +744,28 @@ abstract class DLCWallet extends Wallet {
   private def clientAndSetupFromDb(
       dlcDb: DLCDb,
       dlcOffer: DLCOfferDb,
-      dlcAccept: DLCAcceptDb,
+      dlcAcceptDb: DLCAcceptDb,
       fundingInputs: Vector[DLCFundingInputDb],
       outcomeSigDbs: Vector[DLCCETSignatureDb]): Future[(DLCClient, SetupDLC)] = {
 
-    clientFromDb(dlcDb, dlcOffer, dlcAccept, fundingInputs, outcomeSigDbs)
+    clientFromDb(dlcDb, dlcOffer, dlcAcceptDb, fundingInputs, outcomeSigDbs)
       .flatMap { client =>
-        val outcomeSigs = outcomeSigDbs.map(_.toTuple).toMap
-
         val setupF = if (dlcDb.isInitiator) {
           // TODO: Note that the funding tx in this setup is not signed
-          val cetSigs = CETSignatures(outcomeSigs, dlcAccept.refundSig)
+          val outcomeSigs = outcomeSigDbs
+            .filter(_.signature.pubKey == dlcAcceptDb.fundingKey)
+            .map(_.toTuple)
+            .toMap
+          val cetSigs = CETSignatures(outcomeSigs, dlcAcceptDb.refundSig)
           client.setupDLCOffer(
             Future.successful(cetSigs),
             (_, _) => FutureUtil.unit,
             Future.successful(client.createUnsignedFundingTransaction))
         } else {
+          val outcomeSigs = outcomeSigDbs
+            .filter(_.signature.pubKey == dlcOffer.fundingKey)
+            .map(_.toTuple)
+            .toMap
           val cetSigs = CETSignatures(outcomeSigs, dlcDb.refundSigOpt.get)
           val fundingSigs =
             fundingInputs

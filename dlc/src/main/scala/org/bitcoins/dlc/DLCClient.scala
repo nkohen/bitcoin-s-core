@@ -637,7 +637,7 @@ case class DLCClient(
   def createCETSigs: Future[CETSignatures] = {
     val cetDataFs = outcomes.keys.map { msg =>
       createCETRemote(msg).map(msg -> _)
-    }
+    }.toVector
     for {
       cetData <- Future.sequence(cetDataFs).map(_.toMap)
       sigs = cetData.map { case (msg, (_, _, sig)) => msg -> sig }
@@ -665,7 +665,7 @@ case class DLCClient(
 
     val remoteCetDataFs = outcomes.keys.map { msg =>
       createCETRemote(msg).map(msg -> _)
-    }
+    }.toVector
 
     for {
       remoteCetData <- Future.sequence(remoteCetDataFs).map(_.toMap)
@@ -727,7 +727,8 @@ case class DLCClient(
         }
         val remoteCetDataFs = outcomes.keys.map { msg =>
           createCETRemote(msg).map(msg -> _)
-        }
+        }.toVector
+
         val refundTxF = createRefundTx(refundSig)
 
         for {
