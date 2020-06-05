@@ -7,7 +7,7 @@ import scalafx.Includes._
 import scalafx.beans.property.{LongProperty, StringProperty}
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.control._
-import scalafx.scene.input.{Clipboard, ClipboardContent}
+import scalafx.scene.input.{Clipboard, ClipboardContent, KeyCode}
 import scalafx.scene.layout._
 
 class DLCPane(glassPane: VBox) {
@@ -174,7 +174,7 @@ class DLCPane(glassPane: VBox) {
       }
     }
 
-    val statusCol = new TableColumn[DLCStatus, String] {
+    /*val statusCol = new TableColumn[DLCStatus, String] {
       text = "Status"
       prefWidth = 150
       cellValueFactory = { status =>
@@ -182,7 +182,7 @@ class DLCPane(glassPane: VBox) {
                            "Status",
                            DLCStatus.statusString(status.value))
       }
-    }
+    }*/
 
     val initiatorCol = new TableColumn[DLCStatus, String] {
       text = "Initiator"
@@ -245,6 +245,16 @@ class DLCPane(glassPane: VBox) {
       }
     }
 
+    val contractInfoCol = new TableColumn[DLCStatus, String] {
+      text = "Contract Info"
+      prefWidth = 150
+      cellValueFactory = { status =>
+        new StringProperty(status,
+                           "Contract Info",
+                           status.value.offer.contractInfo.hex)
+      }
+    }
+
     new TableView[DLCStatus](model.dlcs) {
       columns ++= Seq(eventIdCol,
                       //statusCol,
@@ -252,29 +262,38 @@ class DLCPane(glassPane: VBox) {
                       collateralCol,
                       oracleCol,
                       eventCol,
-                      contractMaturityCol)
+                      contractMaturityCol,
+                      contractInfoCol)
       margin = Insets(10, 0, 10, 0)
       selectionModel().selectionMode = SelectionMode.Single
+    }
+  }
+
+  private def copySelected(): Unit = {
+    val cellOpt = tableView.selectionModel().selectedCells.headOption
+    cellOpt match {
+      case None => ()
+      case Some(cell) =>
+        val data = tableView.columns.get(cell.column).getCellData(cell.row)
+        if (data == null) {
+          ()
+        } else {
+          val str = data.toString
+          if (str.isEmpty) {
+            ()
+          } else {
+            val content = ClipboardContent()
+            content.putString(data.toString)
+            Clipboard.systemClipboard.content = content
+          }
+        }
     }
   }
 
   private val copyMenuItem = new MenuItem {
     text = "Copy"
     onAction = { _ =>
-      val cell = tableView.selectionModel().selectedCells.head
-      val data = tableView.columns.get(cell.column).getCellData(cell.row)
-      if (data == null) {
-        ()
-      } else {
-        val str = data.toString
-        if (str.isEmpty) {
-          ()
-        } else {
-          val content = ClipboardContent()
-          content.putString(data.toString)
-          Clipboard.systemClipboard.content = content
-        }
-      }
+      copySelected()
     }
   }
 
@@ -285,6 +304,11 @@ class DLCPane(glassPane: VBox) {
   private val textAreasAndTableViewVBox = new VBox {
     children = Seq(textAreaHBox, tableView)
     spacing = 10
+    onKeyPressed = { keyEvent =>
+      if (keyEvent.controlDown && keyEvent.code == KeyCode.C) {
+        copySelected()
+      }
+    }
   }
 
   val borderPane: BorderPane = new BorderPane {
