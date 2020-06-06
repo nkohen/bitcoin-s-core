@@ -1,26 +1,21 @@
 package org.bitcoins.db
 
-import org.bitcoins.core.config.NetworkParameters
-import org.bitcoins.core.protocol.blockchain.ChainParams
-import java.nio.file.Path
-import java.nio.file.Paths
+import java.nio.file.{Files, Path, Paths}
 
-import org.bitcoins.core.config.MainNet
-import org.bitcoins.core.config.TestNet3
-import org.bitcoins.core.config.RegTest
+import ch.qos.logback.classic.Level
 import com.typesafe.config._
-import org.bitcoins.core.util.BitcoinSLogger
+import org.bitcoins.core.config.{MainNet, NetworkParameters, RegTest, TestNet3}
+import org.bitcoins.core.protocol.blockchain.{
+  ChainParams,
+  MainNetChainParams,
+  RegTestNetChainParams,
+  TestNetChainParams
+}
+import org.bitcoins.core.util.{BitcoinSLogger, EnvUtil}
 
-import org.bitcoins.core.protocol.blockchain.MainNetChainParams
-import org.bitcoins.core.protocol.blockchain.TestNetChainParams
-import org.bitcoins.core.protocol.blockchain.RegTestNetChainParams
-import java.nio.file.Files
-
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Properties
 import scala.util.matching.Regex
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import ch.qos.logback.classic.Level
 
 /**
   * Everything needed to configure functionality
@@ -151,9 +146,13 @@ abstract class AppConfig extends LoggerConfig {
         ConfigFactory.empty()
       }
 
-      val withDatadir =
-        ConfigFactory.parseString(s"bitcoin-s.datadir = $baseDatadir")
-      withDatadir.withFallback(config)
+      if (EnvUtil.isWindows) {
+        config
+      } else {
+        val withDatadir =
+          ConfigFactory.parseString(s"bitcoin-s.datadir = $baseDatadir")
+        withDatadir.withFallback(config)
+      }
     }
 
     logger.trace(s"Data directory config:")
@@ -309,13 +308,15 @@ abstract class AppConfig extends LoggerConfig {
 
 object AppConfig extends BitcoinSLogger {
 
+  private val userHome = Properties.userHome.replace("\\", "/")
+
   /** The default data directory
     *
     * TODO: use different directories on Windows and Mac,
     * should probably mimic what Bitcoin Core does
     */
   private[bitcoins] val DEFAULT_BITCOIN_S_DATADIR: Path =
-    Paths.get(Properties.userHome, ".bitcoin-s")
+    Paths.get(userHome, ".bitcoin-s")
 
   /**
     * Matches the default data directory location
@@ -323,7 +324,7 @@ object AppConfig extends BitcoinSLogger {
     * both with and without a trailing `/`
     */
   private val defaultDatadirRegex: Regex = {
-    (Properties.userHome + "/.bitcoin-s/(testnet3|mainnet|regtest)/?$").r
+    (userHome + "/.bitcoin-s/(testnet3|mainnet|regtest)/?$").r
   }
 
   /**
