@@ -191,6 +191,7 @@ case class DLCExecutor(signer: DLCTxSigner) extends BitcoinSLogger {
                 outPoint = TransactionOutPoint(publishedCET.txIdBE, UInt32.one),
                 amount = output.value,
                 pubKey = signer.finalPrivKey.publicKey),
+              prevTransaction = publishedCET,
               signer = signer.finalPrivKey,
               hashType = HashType.sigHashAll
             )
@@ -245,6 +246,7 @@ case class DLCExecutor(signer: DLCTxSigner) extends BitcoinSLogger {
         scriptWitness = cetScriptWitness,
         conditionalPath = ConditionalPath.nonNestedFalse
       ),
+      prevTransaction = timedOutCET,
       signer = signer.cetToLocalPrivKey,
       hashType = HashType.sigHashAll
     )
@@ -294,6 +296,7 @@ case class DLCExecutor(signer: DLCTxSigner) extends BitcoinSLogger {
         amount = localOutput.value,
         pubKey = signer.finalPrivKey.publicKey
       ),
+      prevTransaction = refundTx,
       signer = signer.finalPrivKey,
       hashType = HashType.sigHashAll
     )
@@ -374,6 +377,7 @@ case class DLCExecutor(signer: DLCTxSigner) extends BitcoinSLogger {
 
     val spendingInfo = ScriptSignatureParams(
       inputInfo = inputInfo,
+      prevTransaction = cet,
       signer = privKey,
       hashType = HashType.sigHashAll
     )

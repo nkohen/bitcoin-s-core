@@ -9,7 +9,12 @@ import org.bitcoins.core.currency.{CurrencyUnits, Satoshis}
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BlockStamp.BlockTime
 import org.bitcoins.core.protocol.script.P2WPKHWitnessSPKV0
-import org.bitcoins.core.protocol.transaction.TransactionOutPoint
+import org.bitcoins.core.protocol.transaction.{
+  BaseTransaction,
+  TransactionConstants,
+  TransactionOutPoint,
+  TransactionOutput
+}
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{P2WPKHV0InputInfo, ScriptSignatureParams}
@@ -108,6 +113,16 @@ object DLCTestVectorGenerator {
     val localExtPrivKey = ExtPrivateKey.freshRootKey(LegacyTestNet3Priv)
     val localInput = CurrencyUnits.oneBTC
     val inputPrivKeyLocal = ECPrivateKey.freshPrivateKey
+
+    val localFundingTx = BaseTransaction(
+      TransactionConstants.validLockVersion,
+      Vector.empty,
+      Vector(
+        TransactionOutput(localInput * 2,
+                          P2WPKHWitnessSPKV0(inputPrivKeyLocal.publicKey))),
+      UInt32.zero
+    )
+
     val localFundingUtxos = Vector(
       ScriptSignatureParams(
         inputInfo = P2WPKHV0InputInfo(
@@ -116,6 +131,7 @@ object DLCTestVectorGenerator {
           amount = localInput * 2,
           inputPrivKeyLocal.publicKey
         ),
+        prevTransaction = localFundingTx,
         signer = inputPrivKeyLocal,
         hashType = HashType.sigHashAll
       )
@@ -125,6 +141,16 @@ object DLCTestVectorGenerator {
     val remoteExtPrivKey = ExtPrivateKey.freshRootKey(LegacyTestNet3Priv)
     val remoteInput = CurrencyUnits.oneBTC
     val inputPrivKeyRemote = ECPrivateKey.freshPrivateKey
+
+    val remoteFundingTx = BaseTransaction(
+      TransactionConstants.validLockVersion,
+      Vector.empty,
+      Vector(
+        TransactionOutput(remoteInput * 2,
+                          P2WPKHWitnessSPKV0(inputPrivKeyRemote.publicKey))),
+      UInt32.zero
+    )
+
     val remoteFundingUtxos = Vector(
       ScriptSignatureParams(
         inputInfo = P2WPKHV0InputInfo(
@@ -133,6 +159,7 @@ object DLCTestVectorGenerator {
           amount = remoteInput * 2,
           inputPrivKeyRemote.publicKey
         ),
+        prevTransaction = remoteFundingTx,
         signer = inputPrivKeyRemote,
         hashType = HashType.sigHashAll
       )
