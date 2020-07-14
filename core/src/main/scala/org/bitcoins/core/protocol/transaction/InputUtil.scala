@@ -60,12 +60,12 @@ object InputUtil {
       defaultSequence: UInt32 = Policy.sequence): Seq[TransactionInput] = {
     @tailrec
     def loop(
-        remaining: Seq[InputSigningInfo[InputInfo]],
+        remaining: Seq[InputInfo],
         accum: Seq[TransactionInput]): Seq[TransactionInput] =
       remaining match {
         case Nil => accum.reverse
         case spendingInfo +: newRemaining =>
-          spendingInfo.inputInfo match {
+          spendingInfo match {
             case lockTime: LockTimeInputInfo =>
               val sequence = lockTime.scriptPubKey match {
                 case csv: CSVScriptPubKey => solveSequenceForCSV(csv.locktime)
@@ -91,17 +91,11 @@ object InputUtil {
                 loop(newRemaining, input +: accum)
               }
             case p2sh: P2SHInputInfo =>
-              val nestedSpendingInfo =
-                p2sh.nestedInputInfo.genericWithSignFrom(spendingInfo)
-              loop(nestedSpendingInfo +: newRemaining, accum)
+              loop(p2sh.nestedInputInfo +: newRemaining, accum)
             case p2wsh: P2WSHV0InputInfo =>
-              val nestedSpendingInfo =
-                p2wsh.nestedInputInfo.genericWithSignFrom(spendingInfo)
-              loop(nestedSpendingInfo +: newRemaining, accum)
+              loop(p2wsh.nestedInputInfo +: newRemaining, accum)
             case conditional: ConditionalInputInfo =>
-              val nestedSpendingInfo =
-                conditional.nestedInputInfo.genericWithSignFrom(spendingInfo)
-              loop(nestedSpendingInfo +: newRemaining, accum)
+              loop(conditional.nestedInputInfo +: newRemaining, accum)
             case _: P2WPKHV0InputInfo | _: UnassignedSegwitNativeInputInfo |
                 _: P2PKInputInfo | _: P2PKHInputInfo |
                 _: MultiSignatureInputInfo | _: EmptyInputInfo =>
@@ -114,6 +108,6 @@ object InputUtil {
           }
       }
 
-    loop(utxos, Nil)
+    loop(utxos.map(_.inputInfo), Nil)
   }
 }

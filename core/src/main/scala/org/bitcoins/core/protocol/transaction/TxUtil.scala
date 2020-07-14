@@ -61,13 +61,13 @@ object TxUtil {
 
     @tailrec
     def loop(
-        remaining: Seq[InputSigningInfo[InputInfo]],
+        remaining: Seq[InputInfo],
         currentLockTimeOpt: Option[UInt32]): Try[UInt32] =
       remaining match {
         case Nil =>
           Success(currentLockTimeOpt.getOrElse(TransactionConstants.lockTime))
         case spendingInfo +: newRemaining =>
-          spendingInfo.inputInfo match {
+          spendingInfo match {
             case lockTime: LockTimeInputInfo =>
               lockTime.scriptPubKey match {
                 case _: CSVScriptPubKey =>
@@ -97,17 +97,12 @@ object TxUtil {
                 }
               }
             case p2sh: P2SHInputInfo =>
-              val nestedSpendingInfo =
-                p2sh.nestedInputInfo.genericWithSignFrom(spendingInfo)
-              loop(nestedSpendingInfo +: newRemaining, currentLockTimeOpt)
+              loop(p2sh.nestedInputInfo +: newRemaining, currentLockTimeOpt)
             case p2wsh: P2WSHV0InputInfo =>
-              val nestedSpendingInfo =
-                p2wsh.nestedInputInfo.genericWithSignFrom(spendingInfo)
-              loop(nestedSpendingInfo +: newRemaining, currentLockTimeOpt)
+              loop(p2wsh.nestedInputInfo +: newRemaining, currentLockTimeOpt)
             case conditional: ConditionalInputInfo =>
-              val nestedSpendingInfo =
-                conditional.nestedInputInfo.genericWithSignFrom(spendingInfo)
-              loop(nestedSpendingInfo +: newRemaining, currentLockTimeOpt)
+              loop(conditional.nestedInputInfo +: newRemaining,
+                   currentLockTimeOpt)
             case _: P2WPKHV0InputInfo | _: UnassignedSegwitNativeInputInfo |
                 _: P2PKInputInfo | _: P2PKHInputInfo |
                 _: MultiSignatureInputInfo | _: EmptyInputInfo =>
@@ -116,7 +111,7 @@ object TxUtil {
           }
       }
 
-    loop(utxos, None)
+    loop(utxos.map(_.inputInfo), None)
   }
 
   /** Inserts script signatures and (potentially) witness data to a given

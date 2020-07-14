@@ -186,9 +186,11 @@ case class DLCExecutor(signer: DLCTxSigner) extends BitcoinSLogger {
 
         msgOpt match {
           case Some(_) =>
+            val vout = UInt32(publishedCET.outputs.length - 1)
+
             val spendingInfo = ScriptSignatureParams(
               inputInfo = P2WPKHV0InputInfo(
-                outPoint = TransactionOutPoint(publishedCET.txIdBE, UInt32.one),
+                outPoint = TransactionOutPoint(publishedCET.txIdBE, vout),
                 amount = output.value,
                 pubKey = signer.finalPrivKey.publicKey),
               prevTransaction = publishedCET,
@@ -287,7 +289,8 @@ case class DLCExecutor(signer: DLCTxSigner) extends BitcoinSLogger {
     val (localOutput, vout) = if (isInitiator) {
       (refundTx.outputs.head, UInt32.zero)
     } else {
-      (refundTx.outputs.last, UInt32.one)
+      val vout = UInt32(refundTx.outputs.length - 1)
+      (refundTx.outputs.last, vout)
     }
 
     val localRefundSpendingInfo = ScriptSignatureParams(

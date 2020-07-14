@@ -126,8 +126,7 @@ object DLCTestVectorGenerator {
     val localFundingUtxos = Vector(
       ScriptSignatureParams(
         inputInfo = P2WPKHV0InputInfo(
-          outPoint =
-            TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.zero),
+          outPoint = TransactionOutPoint(localFundingTx.txIdBE, UInt32.zero),
           amount = localInput * 2,
           inputPrivKeyLocal.publicKey
         ),
@@ -154,8 +153,7 @@ object DLCTestVectorGenerator {
     val remoteFundingUtxos = Vector(
       ScriptSignatureParams(
         inputInfo = P2WPKHV0InputInfo(
-          outPoint =
-            TransactionOutPoint(DoubleSha256DigestBE.empty, UInt32.one),
+          outPoint = TransactionOutPoint(remoteFundingTx.txIdBE, UInt32.zero),
           amount = remoteInput * 2,
           inputPrivKeyRemote.publicKey
         ),
