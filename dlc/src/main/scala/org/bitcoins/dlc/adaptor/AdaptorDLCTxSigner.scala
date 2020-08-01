@@ -188,7 +188,9 @@ case class AdaptorDLCTxSigner(
       remoteAdaptorSig: ECAdaptorSignature,
       oracleSig: SchnorrDigitalSignature): Future[Transaction] = {
     val remoteSig =
-      oracleSig.sig.toPrivateKey.completeAdaptorSignature(remoteAdaptorSig)
+      oracleSig.sig.toPrivateKey
+        .completeAdaptorSignature(remoteAdaptorSig, HashType.sigHashAll.byte)
+
     val remotePartialSig = PartialSignature(remoteFundingPubKey, remoteSig)
     for {
       fundingTx <- builder.buildFundingTx
