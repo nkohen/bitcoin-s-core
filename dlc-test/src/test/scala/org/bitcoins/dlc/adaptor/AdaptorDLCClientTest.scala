@@ -7,6 +7,7 @@ import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.Bech32Address
 import org.bitcoins.core.protocol.BlockStamp.BlockTime
 import org.bitcoins.core.protocol.script.{
+  EmptyScriptPubKey,
   MultiSignatureScriptPubKey,
   P2WPKHWitnessSPKV0,
   P2WSHWitnessV0
@@ -187,11 +188,17 @@ class AdaptorDLCClientTest extends BitcoinSAsyncTest {
     (dlcOffer, dlcAccept, outcomeHashes)
   }
 
+  def noEmptySPKOutputs(tx: Transaction): Boolean = {
+    tx.outputs.forall(_.scriptPubKey != EmptyScriptPubKey)
+  }
+
   def validateOutcome(
       outcome: AdaptorDLCOutcome,
       dlcOffer: TestAdaptorDLCClient,
       dlcAccept: TestAdaptorDLCClient): Assertion = {
     val fundingTx = outcome.fundingTx
+    assert(noEmptySPKOutputs(fundingTx))
+
     val signers = Vector(dlcOffer.fundingPrivKey, dlcAccept.fundingPrivKey)
     val closingSpendingInfo = ScriptSignatureParams(
       P2WSHV0InputInfo(
@@ -207,8 +214,10 @@ class AdaptorDLCClientTest extends BitcoinSAsyncTest {
 
     outcome match {
       case ExecutedDLCOutcome(_, cet) =>
+        assert(noEmptySPKOutputs(cet))
         assert(BitcoinScriptUtil.verifyScript(cet, Vector(closingSpendingInfo)))
       case RefundDLCOutcome(_, refundTx) =>
+        assert(noEmptySPKOutputs(refundTx))
         assert(
           BitcoinScriptUtil.verifyScript(refundTx, Vector(closingSpendingInfo)))
     }
