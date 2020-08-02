@@ -2,7 +2,6 @@ package org.bitcoins.commons.jsonmodels.dlc
 
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.{
   DLCAccept,
-  DLCMutualCloseSig,
   DLCOffer,
   DLCSign
 }
@@ -115,16 +114,6 @@ object DLCStatus {
       extends AcceptedDLCStatus {
     override val statusString: String = "CONFIRMED"
 
-    def toCloseOffered(closeSig: DLCMutualCloseSig): CloseOffered = {
-      CloseOffered(eventId,
-                   isInitiator,
-                   offer,
-                   accept,
-                   sign,
-                   fundingTx,
-                   closeSig)
-    }
-
     def toClaiming(
         oracleSig: SchnorrDigitalSignature,
         cet: Transaction): Claiming = {
@@ -141,54 +130,6 @@ object DLCStatus {
     def toRemoteClaiming(cet: Transaction): RemoteClaiming = {
       RemoteClaiming(eventId, isInitiator, offer, accept, sign, fundingTx, cet)
     }
-  }
-
-  /** The state where a party has initiated a mutual close
-    * with a DLCMutualCloseSig message (containing an
-    * oracle signature and their signature of the close tx)
-    * but the mutual close tx has not yet been broadcasted.
-    */
-  case class CloseOffered(
-      eventId: Sha256DigestBE,
-      isInitiator: Boolean,
-      offer: DLCOffer,
-      accept: DLCAccept,
-      sign: DLCSign,
-      fundingTx: Transaction,
-      closeSig: DLCMutualCloseSig)
-      extends AcceptedDLCStatus {
-    override val statusString: String = "CLOSE OFFERED"
-
-    def toClosed(closeTx: Transaction): Closed = {
-      Closed(eventId,
-             isInitiator,
-             offer,
-             accept,
-             sign,
-             fundingTx,
-             closeSig,
-             closeTx)
-    }
-
-    def toRefunded(refundTx: Transaction): Refunded = {
-      Refunded(eventId, isInitiator, offer, accept, sign, fundingTx, refundTx)
-    }
-  }
-
-  /** The state where a mutual close has been successfully
-    * executed with an on-chain close transaction.
-    */
-  case class Closed(
-      eventId: Sha256DigestBE,
-      isInitiator: Boolean,
-      offer: DLCOffer,
-      accept: DLCAccept,
-      sign: DLCSign,
-      fundingTx: Transaction,
-      closeSig: DLCMutualCloseSig,
-      closeTx: Transaction)
-      extends AcceptedDLCStatus {
-    override val statusString: String = "CLOSED"
   }
 
   /** The state where this party has initiated a unilateral
@@ -218,18 +159,6 @@ object DLCStatus {
               cet,
               closingTx)
     }
-
-    def toPenalized(penaltyTx: Transaction): Penalized = {
-      Penalized(eventId,
-                isInitiator,
-                offer,
-                accept,
-                sign,
-                fundingTx,
-                oracleSig,
-                cet,
-                penaltyTx)
-    }
   }
 
   /** The state where this party has successfully executed
@@ -248,26 +177,6 @@ object DLCStatus {
       closingTx: Transaction)
       extends AcceptedDLCStatus {
     override val statusString: String = "CLAIMED"
-  }
-
-  /** The state where this party has broadcasted a CET
-    * to the network and failed to spend the to_local output
-    * in time, so that the counterparty has successfully
-    * spent the to_local output to themselves with a
-    * penalty transaction.
-    */
-  case class Penalized(
-      eventId: Sha256DigestBE,
-      isInitiator: Boolean,
-      offer: DLCOffer,
-      accept: DLCAccept,
-      sign: DLCSign,
-      fundingTx: Transaction,
-      oracleSig: SchnorrDigitalSignature,
-      cet: Transaction,
-      penaltyTx: Transaction)
-      extends AcceptedDLCStatus {
-    override val statusString: String = "PENALIZED"
   }
 
   /** The state where the remote party has initiated a
@@ -295,17 +204,6 @@ object DLCStatus {
                     cet,
                     closingTx)
     }
-
-    def toRemotePenalized(penaltyTx: Transaction): RemotePenalized = {
-      RemotePenalized(eventId,
-                      isInitiator,
-                      offer,
-                      accept,
-                      sign,
-                      fundingTx,
-                      cet,
-                      penaltyTx)
-    }
   }
 
   /** The state where the remote party has successfully
@@ -323,24 +221,6 @@ object DLCStatus {
       closingTx: Transaction)
       extends AcceptedDLCStatus {
     override val statusString: String = "REMOTE CLAIMED"
-  }
-
-  /** The state where the remote party has published a
-    * CET but failed to spend their to_local output
-    * and this party has successfully spent that to_local
-    * output with a penalty transaction.
-    */
-  case class RemotePenalized(
-      eventId: Sha256DigestBE,
-      isInitiator: Boolean,
-      offer: DLCOffer,
-      accept: DLCAccept,
-      sign: DLCSign,
-      fundingTx: Transaction,
-      cet: Transaction,
-      penaltyTx: Transaction)
-      extends AcceptedDLCStatus {
-    override val statusString: String = "REMOTE PENALIZED"
   }
 
   /** The state where the DLC refund transaction has been
