@@ -2,7 +2,7 @@ package org.bitcoins.dlc.testgen
 
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.ContractInfo
 import org.bitcoins.commons.jsonmodels.dlc._
-import org.bitcoins.core.config.BitcoinNetwork
+import org.bitcoins.core.config.{BitcoinNetwork, RegTest}
 import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.script.ScriptPubKey
@@ -48,6 +48,7 @@ case class TestDLCClient(
                                         isInitiator,
                                         fundingPrivKey,
                                         payoutPrivKey,
+                                        RegTest,
                                         fundingUtxos)
 
   private val dlcExecutor = DLCExecutor(dlcTxSigner)
