@@ -282,31 +282,30 @@ object ConsoleCli {
                 case other => other
               }))
         ),
-      cmd("executedlcunilateralclose")
+      cmd("executedlc")
         .hidden()
         .action((_, conf) =>
-          conf.copy(command =
-            ExecuteDLCUnilateralClose(null, null, noBroadcast = false)))
-        .text("Executes a unilateral close for the DLC with the given eventId")
+          conf.copy(command = ExecuteDLC(null, null, noBroadcast = false)))
+        .text("Executes the DLC with the given eventId")
         .children(
           opt[Sha256DigestBE]("eventid").required
             .action((eventId, conf) =>
               conf.copy(command = conf.command match {
-                case executeDLCUnilateralClose: ExecuteDLCUnilateralClose =>
+                case executeDLCUnilateralClose: ExecuteDLC =>
                   executeDLCUnilateralClose.copy(eventId = eventId)
                 case other => other
               })),
           opt[SchnorrDigitalSignature]("oraclesig").required
             .action((sig, conf) =>
               conf.copy(command = conf.command match {
-                case executeDLCUnilateralClose: ExecuteDLCUnilateralClose =>
+                case executeDLCUnilateralClose: ExecuteDLC =>
                   executeDLCUnilateralClose.copy(oracleSig = sig)
                 case other => other
               })),
           opt[Unit]("noBroadcast").optional
             .action((_, conf) =>
               conf.copy(command = conf.command match {
-                case executeDLCUnilateralClose: ExecuteDLCUnilateralClose =>
+                case executeDLCUnilateralClose: ExecuteDLC =>
                   executeDLCUnilateralClose.copy(noBroadcast = true)
                 case other => other
               }))
@@ -745,8 +744,8 @@ object ConsoleCli {
         RequestParam("signdlc", Seq(up.writeJs(accept), up.writeJs(escaped)))
       case AddDLCSigs(sigs) =>
         RequestParam("adddlcsigs", Seq(up.writeJs(sigs)))
-      case ExecuteDLCUnilateralClose(eventId, oracleSig, noBroadcast) =>
-        RequestParam("executedlcunilateralclose",
+      case ExecuteDLC(eventId, oracleSig, noBroadcast) =>
+        RequestParam("executedlc",
                      Seq(up.writeJs(eventId),
                          up.writeJs(oracleSig),
                          up.writeJs(noBroadcast)))
@@ -962,7 +961,7 @@ object CliCommand {
 
   case class BroadcastDLCFundingTx(eventId: Sha256DigestBE) extends CliCommand
 
-  case class ExecuteDLCUnilateralClose(
+  case class ExecuteDLC(
       eventId: Sha256DigestBE,
       oracleSig: SchnorrDigitalSignature,
       noBroadcast: Boolean)

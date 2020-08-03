@@ -4,9 +4,9 @@ import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.ContractInfo
 import org.bitcoins.commons.jsonmodels.dlc._
 import org.bitcoins.core.config.{BitcoinNetwork, RegTest}
 import org.bitcoins.core.currency.CurrencyUnit
-import org.bitcoins.core.protocol.script.{P2WPKHWitnessSPKV0, ScriptPubKey}
+import org.bitcoins.core.protocol.BitcoinAddress
+import org.bitcoins.core.protocol.script.ScriptPubKey
 import org.bitcoins.core.protocol.transaction.{OutputReference, Transaction}
-import org.bitcoins.core.protocol.{Bech32Address, BitcoinAddress}
 import org.bitcoins.core.util.BitcoinSLogger
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{InputInfo, ScriptSignatureParams}
@@ -44,12 +44,12 @@ case class TestDLCClient(
     extends BitcoinSLogger {
   private val dlcTxBuilder = DLCTxBuilder(offer, accept)
 
-  private val dlcTxSigner = DLCTxSigner(
-    dlcTxBuilder,
-    isInitiator,
-    fundingPrivKey,
-    Bech32Address(P2WPKHWitnessSPKV0(payoutPrivKey.publicKey), RegTest),
-    fundingUtxos)
+  private val dlcTxSigner = DLCTxSigner(dlcTxBuilder,
+                                        isInitiator,
+                                        fundingPrivKey,
+                                        payoutPrivKey,
+                                        RegTest,
+                                        fundingUtxos)
 
   private val dlcExecutor = DLCExecutor(dlcTxSigner)
 

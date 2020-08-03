@@ -3,6 +3,7 @@ package org.bitcoins.wallet
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage._
 import org.bitcoins.commons.jsonmodels.dlc._
 import org.bitcoins.core.config.BitcoinNetwork
+import org.bitcoins.core.crypto.ExtPublicKey
 import org.bitcoins.core.currency._
 import org.bitcoins.core.hd.{AddressType, BIP32Path, HDChainType}
 import org.bitcoins.core.number.UInt32
@@ -58,7 +59,14 @@ abstract class DLCWallet extends Wallet {
       state: DLCState): Future[DLCDb] = {
     for {
       dlcOpt <- dlcDAO.read(eventId)
-      updated <- dlcDAO.update(dlcOpt.get.updateState(state))
+      dlcDb <- dlcOpt match {
+        case Some(dlc) => Future.successful(dlc)
+        case None =>
+          Future.failed(
+            new IllegalArgumentException(
+              s"No DLCDb found with eventId ${eventId.hex}"))
+      }
+      updated <- dlcDAO.update(dlcDb.updateState(state))
     } yield updated
   }
 
@@ -75,15 +83,34 @@ abstract class DLCWallet extends Wallet {
     }
   }
 
+  private def calcDLCPubKeys(
+      xpub: ExtPublicKey,
+      keyIndex: Int): DLCPublicKeys = {
+    val fundingKey =
+      xpub
+        .deriveChildPubKey(BIP32Path.fromString(s"m/0/$keyIndex"))
+        .get
+        .key
+
+    val payoutKey =
+      xpub
+        .deriveChildPubKey(BIP32Path.fromString(s"m/0/${keyIndex + 1}"))
+        .get
+        .key
+
+    DLCPublicKeys.fromPubKeys(fundingKey,
+                              payoutKey,
+                              networkParameters.asInstanceOf[BitcoinNetwork])
+  }
+
   private def writeDLCKeysToAddressDb(
       account: AccountDb,
       index: Int): Future[Vector[AddressDb]] = {
     for {
       zero <- getAddress(account, HDChainType.External, index)
       one <- getAddress(account, HDChainType.External, index + 1)
-      two <- getAddress(account, HDChainType.External, index + 2)
     } yield {
-      Vector(zero, one, two)
+      Vector(zero, one)
     }
   }
 
@@ -162,8 +189,7 @@ abstract class DLCWallet extends Wallet {
       network = networkParameters.asInstanceOf[BitcoinNetwork]
       changeAddr = Bech32Address(changeSPK, network)
 
-      dlcPubKeys =
-        DLCPublicKeys.fromExtPubKeyAndIndex(account.xpub, dlc.keyIndex, network)
+      dlcPubKeys = calcDLCPubKeys(account.xpub, dlc.keyIndex)
 
       _ = logger.debug(
         s"DLC Offer data collected, creating database entry, ${dlc.eventId.hex}")
@@ -266,15 +292,15 @@ abstract class DLCWallet extends Wallet {
       extPrivKey =
         keyManager.rootExtPrivKey.deriveChildPrivKey(account.hdAccount)
 
-      dlcPubKeys =
-        DLCPublicKeys.fromExtPubKeyAndIndex(account.xpub, dlc.keyIndex, network)
+      dlcPubKeys = calcDLCPubKeys(account.xpub, dlc.keyIndex)
 
       fundingPrivKey =
         extPrivKey
           .deriveChildPrivKey(BIP32Path.fromString(s"m/0/${dlc.keyIndex}"))
           .key
 
-      _ = require(dlcPubKeys.fundingKey == fundingPrivKey.publicKey)
+      _ = require(dlcPubKeys.fundingKey == fundingPrivKey.publicKey,
+                  "Did not derive the same funding private and public key")
 
       acceptWithoutSigs = DLCAcceptWithoutSigs(
         totalCollateral = collateral.satoshis,

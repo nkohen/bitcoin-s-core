@@ -296,6 +296,6 @@ class DbCommonsColumnMappers(val profile: JdbcProfile) {
 
   implicit val dlcStateMapper: BaseColumnType[DLCState] = {
     MappedColumnType
-      .base[DLCState, String](_.toString, DLCState.fromString(_).get)
+      .base[DLCState, String](_.toString, DLCState.fromString)
   }
 }

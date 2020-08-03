@@ -41,10 +41,12 @@ trait DLCWalletApi { self: WalletApi =>
 
   def broadcastDLCFundingTx(eventId: Sha256DigestBE): Future[Transaction]
 
+  /** Creates the CET for the given eventId and oracle signature, does not broadcast it */
   def executeDLC(
       eventId: Sha256DigestBE,
       oracleSig: SchnorrDigitalSignature): Future[Transaction]
 
+  /** Creates the refund transaction for the given eventId, does not broadcast it */
   def executeDLCRefund(eventId: Sha256DigestBE): Future[Transaction]
 
 }

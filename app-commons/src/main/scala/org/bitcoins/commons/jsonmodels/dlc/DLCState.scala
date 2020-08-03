@@ -1,8 +1,10 @@
 package org.bitcoins.commons.jsonmodels.dlc
 
+import org.bitcoins.crypto.StringFactory
+
 sealed abstract class DLCState
 
-object DLCState {
+object DLCState extends StringFactory[DLCState] {
 
   /** The state where an offer has been created but no
     * accept message has yet been created/received.
@@ -57,7 +59,11 @@ object DLCState {
                                      RemoteClaimed,
                                      Refunded)
 
-  def fromString(str: String): Option[DLCState] = {
-    all.find(state => str.toLowerCase() == state.toString.toLowerCase)
+  def fromString(str: String): DLCState = {
+    all.find(state => str.toLowerCase() == state.toString.toLowerCase) match {
+      case Some(state) => state
+      case None =>
+        throw new IllegalArgumentException(s"$str is not a valid DLCState")
+    }
   }
 }

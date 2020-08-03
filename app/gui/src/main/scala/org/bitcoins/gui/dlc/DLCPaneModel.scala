@@ -105,8 +105,8 @@ class DLCPaneModel(
     printDLCDialogResult("GetDLCFundingTx", GetFundingDLCDialog)
   }
 
-  def onForceClose(): Unit = {
-    printDLCDialogResult("ExecuteUnilateralDLC", ForceCloseDLCDialog)
+  def onClose(): Unit = {
+    printDLCDialogResult("ExecuteDLC", ForceCloseDLCDialog)
   }
 
   def onRefund(): Unit = {

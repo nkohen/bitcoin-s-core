@@ -1,12 +1,14 @@
 package org.bitcoins.dlc.sign
 
 import org.bitcoins.commons.jsonmodels.dlc.{CETSignatures, FundingSignatures}
+import org.bitcoins.core.config.BitcoinNetwork
 import org.bitcoins.core.crypto.TransactionSignatureSerializer
 import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.number.UInt32
-import org.bitcoins.core.protocol.BitcoinAddress
+import org.bitcoins.core.protocol.{Bech32Address, BitcoinAddress}
 import org.bitcoins.core.protocol.script.{
   MultiSignatureScriptPubKey,
+  P2WPKHWitnessSPKV0,
   P2WSHWitnessV0
 }
 import org.bitcoins.core.protocol.transaction.{
@@ -249,5 +251,21 @@ case class DLCTxSigner(
       cetSigs <- Future.sequence(cetSigFs).map(_.toMap)
       refundSig <- createRefundSig()
     } yield CETSignatures(cetSigs, refundSig)
+  }
+}
+
+object DLCTxSigner {
+
+  def apply(
+      builder: DLCTxBuilder,
+      isInitiator: Boolean,
+      fundingKey: ECPrivateKey,
+      payoutPrivKey: ECPrivateKey,
+      network: BitcoinNetwork,
+      fundingUtxos: Vector[ScriptSignatureParams[InputInfo]])(implicit
+      ec: ExecutionContext): DLCTxSigner = {
+    val payoutAddr =
+      Bech32Address(P2WPKHWitnessSPKV0(payoutPrivKey.publicKey), network)
+    DLCTxSigner(builder, isInitiator, fundingKey, payoutAddr, fundingUtxos)
   }
 }
