@@ -167,8 +167,8 @@ case class DLCTxBuilder(offer: DLCOffer, accept: DLCAcceptWithoutSigs)(implicit
 
 object DLCTxBuilder {
 
-  /** Place-holder vbytes for a CET/Refund Tx TODO: compute this 165? */
-  val approxClosingVBytes: Long = 200L
+  /** vbytes for a CET/Refund Tx */
+  val approxClosingVBytes: Long = 169L
 
   /** Returns the payouts for the signature as (toOffer, toAccept) */
   def getPayouts(

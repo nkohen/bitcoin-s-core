@@ -12,7 +12,8 @@ import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.wallet.builder.{
   AddWitnessDataFinalizer,
   FilterDustFinalizer,
-  RawTxBuilder
+  RawTxBuilder,
+  SanityCheckFinalizer
 }
 import org.bitcoins.core.wallet.fee.FeeUnit
 import org.bitcoins.core.wallet.utxo.{ConditionalPath, P2WSHV0InputInfo}
@@ -76,7 +77,12 @@ case class DLCCETBuilder(
                                 TransactionConstants.disableRBFSequence)
 
     val finalizer =
-      FilterDustFinalizer.andThen(AddWitnessDataFinalizer(Vector(fundingInfo)))
+      FilterDustFinalizer
+        .andThen(
+          SanityCheckFinalizer(Vector(fundingInfo),
+                               Vector(offerFinalSPK, acceptFinalSPK),
+                               feeRate))
+        .andThen(AddWitnessDataFinalizer(Vector(fundingInfo)))
 
     val txF = finalizer.buildTx(builder.result())
 
