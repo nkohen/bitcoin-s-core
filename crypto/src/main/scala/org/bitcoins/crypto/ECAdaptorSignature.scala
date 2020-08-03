@@ -44,8 +44,12 @@ object ECAdaptorSignature extends Factory[ECAdaptorSignature] {
     )
   }
 
-  def empty(): ECAdaptorSignature =
-    fromBytes(ByteVector.fill(162)(0.toByte))
+  lazy val dummy: ECAdaptorSignature = {
+    val privKey = ECPrivateKey.freshPrivateKey
+    val adaptorPoint = ECPublicKey.freshPublicKey
+    val message = ByteVector.low(32)
+    privKey.adaptorSign(adaptorPoint, message)
+  }
 
   def serializePoint(point: ECPublicKey): ByteVector = {
     val (sign, xCoor) = point.bytes.splitAt(1)

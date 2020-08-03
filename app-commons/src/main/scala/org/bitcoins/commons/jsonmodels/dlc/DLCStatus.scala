@@ -23,7 +23,8 @@ sealed trait DLCStatus {
   def eventId: Sha256DigestBE
   def isInitiator: Boolean
   def offer: DLCOffer
-  def statusString: String
+  def state: DLCState
+  val statusString: String = state.toString
 }
 
 /** All states other than Offered contain an accept message. */
@@ -41,7 +42,7 @@ object DLCStatus {
       isInitiator: Boolean,
       offer: DLCOffer)
       extends DLCStatus {
-    override val statusString: String = "OFFERED"
+    override def state: DLCState = DLCState.Offered
 
     def toAccepted(accept: DLCAccept): Accepted = {
       Accepted(eventId, isInitiator, offer, accept)
@@ -57,7 +58,7 @@ object DLCStatus {
       offer: DLCOffer,
       accept: DLCAccept)
       extends AcceptedDLCStatus {
-    override val statusString: String = "ACCEPTED"
+    override def state: DLCState = DLCState.Accepted
 
     def toSigned(sign: DLCSign): Signed = {
       Signed(eventId, isInitiator, offer, accept, sign)
@@ -76,7 +77,7 @@ object DLCStatus {
       accept: DLCAccept,
       sign: DLCSign)
       extends AcceptedDLCStatus {
-    override val statusString: String = "SIGNED"
+    override def state: DLCState = DLCState.Signed
 
     def toBroadcasted(fundingTx: Transaction): Broadcasted = {
       Broadcasted(eventId, isInitiator, offer, accept, sign, fundingTx)
@@ -99,7 +100,7 @@ object DLCStatus {
       sign: DLCSign,
       fundingTx: Transaction)
       extends AcceptedDLCStatus {
-    override val statusString: String = "BROADCASTED"
+    override def state: DLCState = DLCState.Broadcasted
 
     def toConfirmed: Confirmed = {
       Confirmed(eventId, isInitiator, offer, accept, sign, fundingTx)
@@ -118,7 +119,7 @@ object DLCStatus {
       sign: DLCSign,
       fundingTx: Transaction)
       extends AcceptedDLCStatus {
-    override val statusString: String = "CONFIRMED"
+    override def state: DLCState = DLCState.Confirmed
 
     def toClaimed(
         oracleSig: SchnorrDigitalSignature,
@@ -138,9 +139,8 @@ object DLCStatus {
     }
   }
 
-  /** The state where this party has successfully executed
-    * a unilateral execution by broadcasting a CET and successfully
-    * spending the to_local output of that CET.
+  /** The state where one of the CETs has been accepted by the network
+    * and executed by ourselves.
     */
   case class Claimed(
       eventId: Sha256DigestBE,
@@ -152,12 +152,11 @@ object DLCStatus {
       oracleSig: SchnorrDigitalSignature,
       cet: Transaction)
       extends AcceptedDLCStatus {
-    override val statusString: String = "CLAIMED"
+    override def state: DLCState = DLCState.Claimed
   }
 
-  /** The state where the remote party has successfully
-    * executed a unilateral execution by broadcasting both
-    * a CET and successfully spending their to_local output.
+  /** The state where one of the CETs has been accepted by the network
+    * and executed by a remote party.
     */
   case class RemoteClaimed(
       eventId: Sha256DigestBE,
@@ -168,7 +167,7 @@ object DLCStatus {
       fundingTx: Transaction,
       cet: Transaction)
       extends AcceptedDLCStatus {
-    override val statusString: String = "REMOTE CLAIMED"
+    override def state: DLCState = DLCState.RemoteClaimed
 
     val oracleSig: SchnorrDigitalSignature = {
       val cetSigs = cet
@@ -239,6 +238,6 @@ object DLCStatus {
       fundingTx: Transaction,
       refundTx: Transaction)
       extends AcceptedDLCStatus {
-    override val statusString: String = "REFUNDED"
+    override def state: DLCState = DLCState.Refunded
   }
 }

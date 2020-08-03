@@ -90,20 +90,6 @@ class DLCPane(glassPane: VBox) {
     }
   }
 
-  private val initCloseButton = new Button {
-    text = "Init Close"
-    onAction = new EventHandler[ActionEvent] {
-      override def handle(event: ActionEvent): Unit = model.onInitClose()
-    }
-  }
-
-  private val acceptCloseButton = new Button {
-    text = "Accept Close"
-    onAction = new EventHandler[ActionEvent] {
-      override def handle(event: ActionEvent): Unit = model.onAcceptClose()
-    }
-  }
-
   private val refundButton = new Button {
     text = "Refund"
     onAction = new EventHandler[ActionEvent] {
@@ -112,16 +98,9 @@ class DLCPane(glassPane: VBox) {
   }
 
   private val forceCloseButton = new Button {
-    text = "Force Close"
+    text = "Close"
     onAction = new EventHandler[ActionEvent] {
       override def handle(event: ActionEvent): Unit = model.onForceClose()
-    }
-  }
-
-  private val punishButton = new Button {
-    text = "Punish"
-    onAction = new EventHandler[ActionEvent] {
-      override def handle(event: ActionEvent): Unit = model.onPunish()
     }
   }
 
@@ -134,11 +113,7 @@ class DLCPane(glassPane: VBox) {
   }
 
   private val execButtonBar = new ButtonBar {
-    buttons = Seq(initCloseButton,
-                  acceptCloseButton,
-                  refundButton,
-                  forceCloseButton,
-                  punishButton)
+    buttons = Seq(refundButton, forceCloseButton)
   }
 
   private val spaceRegion = new Region()
