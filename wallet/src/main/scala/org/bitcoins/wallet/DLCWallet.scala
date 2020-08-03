@@ -98,9 +98,10 @@ abstract class DLCWallet extends Wallet {
         .get
         .key
 
-    DLCPublicKeys.fromPubKeys(fundingKey,
-                              payoutKey,
-                              networkParameters.asInstanceOf[BitcoinNetwork])
+    networkParameters match {
+      case bitcoinNetwork: BitcoinNetwork =>
+        DLCPublicKeys.fromPubKeys(fundingKey, payoutKey, bitcoinNetwork)
+    }
   }
 
   private def writeDLCKeysToAddressDb(

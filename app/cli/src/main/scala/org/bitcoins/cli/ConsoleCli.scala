@@ -291,22 +291,22 @@ object ConsoleCli {
           opt[Sha256DigestBE]("eventid").required
             .action((eventId, conf) =>
               conf.copy(command = conf.command match {
-                case executeDLCUnilateralClose: ExecuteDLC =>
-                  executeDLCUnilateralClose.copy(eventId = eventId)
+                case executeDLC: ExecuteDLC =>
+                  executeDLC.copy(eventId = eventId)
                 case other => other
               })),
           opt[SchnorrDigitalSignature]("oraclesig").required
             .action((sig, conf) =>
               conf.copy(command = conf.command match {
-                case executeDLCUnilateralClose: ExecuteDLC =>
-                  executeDLCUnilateralClose.copy(oracleSig = sig)
+                case executeDLC: ExecuteDLC =>
+                  executeDLC.copy(oracleSig = sig)
                 case other => other
               })),
           opt[Unit]("noBroadcast").optional
             .action((_, conf) =>
               conf.copy(command = conf.command match {
-                case executeDLCUnilateralClose: ExecuteDLC =>
-                  executeDLCUnilateralClose.copy(noBroadcast = true)
+                case executeDLC: ExecuteDLC =>
+                  executeDLC.copy(noBroadcast = true)
                 case other => other
               }))
         ),
