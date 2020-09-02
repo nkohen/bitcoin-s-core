@@ -9,7 +9,7 @@ import org.bitcoins.core.protocol.transaction.{
   OutputReference,
   TransactionOutPoint
 }
-import org.bitcoins.core.wallet.fee.SatoshisPerKW
+import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.crypto.{
   ECAdaptorSignature,
   ECDigitalSignature,
@@ -348,7 +348,7 @@ case class DLCOfferTLV(
     totalCollateralSatoshis: Satoshis,
     fundingInputs: Vector[FundingInputTLV],
     changeSPK: ScriptPubKey,
-    feeRatePerKW: SatoshisPerKW,
+    feeRate: SatoshisPerVirtualByte,
     contractMaturityBound: BlockTimeStamp,
     contractTimeout: BlockTimeStamp)
     extends TLV {
@@ -365,7 +365,7 @@ case class DLCOfferTLV(
       UInt16(fundingInputs.length).bytes ++
       fundingInputs.foldLeft(ByteVector.empty)(_ ++ _.bytes) ++
       changeSPK.bytes ++
-      feeRatePerKW.currencyUnit.satoshis.toUInt64.bytes ++
+      feeRate.currencyUnit.satoshis.toUInt64.bytes ++
       contractMaturityBound.toUInt32.bytes ++
       contractTimeout.toUInt32.bytes
   }
@@ -395,7 +395,7 @@ object DLCOfferTLV extends TLVFactory[DLCOfferTLV] {
     }
     val changeSPK = ScriptPubKey(iter.current)
     iter.skip(changeSPK)
-    val feeRatePerKW = SatoshisPerKW(Satoshis(UInt64(iter.takeBits(64))))
+    val feeRate = SatoshisPerVirtualByte(Satoshis(UInt64(iter.takeBits(64))))
     val contractMaturityBound = BlockTimeStamp(UInt32(iter.takeBits(32)))
     val contractTimeout = BlockTimeStamp(UInt32(iter.takeBits(32)))
 
@@ -409,7 +409,7 @@ object DLCOfferTLV extends TLVFactory[DLCOfferTLV] {
       totalCollateralSatoshis,
       fundingInputs,
       changeSPK,
-      feeRatePerKW,
+      feeRate,
       contractMaturityBound,
       contractTimeout
     )
