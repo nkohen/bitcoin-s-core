@@ -382,10 +382,10 @@ object OracleAnnouncementV0TLV extends TLVFactory[OracleAnnouncementV0TLV] {
   }
 }
 
-sealed trait ContractInfoTLV extends TLV
+sealed trait ContractInfoTLV[Outcome] extends TLV
 
 case class ContractInfoV0TLV(outcomes: Map[Sha256Digest, Satoshis])
-    extends ContractInfoTLV {
+    extends ContractInfoTLV[Sha256Digest] {
   override val tpe: BigSizeUInt = ContractInfoV0TLV.tpe
 
   override val value: ByteVector = {
@@ -414,10 +414,10 @@ object ContractInfoV0TLV extends TLVFactory[ContractInfoV0TLV] {
   }
 }
 
-sealed trait OracleInfoTLV extends TLV
+sealed trait OracleInfoTLV[Outcome] extends TLV
 
 case class OracleInfoV0TLV(pubKey: SchnorrPublicKey, rValue: SchnorrNonce)
-    extends OracleInfoTLV {
+    extends OracleInfoTLV[Sha256Digest] {
   override def tpe: BigSizeUInt = OracleInfoV0TLV.tpe
 
   override val value: ByteVector = {
@@ -574,11 +574,11 @@ object FundingSignaturesV0TLV extends TLVFactory[FundingSignaturesV0TLV] {
   }
 }
 
-case class DLCOfferTLV(
+case class DLCOfferTLV[Outcome](
     contractFlags: Byte,
     chainHash: DoubleSha256Digest,
-    contractInfo: ContractInfoTLV,
-    oracleInfo: OracleInfoTLV,
+    contractInfo: ContractInfoTLV[Outcome],
+    oracleInfo: OracleInfoTLV[Outcome],
     fundingPubKey: ECPublicKey,
     payoutSPK: ScriptPubKey,
     totalCollateralSatoshis: Satoshis,
@@ -607,10 +607,10 @@ case class DLCOfferTLV(
   }
 }
 
-object DLCOfferTLV extends TLVFactory[DLCOfferTLV] {
+object DLCOfferTLV extends TLVFactory[DLCOfferTLV[Sha256Digest]] {
   override val tpe: BigSizeUInt = BigSizeUInt(42778)
 
-  override def fromTLVValue(value: ByteVector): DLCOfferTLV = {
+  override def fromTLVValue(value: ByteVector): DLCOfferTLV[Sha256Digest] = {
     val iter = ValueIterator(value)
 
     val contractFlags = iter.take(1).head

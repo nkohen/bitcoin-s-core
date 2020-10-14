@@ -57,7 +57,7 @@ object Picklers {
   implicit val oracleInfoPickler: ReadWriter[OracleInfo] =
     readwriter[String].bimap(_.hex, OracleInfo.fromHex)
 
-  implicit val contractInfoPickler: ReadWriter[ContractInfo] =
+  implicit val contractInfoPickler: ReadWriter[ContractInfo[_]] =
     readwriter[String].bimap(_.hex, ContractInfo.fromHex)
 
   implicit val schnorrDigitalSignaturePickler: ReadWriter[
@@ -67,7 +67,7 @@ object Picklers {
   implicit val partialSignaturePickler: ReadWriter[PartialSignature] =
     readwriter[String].bimap(_.hex, PartialSignature.fromHex)
 
-  implicit val dlcOfferPickler: ReadWriter[DLCOffer] =
+  implicit val dlcOfferPickler: ReadWriter[DLCOffer[_]] =
     readwriter[String]
       .bimap(_.toJsonStr, str => DLCOffer.fromJson(ujson.read(str)))
 

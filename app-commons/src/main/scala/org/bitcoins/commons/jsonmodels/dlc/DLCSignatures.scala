@@ -5,7 +5,7 @@ import org.bitcoins.core.protocol.tlv.FundingSignaturesV0TLV
 import org.bitcoins.core.protocol.transaction.TransactionOutPoint
 import org.bitcoins.core.psbt.InputPSBTRecord.PartialSignature
 import org.bitcoins.core.util.SeqWrapper
-import org.bitcoins.crypto.{ECAdaptorSignature, Sha256Digest}
+import org.bitcoins.crypto.ECAdaptorSignature
 
 sealed trait DLCSignatures
 
@@ -34,7 +34,7 @@ case class FundingSignatures(
   }
 }
 
-case class CETSignatures(
-    outcomeSigs: Map[Sha256Digest, ECAdaptorSignature],
+case class CETSignatures[Outcome](
+    outcomeSigs: Map[Outcome, ECAdaptorSignature],
     refundSig: PartialSignature)
     extends DLCSignatures

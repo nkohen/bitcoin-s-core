@@ -1,10 +1,6 @@
 package org.bitcoins.commons.jsonmodels.dlc
 
-import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.{
-  DLCAccept,
-  DLCOffer,
-  DLCSign
-}
+import org.bitcoins.commons.jsonmodels.dlc.DLCMessage._
 import org.bitcoins.core.policy.Policy
 import org.bitcoins.core.protocol.script.P2WSHWitnessV0
 import org.bitcoins.core.protocol.transaction.{Transaction, WitnessTransaction}
@@ -18,7 +14,7 @@ import scodec.bits.ByteVector
   */
 sealed trait DLCStatus {
   def isInitiator: Boolean
-  def offer: DLCOffer
+  def offer: DLCOffer[_]
   def state: DLCState
   val tempContractId: Sha256Digest = offer.tempContractId
   val statusString: String = state.toString
@@ -43,7 +39,7 @@ object DLCStatus {
   case class Offered(
       eventId: Sha256Digest,
       isInitiator: Boolean,
-      offer: DLCOffer)
+      offer: DLCOffer[_])
       extends DLCStatus {
     override def state: DLCState = DLCState.Offered
 
@@ -58,7 +54,7 @@ object DLCStatus {
   case class Accepted(
       eventId: Sha256Digest,
       isInitiator: Boolean,
-      offer: DLCOffer,
+      offer: DLCOffer[_],
       accept: DLCAccept)
       extends AcceptedDLCStatus {
     override def state: DLCState = DLCState.Accepted
@@ -76,7 +72,7 @@ object DLCStatus {
   case class Signed(
       eventId: Sha256Digest,
       isInitiator: Boolean,
-      offer: DLCOffer,
+      offer: DLCOffer[_],
       accept: DLCAccept,
       sign: DLCSign)
       extends SignedDLCStatus {
@@ -98,7 +94,7 @@ object DLCStatus {
   case class Broadcasted(
       eventId: Sha256Digest,
       isInitiator: Boolean,
-      offer: DLCOffer,
+      offer: DLCOffer[_],
       accept: DLCAccept,
       sign: DLCSign,
       fundingTx: Transaction)
@@ -117,7 +113,7 @@ object DLCStatus {
   case class Confirmed(
       eventId: Sha256Digest,
       isInitiator: Boolean,
-      offer: DLCOffer,
+      offer: DLCOffer[_],
       accept: DLCAccept,
       sign: DLCSign,
       fundingTx: Transaction)
@@ -148,7 +144,7 @@ object DLCStatus {
   case class Claimed(
       eventId: Sha256Digest,
       isInitiator: Boolean,
-      offer: DLCOffer,
+      offer: DLCOffer[_],
       accept: DLCAccept,
       sign: DLCSign,
       fundingTx: Transaction,
@@ -164,7 +160,7 @@ object DLCStatus {
   case class RemoteClaimed(
       eventId: Sha256Digest,
       isInitiator: Boolean,
-      offer: DLCOffer,
+      offer: DLCOffer[_],
       accept: DLCAccept,
       sign: DLCSign,
       fundingTx: Transaction,
@@ -180,7 +176,8 @@ object DLCStatus {
         .asInstanceOf[P2WSHWitnessV0]
         .signatures
       val oraclePubKey = offer.oracleInfo.pubKey
-      val preCommittedR = offer.oracleInfo.rValue
+      val preCommittedR =
+        offer.oracleInfo.asInstanceOf[SingleNonceOracleInfo].rValue
 
       def sigFromMsgAndSigs(
           msg: Sha256Digest,
@@ -198,12 +195,15 @@ object DLCStatus {
       val outcomeValues = cet.outputs.map(_.value).sorted
       val totalCollateral = offer.totalCollateral + accept.totalCollateral
 
-      val possibleMessages = offer.contractInfo.filter {
-        case (_, amt) =>
-          Vector(amt, totalCollateral - amt)
-            .filter(_ >= Policy.dustThreshold)
-            .sorted == outcomeValues
-      }.keys
+      val possibleMessages = offer.contractInfo
+        .asInstanceOf[SingleNonceContractInfo]
+        .filter {
+          case (_, amt) =>
+            Vector(amt, totalCollateral - amt)
+              .filter(_ >= Policy.dustThreshold)
+              .sorted == outcomeValues
+        }
+        .keys
 
       val (offerCETSig, acceptCETSig) =
         if (
@@ -216,14 +216,20 @@ object DLCStatus {
         }
 
       val (cetSig, outcomeSigs) = if (isInitiator) {
-        val possibleOutcomeSigs = sign.cetSigs.outcomeSigs.filter {
-          case (msg, _) => possibleMessages.exists(_ == msg)
-        }
+        val possibleOutcomeSigs = sign.cetSigs
+          .asInstanceOf[CETSignatures[Sha256Digest]]
+          .outcomeSigs
+          .filter {
+            case (msg, _) => possibleMessages.exists(_ == msg)
+          }
         (acceptCETSig, possibleOutcomeSigs)
       } else {
-        val possibleOutcomeSigs = accept.cetSigs.outcomeSigs.filter {
-          case (msg, _) => possibleMessages.exists(_ == msg)
-        }
+        val possibleOutcomeSigs = accept.cetSigs
+          .asInstanceOf[CETSignatures[Sha256Digest]]
+          .outcomeSigs
+          .filter {
+            case (msg, _) => possibleMessages.exists(_ == msg)
+          }
         (offerCETSig, possibleOutcomeSigs)
       }
 
@@ -249,7 +255,7 @@ object DLCStatus {
   case class Refunded(
       eventId: Sha256Digest,
       isInitiator: Boolean,
-      offer: DLCOffer,
+      offer: DLCOffer[_],
       accept: DLCAccept,
       sign: DLCSign,
       fundingTx: Transaction,
