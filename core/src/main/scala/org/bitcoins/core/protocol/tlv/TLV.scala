@@ -235,9 +235,6 @@ object PongTLV extends TLVFactory[PongTLV] {
 
 sealed trait EventDescriptorTLV extends TLV {
   def noncesNeeded: Int
-
-  // TODO: Make all Vector[String] -> DLCOutcomeType when that type is introduced
-  def outcomes: Vector[Vector[String]]
 }
 
 object EventDescriptorTLV extends TLVParentFactory[EventDescriptorTLV] {
@@ -252,20 +249,17 @@ object EventDescriptorTLV extends TLVParentFactory[EventDescriptorTLV] {
 
 /**
   * Describes an event over an enumerated set of outcomes
-  * @param outcomeStrs The set of possible outcomes
+  * @param outcomes The set of possible outcomes
   * @see https://github.com/discreetlogcontracts/dlcspecs/blob/540c23a3e89c886814145cf16edfd48421d0175b/Oracle.md#simple-enumeration
   */
-case class EnumEventDescriptorV0TLV(outcomeStrs: Vector[String])
+case class EnumEventDescriptorV0TLV(outcomes: Vector[String])
     extends EventDescriptorTLV {
   override def tpe: BigSizeUInt = EnumEventDescriptorV0TLV.tpe
 
-  override lazy val outcomes: Vector[Vector[String]] =
-    outcomeStrs.map(Vector(_))
-
   override val value: ByteVector = {
-    val starting = UInt16(outcomeStrs.size).bytes
+    val starting = UInt16(outcomes.size).bytes
 
-    outcomeStrs.foldLeft(starting) { (accum, outcome) =>
+    outcomes.foldLeft(starting) { (accum, outcome) =>
       val outcomeBytes = CryptoUtil.serializeForHash(outcome)
       accum ++ UInt16(outcomeBytes.length).bytes ++ outcomeBytes
     }
@@ -315,10 +309,6 @@ trait NumericEventDescriptor extends EventDescriptorTLV {
 
   def step: UInt16
 
-  def outcomeNums: Vector[BigInt] = {
-    NumericRange.inclusive[BigInt](minNum, maxNum, step.toInt).toVector
-  }
-
   def contains(outcome: BigInt): Boolean = {
     val inBounds = outcome <= maxNum && outcome >= minNum
 
@@ -346,9 +336,6 @@ trait NumericEventDescriptor extends EventDescriptorTLV {
   def minToPrecision: BigDecimal = precisionModifier * BigDecimal(minNum)
 
   def maxToPrecision: BigDecimal = precisionModifier * BigDecimal(maxNum)
-
-  def outcomesToPrecision: Vector[BigDecimal] =
-    outcomeNums.map(num => precisionModifier * BigDecimal(num))
 
   def containsToPrecision(outcome: BigDecimal): Boolean = {
     (outcome / precisionModifier).toBigIntExact match {
@@ -398,9 +385,6 @@ case class RangeEventDescriptorV0TLV(
       .inclusive[Long](start.toLong, maxNum.toLong, step.toLong)
       .toVector
       .map(Int32(_))
-
-  override lazy val outcomes: Vector[Vector[String]] =
-    outcomeInts.map(num => Vector(num.toLong.toString))
 
   override def noncesNeeded: Int = 1
 }
@@ -470,33 +454,6 @@ trait DigitDecompositionEventDescriptorV0TLV extends NumericEventDescriptor {
     val unitBytes = CryptoUtil.serializeForHash(unit)
 
     base.bytes ++ isSignedByte ++ unitSize.bytes ++ unitBytes ++ precision.bytes ++ numDigitBytes
-  }
-
-  /** WARNING: For large ranges of outcomes, this can take a lot of memory. */
-  override lazy val outcomes: Vector[Vector[String]] = {
-    val legalDigits = 0.until(base.toInt).toVector.map(_.toString)
-
-    val nonNegativeOutcomes = {
-      // All numbers of size (0 to numDigits)
-      var allNumsSoFar = Vector(Vector.empty[String])
-
-      0.until(numDigits.toInt).foreach { _ =>
-        allNumsSoFar = legalDigits.flatMap { num =>
-          allNumsSoFar.map { digits => num +: digits }
-        }
-      }
-
-      allNumsSoFar
-    }
-
-    if (isSigned) {
-      val negativeOutcomes = nonNegativeOutcomes.tail.reverse.map("-" +: _)
-      val positiveOutcomes = nonNegativeOutcomes.map("+" +: _)
-
-      negativeOutcomes ++ positiveOutcomes
-    } else {
-      nonNegativeOutcomes
-    }
   }
 
   override def noncesNeeded: Int = {
