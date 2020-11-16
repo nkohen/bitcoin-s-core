@@ -132,8 +132,8 @@ case class DLCDAO()(implicit
 
     def keyIndex: Rep[Int] = column("key_index")
 
-    def oracleSigOpt: Rep[Option[SchnorrDigitalSignature]] =
-      column("oracle_sig")
+    def oracleSigsOpt: Rep[Option[Vector[SchnorrDigitalSignature]]] =
+      column("oracle_sigs")
 
     def fundingOutPointOpt: Rep[Option[TransactionOutPoint]] =
       column("funding_outpoint")
@@ -152,7 +152,7 @@ case class DLCDAO()(implicit
        isInitiator,
        account,
        keyIndex,
-       oracleSigOpt,
+       oracleSigsOpt,
        fundingOutPointOpt,
        fundingTxIdOpt,
        closingTxIdOpt).<>(DLCDb.tupled, DLCDb.unapply)

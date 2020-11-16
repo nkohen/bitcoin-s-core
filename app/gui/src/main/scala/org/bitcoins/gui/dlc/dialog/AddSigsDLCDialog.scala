@@ -1,7 +1,7 @@
 package org.bitcoins.gui.dlc.dialog
 
 import org.bitcoins.cli.CliCommand.AddDLCSigs
-import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.DLCSign
+import org.bitcoins.core.protocol.tlv.DLCSignTLV
 
 object AddSigsDLCDialog
     extends DLCDialog[AddDLCSigs](
@@ -12,7 +12,7 @@ object AddSigsDLCDialog
   import DLCDialog._
 
   override def constructFromInput(inputs: Map[String, String]): AddDLCSigs = {
-    val sign = DLCSign.fromJson(ujson.read(inputs(dlcSigStr)))
+    val sign = DLCSignTLV(dlcSigStr)
     AddDLCSigs(sign)
   }
 }

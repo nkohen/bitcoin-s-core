@@ -219,9 +219,9 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
       GetDLC.fromJsArr(arr) match {
         case Failure(exception) =>
           reject(ValidationRejection("failure", Some(exception)))
-        case Success(GetDLC(eventId)) =>
+        case Success(GetDLC(paramHash)) =>
           complete {
-            wallet.findDLC(eventId).map {
+            wallet.findDLC(paramHash).map {
               case None => Server.httpSuccess(ujson.Null)
               case Some(dlc) =>
                 Server.httpSuccess(dlc.toJson)
@@ -249,7 +249,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
                               locktime,
                               refundLT)
               .map { offer =>
-                Server.httpSuccess(offer.toJson)
+                Server.httpSuccess(offer.toTLV.hex)
               }
           }
       }
@@ -263,7 +263,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
             wallet
               .acceptDLCOffer(offer)
               .map { accept =>
-                Server.httpSuccess(accept.toJson)
+                Server.httpSuccess(accept.toTLV.hex)
               }
           }
       }
@@ -277,7 +277,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
             wallet
               .signDLC(accept)
               .map { sign =>
-                Server.httpSuccess(sign.toJson)
+                Server.httpSuccess(sign.toTLV.hex)
               }
           }
       }
@@ -288,9 +288,9 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
           reject(ValidationRejection("failure", Some(exception)))
         case Success(AddDLCSigs(sigs)) =>
           complete {
-            wallet.addDLCSigs(sigs).map { _ =>
+            wallet.addDLCSigs(sigs).map { db =>
               Server.httpSuccess(
-                s"Successfully added sigs to DLC ${sigs.contractId.toHex}")
+                s"Successfully added sigs to DLC ${db.contractIdOpt.get.toHex}")
             }
           }
       }

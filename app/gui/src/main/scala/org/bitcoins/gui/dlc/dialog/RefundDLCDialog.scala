@@ -1,19 +1,19 @@
 package org.bitcoins.gui.dlc.dialog
 
 import org.bitcoins.cli.CliCommand.ExecuteDLCRefund
-import org.bitcoins.crypto.Sha256Digest
 import scalafx.scene.control.TextField
+import scodec.bits.ByteVector
 
 object RefundDLCDialog
     extends DLCDialog[ExecuteDLCRefund](
       "DLC Refund",
-      "Enter DLC event ID",
+      "Enter DLC contract ID",
       Vector(DLCDialog.dlcContractIdStr -> new TextField())) {
   import DLCDialog._
 
   override def constructFromInput(
       inputs: Map[String, String]): ExecuteDLCRefund = {
-    val eventId = Sha256Digest(inputs(dlcContractIdStr))
-    ExecuteDLCRefund(eventId, noBroadcast = false)
+    val contractId = ByteVector.fromValidHex(inputs(dlcContractIdStr))
+    ExecuteDLCRefund(contractId, noBroadcast = false)
   }
 }

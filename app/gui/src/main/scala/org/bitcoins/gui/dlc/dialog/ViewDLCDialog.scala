@@ -151,10 +151,12 @@ object ViewDLCDialog {
           rowIndex = row)
 
       row += 1
-      add(new Label("Oracle Signature:"), 0, row)
+      add(new Label("Oracle Signatures:"), 0, row)
       add(new TextField() {
-            text =
-              DLCStatus.getOracleSignature(dlcStatus).map(_.hex).getOrElse("")
+            text = DLCStatus
+              .getOracleSignatures(dlcStatus)
+              .map(_.map(_.hex).mkString(","))
+              .getOrElse("")
             editable = false
           },
           columnIndex = 1,

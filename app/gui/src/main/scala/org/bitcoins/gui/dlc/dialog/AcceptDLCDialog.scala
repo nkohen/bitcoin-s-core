@@ -1,7 +1,7 @@
 package org.bitcoins.gui.dlc.dialog
 
 import org.bitcoins.cli.CliCommand.AcceptDLCOffer
-import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.DLCOffer
+import org.bitcoins.core.protocol.tlv.DLCOfferTLV
 
 object AcceptDLCDialog
     extends DLCDialog[AcceptDLCOffer](
@@ -12,7 +12,7 @@ object AcceptDLCDialog
 
   override def constructFromInput(
       inputs: Map[String, String]): AcceptDLCOffer = {
-    val offer = DLCOffer.fromJson(ujson.read(inputs(dlcOfferStr)))
+    val offer = DLCOfferTLV(dlcOfferStr)
     AcceptDLCOffer(offer)
   }
 }

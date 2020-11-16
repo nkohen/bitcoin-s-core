@@ -8,6 +8,7 @@ import org.bitcoins.core.api.wallet.CoinSelectionAlgo
 import org.bitcoins.core.currency.{Bitcoins, Satoshis}
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BlockStamp.BlockHeight
+import org.bitcoins.core.protocol.tlv._
 import org.bitcoins.core.protocol.transaction.{Transaction, TransactionOutPoint}
 import org.bitcoins.core.protocol.{BitcoinAddress, BlockStamp}
 import org.bitcoins.core.psbt.PSBT
@@ -421,7 +422,7 @@ object GetDLC extends ServerJsonModels {
 
 case class CreateDLCOffer(
     oracleInfo: OracleInfo,
-    contractInfo: ContractInfo,
+    contractInfoTLV: ContractInfoTLV,
     collateral: Satoshis,
     feeRateOpt: Option[SatoshisPerVirtualByte],
     locktime: UInt32,
@@ -435,13 +436,13 @@ object CreateDLCOffer extends ServerJsonModels {
       case oracleInfoJs :: contractInfoJs :: collateralJs :: feeRateOptJs :: locktimeJs :: refundLTJs :: Nil =>
         Try {
           val oracleInfo = jsToOracleInfo(oracleInfoJs)
-          val contractInfo = jsToContractInfo(contractInfoJs)
+          val contractInfoTLV = jsToContractInfoTLV(contractInfoJs)
           val collateral = jsToSatoshis(collateralJs)
           val feeRate = jsToSatoshisPerVirtualByteOpt(feeRateOptJs)
           val locktime = jsToUInt32(locktimeJs)
           val refundLT = jsToUInt32(refundLTJs)
           CreateDLCOffer(oracleInfo,
-                         contractInfo,
+                         contractInfoTLV,
                          collateral,
                          feeRate,
                          locktime,
@@ -455,7 +456,7 @@ object CreateDLCOffer extends ServerJsonModels {
   }
 }
 
-case class AcceptDLCOffer(offer: DLCOffer)
+case class AcceptDLCOffer(offer: DLCOfferTLV)
 
 object AcceptDLCOffer extends ServerJsonModels {
 
@@ -463,7 +464,7 @@ object AcceptDLCOffer extends ServerJsonModels {
     jsArr.arr.toList match {
       case offerJs :: Nil =>
         Try {
-          val offer = DLCOffer.fromJson(ujson.read(offerJs.str))
+          val offer = DLCOfferTLV(offerJs.str)
           AcceptDLCOffer(offer)
         }
       case Nil =>
@@ -477,7 +478,7 @@ object AcceptDLCOffer extends ServerJsonModels {
   }
 }
 
-case class SignDLC(accept: DLCAccept)
+case class SignDLC(accept: DLCAcceptTLV)
 
 object SignDLC extends ServerJsonModels {
 
@@ -485,7 +486,7 @@ object SignDLC extends ServerJsonModels {
     jsArr.arr.toList match {
       case acceptJs :: Nil =>
         Try {
-          val accept = DLCAccept.fromJson(ujson.read(acceptJs.str))
+          val accept = DLCAcceptTLV(acceptJs.str)
           SignDLC(accept)
         }
       case Nil =>
@@ -498,7 +499,7 @@ object SignDLC extends ServerJsonModels {
   }
 }
 
-case class AddDLCSigs(sigs: DLCSign)
+case class AddDLCSigs(sigs: DLCSignTLV)
 
 object AddDLCSigs extends ServerJsonModels {
 
@@ -506,7 +507,7 @@ object AddDLCSigs extends ServerJsonModels {
     jsArr.arr.toList match {
       case sigsJs :: Nil =>
         Try {
-          val sigs = DLCSign.fromJson(ujson.read(sigsJs.str))
+          val sigs = DLCSignTLV(sigsJs.str)
           AddDLCSigs(sigs)
         }
       case Nil =>
@@ -798,10 +799,10 @@ trait ServerJsonModels {
         throw Value.InvalidData(js, "Expected an OracleInfo as a hex string")
     }
 
-  def jsToContractInfo(js: Value): ContractInfo =
+  def jsToContractInfoTLV(js: Value): ContractInfoTLV =
     js match {
       case str: Str =>
-        ContractInfo(str.value)
+        ContractInfoTLV(str.value)
       case _: Value =>
         throw Value.InvalidData(js, "Expected a ContractInfo as a hex string")
     }

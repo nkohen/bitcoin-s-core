@@ -19,7 +19,7 @@ case class DLCDb(
     isInitiator: Boolean,
     account: HDAccount,
     keyIndex: Int,
-    oracleSigOpt: Option[SchnorrDigitalSignature],
+    oracleSigsOpt: Option[Vector[SchnorrDigitalSignature]],
     fundingOutPointOpt: Option[TransactionOutPoint],
     fundingTxIdOpt: Option[DoubleSha256DigestBE],
     closingTxIdOpt: Option[DoubleSha256DigestBE]

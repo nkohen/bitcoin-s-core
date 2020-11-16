@@ -4,6 +4,7 @@ import org.bitcoins.cli.CliCommand.CreateDLCOffer
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage
 import org.bitcoins.core.currency.Satoshis
 import org.bitcoins.core.number.UInt32
+import org.bitcoins.core.protocol.tlv.ContractInfoTLV
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 
 object OfferDLCDialog
@@ -27,7 +28,7 @@ object OfferDLCDialog
 
     CreateDLCOffer(
       oracleInfo = DLCMessage.OracleInfo.fromHex(inputs(oracleInfoStr)),
-      contractInfo = DLCMessage.ContractInfo.fromHex(inputs(contractInfoStr)),
+      contractInfo = ContractInfoTLV.fromHex(inputs(contractInfoStr)),
       collateral = Satoshis(BigInt(inputs(collateralStr))),
       feeRateOpt = feeRate,
       locktime = UInt32(BigInt(inputs(locktimeStr))),

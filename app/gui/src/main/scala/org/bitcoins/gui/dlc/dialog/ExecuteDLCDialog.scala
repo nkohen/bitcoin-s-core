@@ -1,10 +1,11 @@
 package org.bitcoins.gui.dlc.dialog
 
 import org.bitcoins.cli.CliCommand.ExecuteDLC
-import org.bitcoins.crypto.{SchnorrDigitalSignature, Sha256Digest}
+import org.bitcoins.crypto.SchnorrDigitalSignature
 import scalafx.scene.control.TextField
+import scodec.bits.ByteVector
 
-object ForceCloseDLCDialog
+object ExecuteDLCDialog
     extends DLCDialog[ExecuteDLC](
       "DLC Close",
       "Enter DLC closing info",
@@ -13,8 +14,10 @@ object ForceCloseDLCDialog
   import DLCDialog._
 
   override def constructFromInput(inputs: Map[String, String]): ExecuteDLC = {
-    val eventId = Sha256Digest(inputs(dlcContractIdStr))
+    val contractId = inputs(dlcContractIdStr)
     val oracleSig = SchnorrDigitalSignature(inputs(dlcOracleSigStr))
-    ExecuteDLC(eventId, oracleSig, noBroadcast = false)
+    ExecuteDLC(ByteVector.fromValidHex(contractId),
+               Vector(oracleSig),
+               noBroadcast = false)
   }
 }

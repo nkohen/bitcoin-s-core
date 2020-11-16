@@ -11,11 +11,11 @@ import scalafx.scene.control.{ButtonType, Dialog, Label, TextField}
 import scalafx.scene.layout.GridPane
 import scalafx.stage.Window
 
-object InitOracleDialog {
+object InitSingleNonceOracleDialog {
 
   def showAndWait(
       parentWindow: Window,
-      numOutcomes: Int): Option[(Vector[String], SingleNonceContractInfo)] = {
+      numOutcomes: Int): Option[SingleNonceContractInfo] = {
     val dialog =
       new Dialog[Option[(Vector[String], SingleNonceContractInfo)]]() {
         initOwner(parentWindow)
@@ -80,10 +80,8 @@ object InitOracleDialog {
     val result = dialog.showAndWait()
 
     result match {
-      case Some(
-            Some(
-              (outcomes: Vector[_], contractInfo: SingleNonceContractInfo))) =>
-        Some((outcomes.map(_.toString), contractInfo))
+      case Some(Some(contractInfo: SingleNonceContractInfo)) =>
+        Some(contractInfo)
       case Some(_) | None => None
     }
   }
