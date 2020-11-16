@@ -37,6 +37,8 @@ object Deps {
     val scalaCollectionCompatV = "2.2.0"
     val pgEmbeddedV = "0.13.3"
 
+    val breezeV = "1.1"
+
     val newMicroPickleV = "0.8.0"
     val newMicroJsonV = newMicroPickleV
 
@@ -122,6 +124,12 @@ object Deps {
                                javaFxMedia,
                                javaFxSwing,
                                javaFxWeb)
+
+    val breeze =
+      "org.scalanlp" %% "breeze" % V.breezeV withSources () withJavadoc ()
+
+    val breezeViz =
+      "org.scalanlp" %% "breeze-viz" % V.breezeV withSources () withJavadoc ()
 
     val playJson =
       "com.typesafe.play" %% "play-json" % V.playv withSources () withJavadoc ()
@@ -317,7 +325,7 @@ object Deps {
       Compile.codehaus
     )
 
-  val gui = List(Compile.scalaFx) ++ Compile.javaFxDeps
+  val gui = List(Compile.breezeViz, Compile.scalaFx) ++ Compile.javaFxDeps
 
   def server(scalaVersion: String) =
     List(
