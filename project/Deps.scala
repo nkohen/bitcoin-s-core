@@ -125,9 +125,6 @@ object Deps {
                                javaFxSwing,
                                javaFxWeb)
 
-    val breeze =
-      "org.scalanlp" %% "breeze" % V.breezeV withSources () withJavadoc ()
-
     val breezeViz =
       "org.scalanlp" %% "breeze-viz" % V.breezeV withSources () withJavadoc ()
 

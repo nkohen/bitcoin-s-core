@@ -3,10 +3,12 @@ package org.bitcoins.gui.dlc.dialog
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage.MultiNonceContractInfo
 import org.bitcoins.commons.jsonmodels.dlc.{
   OutcomeValueFunction,
-  OutcomeValuePoint
+  OutcomeValuePoint,
+  RoundingIntervals
 }
 import org.bitcoins.core.currency.Satoshis
 import org.bitcoins.gui.GlobalData
+import org.bitcoins.gui.dlc.DLCPlotUtil
 import org.bitcoins.gui.util.GUIUtil.setNumericInput
 import scalafx.Includes._
 import scalafx.application.Platform
@@ -15,6 +17,8 @@ import scalafx.scene.Node
 import scalafx.scene.control._
 import scalafx.scene.layout.{GridPane, HBox, VBox}
 import scalafx.stage.Window
+
+import scala.util.{Failure, Success, Try}
 
 object InitMultiNonceOracleDialog {
 
@@ -92,6 +96,32 @@ object InitMultiNonceOracleDialog {
       onAction = _ => addPointRow()
     }
 
+    def getContractInfo: Try[MultiNonceContractInfo] = {
+      Try {
+        val base = baseTF.text.value.toInt
+        val numDigits = numDigitsTF.text.value.toInt
+        val totalCollateral = Satoshis(totalCollateralTF.text.value.toLong)
+
+        val points = pointMap.values.toVector
+        val outcomesValuePoints = points.flatMap {
+          case (xTF, yTF, checkBox) =>
+            if (xTF.text.value.nonEmpty && yTF.text.value.nonEmpty) {
+              val x = xTF.text.value.toLong
+              val y = yTF.text.value.toLong
+              Some(OutcomeValuePoint(x, Satoshis(y), checkBox.selected.value))
+            } else {
+              None
+            }
+        }
+
+        val sorted = outcomesValuePoints.sortBy(_.outcome)
+        require(sorted == outcomesValuePoints, "Must be sorted by outcome")
+
+        val func = OutcomeValueFunction(outcomesValuePoints)
+        MultiNonceContractInfo(func, base, numDigits, totalCollateral)
+      }
+    }
+
     dialog.dialogPane().content = new VBox() {
       padding = Insets(20, 10, 10, 10)
       spacing = 10
@@ -121,7 +151,24 @@ object InitMultiNonceOracleDialog {
         children = Vector(label, pointGrid)
       }
 
-      children = Vector(eventDataGrid, new Separator(), outcomes)
+      val previewGraphButton: Button = new Button("Preview Graph") {
+        onAction = _ => {
+          getContractInfo match {
+            case Failure(_) => ()
+            case Success(contractInfo) =>
+              DLCPlotUtil.plotCETsWithOriginalCurve(
+                contractInfo.base,
+                contractInfo.numDigits,
+                contractInfo.outcomeValueFunc,
+                contractInfo.totalCollateral,
+                RoundingIntervals.noRounding)
+              ()
+          }
+        }
+      }
+
+      children =
+        Vector(eventDataGrid, new Separator(), outcomes, previewGraphButton)
     }
     // Enable/Disable OK button depending on whether all data was entered.
     val okButton = dialog.dialogPane().lookupButton(ButtonType.OK)
@@ -133,27 +180,11 @@ object InitMultiNonceOracleDialog {
     // When the OK button is clicked, convert the result to a CreateDLCOffer.
     dialog.resultConverter = dialogButton =>
       if (dialogButton == ButtonType.OK) {
-        val base = baseTF.text.value.toInt
-        val numDigits = numDigitsTF.text.value.toInt
-        val totalCollateral = Satoshis(totalCollateralTF.text.value.toLong)
-
-        val points = pointMap.values.toVector
-        val outcomesValuePoints = points.flatMap {
-          case (xTF, yTF, checkBox) =>
-            if (xTF.text.value.nonEmpty && yTF.text.value.nonEmpty) {
-              val x = xTF.text.value.toLong
-              val y = yTF.text.value.toLong
-              Some(OutcomeValuePoint(x, Satoshis(y), checkBox.selected.value))
-            } else {
-              None
-            }
+        getContractInfo match {
+          case Failure(exception) => throw exception
+          case Success(contractInfo) =>
+            Some(contractInfo)
         }
-
-        val func = OutcomeValueFunction(outcomesValuePoints)
-        val contractInfo =
-          MultiNonceContractInfo(func, base, numDigits, totalCollateral)
-
-        Some(contractInfo)
       } else None
 
     dialog.showAndWait() match {
