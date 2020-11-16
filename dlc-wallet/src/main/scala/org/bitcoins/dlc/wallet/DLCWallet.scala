@@ -711,26 +711,38 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
 
   def verifyCETSigs(
       verifier: DLCSignatureVerifier,
-      outcomeSigs: Vector[(DLCOutcomeType, ECAdaptorSignature)]): Boolean = {
+      sigs: Vector[(DLCOutcomeType, ECAdaptorSignature)]): Future[Boolean] = {
     val correctNumberOfSigs =
-      outcomeSigs.size == verifier.builder.oracleAndContractInfo.allOutcomes.length
+      sigs.size == verifier.builder.oracleAndContractInfo.allOutcomes.length
 
-    correctNumberOfSigs && outcomeSigs.foldLeft(true) {
-      case (ret, (outcome, sig)) =>
-        ret && verifier.verifyCETSig(outcome, sig)
+    def runVerify(
+        outcomeSigs: Vector[(DLCOutcomeType, ECAdaptorSignature)]): Future[
+      Boolean] = {
+      Future {
+        outcomeSigs.foldLeft(true) {
+          case (ret, (outcome, sig)) =>
+            ret && verifier.verifyCETSig(outcome, sig)
+        }
+      }
     }
+
+    if (correctNumberOfSigs) {
+      FutureUtil
+        .batchAndParallelExecute(sigs, runVerify, 25)
+        .map(_.forall(res => res))
+    } else Future.successful(false)
   }
 
   def verifyCETSigs(accept: DLCAccept): Future[Boolean] = {
     verifierFromAccept(accept)
-      .map { verifier =>
+      .flatMap { verifier =>
         verifyCETSigs(verifier, accept.cetSigs.outcomeSigs)
       }
   }
 
   def verifyCETSigs(sign: DLCSign): Future[Boolean] = {
     verifierFromDb(sign.contractId)
-      .map { verifier =>
+      .flatMap { verifier =>
         verifyCETSigs(verifier, sign.cetSigs.outcomeSigs)
       }
   }
