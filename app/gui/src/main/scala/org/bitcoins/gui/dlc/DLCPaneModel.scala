@@ -10,16 +10,12 @@ import org.bitcoins.gui.dlc.dialog._
 import org.bitcoins.gui.{GlobalData, TaskRunner}
 import scalafx.beans.property.ObjectProperty
 import scalafx.collections.ObservableBuffer
-import scalafx.scene.control.{ComboBox, TextArea, TextField}
+import scalafx.scene.control.TextArea
 import scalafx.stage.Window
 
 import scala.util.{Failure, Success}
 
-class DLCPaneModel(
-    resultArea: TextArea,
-    oracleInfoArea: TextArea,
-    numOutcomesTF: TextField,
-    eventTypeSelector: ComboBox[String]) {
+class DLCPaneModel(resultArea: TextArea, oracleInfoArea: TextArea) {
   var taskRunner: TaskRunner = _
 
   // Sadly, it is a Java "pattern" to pass null into
@@ -82,16 +78,11 @@ class DLCPaneModel(
     }
   }
 
-  def onInitOracle(): Unit = {
-    val numOutcomes = BigInt(numOutcomesTF.text()).toInt
-    require(numOutcomes > 0, "Outcomes/digits cannot be less than 0")
-    require(numOutcomes <= 10, "More than 10 outcomes/digits not supported.")
-
-    val result = eventTypeSelector.value.value match {
-      case "Enum" =>
-        InitSingleNonceOracleDialog.showAndWait(parentWindow.value, numOutcomes)
-      case "Numeric" =>
-        InitMultiNonceOracleDialog.showAndWait(parentWindow.value, numOutcomes)
+  def onInitOracle(isEnum: Boolean): Unit = {
+    val result = if (isEnum) {
+      InitSingleNonceOracleDialog.showAndWait(parentWindow.value)
+    } else {
+      InitMultiNonceOracleDialog.showAndWait(parentWindow.value)
     }
 
     result match {
@@ -127,7 +118,8 @@ class DLCPaneModel(
           case contractInfo: SingleNonceContractInfo =>
             builder.append("Outcomes and oracle sigs in order of entry:\n")
             contractInfo.keys.foreach { outcome =>
-              val hash = outcome.serialized.head
+              val bytes = outcome.serialized.head
+              val hash = CryptoUtil.sha256(bytes).bytes
               val sig = privKey.schnorrSignWithNonce(hash, kValues.head)
               builder.append(s"$outcome - ${sig.hex}\n")
             }

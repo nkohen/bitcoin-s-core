@@ -7,6 +7,7 @@ import org.bitcoins.commons.jsonmodels.dlc.{
 }
 import org.bitcoins.core.currency.Satoshis
 import org.bitcoins.gui.GlobalData
+import org.bitcoins.gui.util.GUIUtil.setNumericInput
 import scalafx.Includes._
 import scalafx.application.Platform
 import scalafx.geometry.{Insets, Pos}
@@ -17,21 +18,7 @@ import scalafx.stage.Window
 
 object InitMultiNonceOracleDialog {
 
-  private def setNumericInput(textField: TextField): Unit = {
-    textField.text.addListener {
-      (
-          _: javafx.beans.value.ObservableValue[_ <: String],
-          _: String,
-          newVal: String) =>
-        if (!newVal.matches("\\d*"))
-          textField.setText(newVal.replaceAll("[^\\d]", ""))
-    }
-
-  }
-
-  def showAndWait(
-      parentWindow: Window,
-      numDigits: Int): Option[MultiNonceContractInfo] = {
+  def showAndWait(parentWindow: Window): Option[MultiNonceContractInfo] = {
     val dialog =
       new Dialog[Option[MultiNonceContractInfo]]() {
         initOwner(parentWindow)
@@ -46,6 +33,8 @@ object InitMultiNonceOracleDialog {
     val baseTF = new TextField() {
       text = "2"
     }
+
+    val numDigitsTF = new TextField()
 
     val totalCollateralTF = new TextField() {
       promptText = "Satoshis"
@@ -73,10 +62,10 @@ object InitMultiNonceOracleDialog {
     def addPointRow(): Unit = {
 
       val xTF = new TextField() {
-        promptText = "X Point"
+        promptText = "Outcome (base 10)"
       }
       val yTF = new TextField() {
-        promptText = "Y Point"
+        promptText = "Satoshis"
       }
       val endPointBox = new CheckBox() {
         selected = true
@@ -115,8 +104,10 @@ object InitMultiNonceOracleDialog {
 
         add(new Label("Base"), 0, 0)
         add(baseTF, 1, 0)
-        add(new Label("Total Collateral"), 0, 1)
-        add(totalCollateralTF, 1, 1)
+        add(new Label("Num Digits"), 0, 1)
+        add(numDigitsTF, 1, 1)
+        add(new Label("Total Collateral"), 0, 2)
+        add(totalCollateralTF, 1, 2)
       }
 
       val outcomes: Node = new VBox {
@@ -137,12 +128,13 @@ object InitMultiNonceOracleDialog {
     // Simple validation that sufficient data was entered
     okButton.disable <== baseTF.text.isEmpty || totalCollateralTF.text.isEmpty
 
-    Platform.runLater(totalCollateralTF.requestFocus())
+    Platform.runLater(numDigitsTF.requestFocus())
 
     // When the OK button is clicked, convert the result to a CreateDLCOffer.
     dialog.resultConverter = dialogButton =>
       if (dialogButton == ButtonType.OK) {
         val base = baseTF.text.value.toInt
+        val numDigits = numDigitsTF.text.value.toInt
         val totalCollateral = Satoshis(totalCollateralTF.text.value.toLong)
 
         val points = pointMap.values.toVector

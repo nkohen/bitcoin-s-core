@@ -27,32 +27,28 @@ class DLCPane(glassPane: VBox) {
     wrapText = true
   }
 
-  private val numOutcomesTF = new TextField {
-    promptText = "Number of Outcomes/Digits"
-  }
-
-  private val eventTypeSelector: ComboBox[String] = new ComboBox(
-    Vector("Enum", "Numeric")) {
-    value = "Enum"
-  }
-
   private val model =
-    new DLCPaneModel(resultArea,
-                     demoOracleArea,
-                     numOutcomesTF,
-                     eventTypeSelector)
+    new DLCPaneModel(resultArea, demoOracleArea)
 
   model.setUp()
 
-  private val demoOracleButton = new Button {
-    text = "Init Demo Oracle"
+  private val enumOracleButton = new Button {
+    text = "Enum Oracle"
     onAction = new EventHandler[ActionEvent] {
-      override def handle(event: ActionEvent): Unit = model.onInitOracle()
+      override def handle(event: ActionEvent): Unit = model.onInitOracle(true)
+    }
+  }
+
+  private val numericOracleButton = new Button {
+    text = "Numeric Oracle"
+    onAction = new EventHandler[ActionEvent] {
+      override def handle(event: ActionEvent): Unit = model.onInitOracle(false)
     }
   }
 
   private val oracleButtonHBox = new HBox {
-    children = Seq(numOutcomesTF, demoOracleButton, eventTypeSelector)
+    alignment = Pos.Center
+    children = Seq(enumOracleButton, numericOracleButton)
     spacing = 15
   }
 
