@@ -709,54 +709,23 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
     }
   }
 
-  def verifyCETSigs(
-      verifier: DLCSignatureVerifier,
-      sigs: Vector[(DLCOutcomeType, ECAdaptorSignature)]): Future[Boolean] = {
-    val correctNumberOfSigs =
-      sigs.size == verifier.builder.oracleAndContractInfo.allOutcomes.length
-
-    def runVerify(
-        outcomeSigs: Vector[(DLCOutcomeType, ECAdaptorSignature)]): Future[
-      Boolean] = {
-      Future {
-        outcomeSigs.foldLeft(true) {
-          case (ret, (outcome, sig)) =>
-            ret && verifier.verifyCETSig(outcome, sig)
-        }
-      }
-    }
-
-    if (correctNumberOfSigs) {
-      FutureUtil
-        .batchAndParallelExecute(sigs, runVerify, 25)
-        .map(_.forall(res => res))
-    } else Future.successful(false)
-  }
-
   def verifyCETSigs(accept: DLCAccept): Future[Boolean] = {
-    verifierFromAccept(accept)
-      .flatMap { verifier =>
-        verifyCETSigs(verifier, accept.cetSigs.outcomeSigs)
-      }
+    verifierFromAccept(accept).flatMap(
+      _.verifyCETSigs(accept.cetSigs.outcomeSigs))
   }
 
   def verifyCETSigs(sign: DLCSign): Future[Boolean] = {
-    verifierFromDb(sign.contractId)
-      .flatMap { verifier =>
-        verifyCETSigs(verifier, sign.cetSigs.outcomeSigs)
-      }
+    verifierFromDb(sign.contractId).flatMap(
+      _.verifyCETSigs(sign.cetSigs.outcomeSigs))
   }
 
   def verifyRefundSig(accept: DLCAccept): Future[Boolean] = {
-    verifierFromAccept(accept).map { verifier =>
-      verifier.verifyRefundSig(accept.cetSigs.refundSig)
-    }
+    verifierFromAccept(accept).map(_.verifyRefundSig(accept.cetSigs.refundSig))
   }
 
   def verifyRefundSig(sign: DLCSign): Future[Boolean] = {
-    verifierFromDb(sign.contractId).map { verifier =>
-      verifier.verifyRefundSig(sign.cetSigs.refundSig)
-    }
+    verifierFromDb(sign.contractId).map(
+      _.verifyRefundSig(sign.cetSigs.refundSig))
   }
 
   def verifyFundingSigs(
