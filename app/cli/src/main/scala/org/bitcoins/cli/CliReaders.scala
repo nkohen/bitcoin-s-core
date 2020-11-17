@@ -10,23 +10,13 @@ import org.bitcoins.core.currency._
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BlockStamp.BlockTime
 import org.bitcoins.core.protocol._
-import org.bitcoins.core.protocol.tlv.{
-  ContractInfoTLV,
-  DLCAcceptTLV,
-  DLCOfferTLV,
-  DLCSignTLV
-}
+import org.bitcoins.core.protocol.tlv._
 import org.bitcoins.core.protocol.transaction.{Transaction, TransactionOutPoint}
 import org.bitcoins.core.psbt.InputPSBTRecord.PartialSignature
 import org.bitcoins.core.psbt.PSBT
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.AddressLabelTag
-import org.bitcoins.crypto.{
-  SchnorrDigitalSignature,
-  SchnorrNonce,
-  Sha256Digest,
-  Sha256DigestBE
-}
+import org.bitcoins.crypto._
 import scodec.bits.ByteVector
 import scopt._
 
@@ -224,15 +214,39 @@ object CliReaders {
     override def reads: String => DLCOfferTLV = DLCOfferTLV.fromHex
   }
 
+  implicit val lnMessageDLCOfferTLVReads: Read[LnMessage[DLCOfferTLV]] =
+    new Read[LnMessage[DLCOfferTLV]] {
+      override def arity: Int = 1
+
+      override def reads: String => LnMessage[DLCOfferTLV] =
+        LnMessageFactory(DLCOfferTLV).fromHex
+    }
+
   implicit val dlcAcceptTLVReads: Read[DLCAcceptTLV] = new Read[DLCAcceptTLV] {
     override def arity: Int = 1
 
     override def reads: String => DLCAcceptTLV = DLCAcceptTLV.fromHex
   }
 
+  implicit val lnMessageDLCAcceptTLVReads: Read[LnMessage[DLCAcceptTLV]] =
+    new Read[LnMessage[DLCAcceptTLV]] {
+      override def arity: Int = 1
+
+      override def reads: String => LnMessage[DLCAcceptTLV] =
+        LnMessageFactory(DLCAcceptTLV).fromHex
+    }
+
   implicit val dlcSignTLVReads: Read[DLCSignTLV] = new Read[DLCSignTLV] {
     override def arity: Int = 1
 
     override def reads: String => DLCSignTLV = DLCSignTLV.fromHex
   }
+
+  implicit val lnMessageSignTLVReads: Read[LnMessage[DLCSignTLV]] =
+    new Read[LnMessage[DLCSignTLV]] {
+      override def arity: Int = 1
+
+      override def reads: String => LnMessage[DLCSignTLV] =
+        LnMessageFactory(DLCSignTLV).fromHex
+    }
 }

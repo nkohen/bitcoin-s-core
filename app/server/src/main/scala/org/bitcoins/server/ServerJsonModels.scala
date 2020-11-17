@@ -456,7 +456,7 @@ object CreateDLCOffer extends ServerJsonModels {
   }
 }
 
-case class AcceptDLCOffer(offer: DLCOfferTLV)
+case class AcceptDLCOffer(offer: LnMessage[DLCOfferTLV])
 
 object AcceptDLCOffer extends ServerJsonModels {
 
@@ -464,7 +464,7 @@ object AcceptDLCOffer extends ServerJsonModels {
     jsArr.arr.toList match {
       case offerJs :: Nil =>
         Try {
-          val offer = DLCOfferTLV(offerJs.str)
+          val offer = LnMessageFactory(DLCOfferTLV).fromHex(offerJs.str)
           AcceptDLCOffer(offer)
         }
       case Nil =>
@@ -478,7 +478,7 @@ object AcceptDLCOffer extends ServerJsonModels {
   }
 }
 
-case class SignDLC(accept: DLCAcceptTLV)
+case class SignDLC(accept: LnMessage[DLCAcceptTLV])
 
 object SignDLC extends ServerJsonModels {
 
@@ -486,7 +486,7 @@ object SignDLC extends ServerJsonModels {
     jsArr.arr.toList match {
       case acceptJs :: Nil =>
         Try {
-          val accept = DLCAcceptTLV(acceptJs.str)
+          val accept = LnMessageFactory(DLCAcceptTLV).fromHex(acceptJs.str)
           SignDLC(accept)
         }
       case Nil =>
@@ -499,7 +499,7 @@ object SignDLC extends ServerJsonModels {
   }
 }
 
-case class AddDLCSigs(sigs: DLCSignTLV)
+case class AddDLCSigs(sigs: LnMessage[DLCSignTLV])
 
 object AddDLCSigs extends ServerJsonModels {
 
@@ -507,7 +507,7 @@ object AddDLCSigs extends ServerJsonModels {
     jsArr.arr.toList match {
       case sigsJs :: Nil =>
         Try {
-          val sigs = DLCSignTLV(sigsJs.str)
+          val sigs = LnMessageFactory(DLCSignTLV).fromHex(sigsJs.str)
           AddDLCSigs(sigs)
         }
       case Nil =>

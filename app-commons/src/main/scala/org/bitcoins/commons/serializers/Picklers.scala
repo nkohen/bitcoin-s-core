@@ -76,11 +76,21 @@ object Picklers {
   implicit val dlcOfferTLVPickler: ReadWriter[DLCOfferTLV] =
     readwriter[String].bimap(_.hex, DLCOfferTLV.fromHex)
 
+  implicit val lnMessageDLCOfferTLVPickler: ReadWriter[LnMessage[DLCOfferTLV]] =
+    readwriter[String].bimap(_.hex, LnMessageFactory(DLCOfferTLV).fromHex)
+
   implicit val dlcAcceptTLVPickler: ReadWriter[DLCAcceptTLV] =
     readwriter[String].bimap(_.hex, DLCAcceptTLV.fromHex)
 
+  implicit val lnMessageDLCAcceptTLVPickler: ReadWriter[
+    LnMessage[DLCAcceptTLV]] =
+    readwriter[String].bimap(_.hex, LnMessageFactory(DLCAcceptTLV).fromHex)
+
   implicit val dlcSignTLVPickler: ReadWriter[DLCSignTLV] =
     readwriter[String].bimap(_.hex, DLCSignTLV.fromHex)
+
+  implicit val lnMessageDLCSignTLVPickler: ReadWriter[LnMessage[DLCSignTLV]] =
+    readwriter[String].bimap(_.hex, LnMessageFactory(DLCSignTLV).fromHex)
 
   implicit val blockStampPickler: ReadWriter[BlockStamp] =
     readwriter[String].bimap(_.mkString, BlockStamp.fromString)

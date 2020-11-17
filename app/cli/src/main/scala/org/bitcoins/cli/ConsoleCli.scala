@@ -11,12 +11,7 @@ import org.bitcoins.core.api.wallet.CoinSelectionAlgo
 import org.bitcoins.core.config.NetworkParameters
 import org.bitcoins.core.currency._
 import org.bitcoins.core.number.UInt32
-import org.bitcoins.core.protocol.tlv.{
-  ContractInfoTLV,
-  DLCAcceptTLV,
-  DLCOfferTLV,
-  DLCSignTLV
-}
+import org.bitcoins.core.protocol.tlv._
 import org.bitcoins.core.protocol.transaction.{
   EmptyTransaction,
   Transaction,
@@ -213,7 +208,7 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(command = AcceptDLCOffer(null)))
         .text("Accepts a DLC offer given from another party")
         .children(
-          opt[DLCOfferTLV]("offer")
+          opt[LnMessage[DLCOfferTLV]]("offer")
             .required()
             .action((offer, conf) =>
               conf.copy(command = conf.command match {
@@ -227,7 +222,7 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(command = SignDLC(null)))
         .text("Signs a DLC")
         .children(
-          opt[DLCAcceptTLV]("accept")
+          opt[LnMessage[DLCAcceptTLV]]("accept")
             .required()
             .action((accept, conf) =>
               conf.copy(command = conf.command match {
@@ -241,7 +236,7 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(command = AddDLCSigs(null)))
         .text("Adds DLC Signatures into the database")
         .children(
-          opt[DLCSignTLV]("sigs")
+          opt[LnMessage[DLCSignTLV]]("sigs")
             .required()
             .action((sigs, conf) =>
               conf.copy(command = conf.command match {
@@ -1184,11 +1179,11 @@ object CliCommand {
       refundLT: UInt32)
       extends CliCommand
 
-  case class AcceptDLCOffer(offer: DLCOfferTLV) extends CliCommand
+  case class AcceptDLCOffer(offer: LnMessage[DLCOfferTLV]) extends CliCommand
 
-  case class SignDLC(accept: DLCAcceptTLV) extends CliCommand
+  case class SignDLC(accept: LnMessage[DLCAcceptTLV]) extends CliCommand
 
-  case class AddDLCSigs(sigs: DLCSignTLV) extends CliCommand
+  case class AddDLCSigs(sigs: LnMessage[DLCSignTLV]) extends CliCommand
 
   case class GetDLCFundingTx(contractId: ByteVector) extends CliCommand
 

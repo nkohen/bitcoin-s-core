@@ -819,9 +819,8 @@ class RoutesSpec extends AnyWordSpec with ScalatestRouteTest with MockFactory {
 
       Post() ~> route ~> check {
         assert(contentType == `application/json`)
-        assert(
-          responseAs[
-            String] == s"""{"result":"${offer.toTLV.hex}","error":null}""")
+        assert(responseAs[String] == s"""{"result":"${LnMessage(
+          offer.toTLV).hex}","error":null}""")
       }
     }
 
@@ -842,13 +841,12 @@ class RoutesSpec extends AnyWordSpec with ScalatestRouteTest with MockFactory {
         .returning(Future.successful(accept))
 
       val route = walletRoutes.handleCommand(
-        ServerCommand("acceptdlcoffer", Arr(Str(offer.toTLV.hex))))
+        ServerCommand("acceptdlcoffer", Arr(Str(LnMessage(offer.toTLV).hex))))
 
       Post() ~> route ~> check {
         assert(contentType == `application/json`)
-        assert(
-          responseAs[
-            String] == s"""{"result":"${accept.toTLV.hex}","error":null}""")
+        assert(responseAs[String] == s"""{"result":"${LnMessage(
+          accept.toTLV).hex}","error":null}""")
       }
     }
 
@@ -866,13 +864,12 @@ class RoutesSpec extends AnyWordSpec with ScalatestRouteTest with MockFactory {
         .returning(Future.successful(sign))
 
       val route = walletRoutes.handleCommand(
-        ServerCommand("signdlc", Arr(Str(accept.toTLV.hex))))
+        ServerCommand("signdlc", Arr(Str(LnMessage(accept.toTLV).hex))))
 
       Post() ~> route ~> check {
         assert(contentType == `application/json`)
-        assert(
-          responseAs[
-            String] == s"""{"result":"${sign.toTLV.hex}","error":null}""")
+        assert(responseAs[String] == s"""{"result":"${LnMessage(
+          sign.toTLV).hex}","error":null}""")
       }
     }
 
@@ -896,7 +893,7 @@ class RoutesSpec extends AnyWordSpec with ScalatestRouteTest with MockFactory {
         )))
 
       val route = walletRoutes.handleCommand(
-        ServerCommand("adddlcsigs", Arr(Str(sign.toTLV.hex))))
+        ServerCommand("adddlcsigs", Arr(Str(LnMessage(sign.toTLV).hex))))
 
       Post() ~> route ~> check {
         assert(contentType == `application/json`)

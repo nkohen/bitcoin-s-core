@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import org.bitcoins.commons.serializers.Picklers._
 import org.bitcoins.core.api.wallet.db.SpendingInfoDb
 import org.bitcoins.core.currency._
+import org.bitcoins.core.protocol.tlv.LnMessage
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.core.wallet.utxo.AddressLabelTagType
 import org.bitcoins.crypto.NetworkElement
@@ -249,7 +250,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
                               locktime,
                               refundLT)
               .map { offer =>
-                Server.httpSuccess(offer.toTLV.hex)
+                Server.httpSuccess(LnMessage(offer.toTLV).hex)
               }
           }
       }
@@ -261,9 +262,9 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
         case Success(AcceptDLCOffer(offer)) =>
           complete {
             wallet
-              .acceptDLCOffer(offer)
+              .acceptDLCOffer(offer.tlv)
               .map { accept =>
-                Server.httpSuccess(accept.toTLV.hex)
+                Server.httpSuccess(LnMessage(accept.toTLV).hex)
               }
           }
       }
@@ -275,9 +276,9 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
         case Success(SignDLC(accept)) =>
           complete {
             wallet
-              .signDLC(accept)
+              .signDLC(accept.tlv)
               .map { sign =>
-                Server.httpSuccess(sign.toTLV.hex)
+                Server.httpSuccess(LnMessage(sign.toTLV).hex)
               }
           }
       }
@@ -288,7 +289,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
           reject(ValidationRejection("failure", Some(exception)))
         case Success(AddDLCSigs(sigs)) =>
           complete {
-            wallet.addDLCSigs(sigs).map { db =>
+            wallet.addDLCSigs(sigs.tlv).map { db =>
               Server.httpSuccess(
                 s"Successfully added sigs to DLC ${db.contractIdOpt.get.toHex}")
             }
