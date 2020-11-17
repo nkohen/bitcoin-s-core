@@ -186,7 +186,7 @@ object InitMultiNonceOracleDialog {
       }
     }
 
-    dialog.dialogPane().content = new VBox() {
+    val vBoxContent: VBox = new VBox() {
       padding = Insets(20, 10, 10, 10)
       spacing = 10
       alignment = Pos.Center
@@ -257,6 +257,10 @@ object InitMultiNonceOracleDialog {
                         outcomes,
                         roundingAccordion,
                         previewGraphButton)
+    }
+
+    dialog.dialogPane().content = new ScrollPane() {
+      content = vBoxContent
     }
     // Enable/Disable OK button depending on whether all data was entered.
     val okButton = dialog.dialogPane().lookupButton(ButtonType.OK)
