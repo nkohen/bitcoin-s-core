@@ -12,7 +12,7 @@ object AddSigsDLCDialog
   import DLCDialog._
 
   override def constructFromInput(inputs: Map[String, String]): AddDLCSigs = {
-    val sign = LnMessageFactory(DLCSignTLV).fromHex(dlcSigStr)
+    val sign = LnMessageFactory(DLCSignTLV).fromHex(inputs(dlcSigStr))
 
     AddDLCSigs(sign)
   }

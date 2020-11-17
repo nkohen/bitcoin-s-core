@@ -11,7 +11,7 @@ object SignDLCDialog
   import DLCDialog._
 
   override def constructFromInput(inputs: Map[String, String]): SignDLC = {
-    val accept = LnMessageFactory(DLCAcceptTLV).fromHex(dlcAcceptStr)
+    val accept = LnMessageFactory(DLCAcceptTLV).fromHex(inputs(dlcAcceptStr))
     SignDLC(accept)
   }
 }

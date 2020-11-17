@@ -12,7 +12,7 @@ object AcceptDLCDialog
 
   override def constructFromInput(
       inputs: Map[String, String]): AcceptDLCOffer = {
-    val offer = LnMessageFactory(DLCOfferTLV).fromHex(dlcOfferStr)
+    val offer = LnMessageFactory(DLCOfferTLV).fromHex(inputs(dlcOfferStr))
 
     AcceptDLCOffer(offer)
   }
