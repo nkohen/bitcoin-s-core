@@ -154,7 +154,11 @@ object DLCPlotUtil {
       else ""
     }
 
-    cetPlot += plot(xs, ys, '+', name = "CETs", labels = labels)
+    cetPlot += plot(xs,
+                    ys,
+                    '+',
+                    name = s"CETs (${cets.length})",
+                    labels = labels)
     cetPlot.xlabel = "Outcome"
     cetPlot.ylabel = "Payout (sats)"
     cetPlot.legend = true
