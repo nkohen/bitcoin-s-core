@@ -373,7 +373,15 @@ object DLCStatus {
       }
     }
 
-    override lazy val toJson: Value =
+    override lazy val toJson: Value = {
+
+      val outcomeJs = outcome match {
+        case EnumOutcome(outcome) =>
+          Str(outcome)
+        case UnsignedNumericOutcome(digits) =>
+          Arr.from(digits.map(num => Num(num)))
+      }
+
       Obj(
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
@@ -384,9 +392,11 @@ object DLCStatus {
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex),
         "oracleSig" -> Str(oracleSig.hex),
+        "outcome" -> outcomeJs,
         "cetTxId" -> Str(cet.txIdBE.hex),
         "cet" -> Str(cet.hex)
       )
+    }
 
     override def closingTx: Transaction = cet
   }

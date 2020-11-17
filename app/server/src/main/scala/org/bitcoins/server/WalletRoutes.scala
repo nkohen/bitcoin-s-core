@@ -320,14 +320,13 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
       }
 
     case ServerCommand("executedlc", arr) =>
-      ExecuteDLCUnilateralClose.fromJsArr(arr) match {
+      ExecuteDLC.fromJsArr(arr) match {
         case Failure(exception) =>
           reject(ValidationRejection("failure", Some(exception)))
-        case Success(
-              ExecuteDLCUnilateralClose(contractId, oracleSig, noBroadcast)) =>
+        case Success(ExecuteDLC(contractId, oracleSigs, noBroadcast)) =>
           complete {
             for {
-              tx <- wallet.executeDLC(contractId, oracleSig)
+              tx <- wallet.executeDLC(contractId, oracleSigs)
               retStr <- handleBroadcastable(tx, noBroadcast)
             } yield {
               Server.httpSuccess(retStr.hex)

@@ -562,28 +562,28 @@ object BroadcastDLCFundingTx extends ServerJsonModels {
   }
 }
 
-case class ExecuteDLCUnilateralClose(
+case class ExecuteDLC(
     contractId: ByteVector,
-    oracleSig: SchnorrDigitalSignature,
+    oracleSigs: Vector[SchnorrDigitalSignature],
     noBroadcast: Boolean)
     extends Broadcastable
 
-object ExecuteDLCUnilateralClose extends ServerJsonModels {
+object ExecuteDLC extends ServerJsonModels {
 
-  def fromJsArr(jsArr: ujson.Arr): Try[ExecuteDLCUnilateralClose] = {
+  def fromJsArr(jsArr: ujson.Arr): Try[ExecuteDLC] = {
     jsArr.arr.toList match {
-      case contractIdJs :: oracleSigJs :: noBroadcastJs :: Nil =>
+      case contractIdJs :: oracleSigsJs :: noBroadcastJs :: Nil =>
         Try {
           val contractId = ByteVector.fromValidHex(contractIdJs.str)
-          val oracleSig = jsToSchnorrDigitalSignature(oracleSigJs)
+          val oracleSigs = jsToSchnorrDigitalSignatureVec(oracleSigsJs)
           val noBroadcast = noBroadcastJs.bool
 
-          ExecuteDLCUnilateralClose(contractId, oracleSig, noBroadcast)
+          ExecuteDLC(contractId, oracleSigs, noBroadcast)
         }
       case Nil =>
         Failure(
           new IllegalArgumentException(
-            "Missing contractId and oracleSig arguments"))
+            "Missing contractId, oracleSig, and noBroadcast arguments"))
       case other =>
         Failure(
           new IllegalArgumentException(
@@ -892,4 +892,10 @@ trait ServerJsonModels {
           js,
           "Expected a SchnorrDigitalSignature as a hex string")
     }
+
+  def jsToSchnorrDigitalSignatureVec(
+      js: Value): Vector[SchnorrDigitalSignature] = {
+    js.arr.foldLeft(Vector.empty[SchnorrDigitalSignature])((vec, sig) =>
+      vec :+ jsToSchnorrDigitalSignature(sig))
+  }
 }

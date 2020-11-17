@@ -177,7 +177,7 @@ object CliReaders {
       override def arity: Int = 1
 
       override def reads: String => SchnorrDigitalSignature =
-        SchnorrDigitalSignature.fromHex
+        str => SchnorrDigitalSignature.fromHex(str.trim)
     }
 
   implicit val partialSigReads: Read[PartialSignature] =

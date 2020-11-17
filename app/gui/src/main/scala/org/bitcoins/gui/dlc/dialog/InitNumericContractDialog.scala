@@ -20,7 +20,7 @@ import scalafx.stage.Window
 
 import scala.util.{Failure, Success, Try}
 
-object InitMultiNonceOracleDialog {
+object InitNumericContractDialog {
 
   def showAndWait(parentWindow: Window): Option[MultiNonceContractInfo] = {
     val dialog =
@@ -44,6 +44,7 @@ object InitMultiNonceOracleDialog {
       promptText = "Satoshis"
     }
     setNumericInput(baseTF)
+    setNumericInput(numDigitsTF)
     setNumericInput(totalCollateralTF)
 
     val pointMap: scala.collection.mutable.Map[

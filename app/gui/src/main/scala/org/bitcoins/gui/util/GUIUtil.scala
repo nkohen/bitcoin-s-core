@@ -11,8 +11,8 @@ object GUIUtil {
           _: javafx.beans.value.ObservableValue[_ <: String],
           _: String,
           newVal: String) =>
-        if (!newVal.matches("\\d*"))
-          textField.setText(newVal.replaceAll("[^\\d]", ""))
+        if (!newVal.matches("-?\\d*"))
+          textField.setText(newVal.replaceAll("[^-?\\d]", ""))
     }
   }
 }

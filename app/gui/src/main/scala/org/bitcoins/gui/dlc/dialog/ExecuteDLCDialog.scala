@@ -8,16 +8,21 @@ import scodec.bits.ByteVector
 object ExecuteDLCDialog
     extends DLCDialog[ExecuteDLC](
       "DLC Close",
-      "Enter DLC closing info",
+      "Enter DLC execution info",
       Vector(DLCDialog.dlcContractIdStr -> new TextField(),
              DLCDialog.dlcOracleSigStr -> new TextField())) {
   import DLCDialog._
 
   override def constructFromInput(inputs: Map[String, String]): ExecuteDLC = {
     val contractId = inputs(dlcContractIdStr)
-    val oracleSig = SchnorrDigitalSignature(inputs(dlcOracleSigStr))
+    val oracleSigsStr = inputs(dlcOracleSigStr)
+
+    val oracleSigs = oracleSigsStr.split(",").map { str =>
+      SchnorrDigitalSignature.fromHex(str.trim)
+    }
+
     ExecuteDLC(ByteVector.fromValidHex(contractId),
-               Vector(oracleSig),
+               oracleSigs.toVector,
                noBroadcast = false)
   }
 }

@@ -80,9 +80,9 @@ class DLCPaneModel(resultArea: TextArea, oracleInfoArea: TextArea) {
 
   def onInitContract(isEnum: Boolean): Unit = {
     val result = if (isEnum) {
-      InitSingleNonceOracleDialog.showAndWait(parentWindow.value)
+      InitEnumContractDialog.showAndWait(parentWindow.value)
     } else {
-      InitMultiNonceOracleDialog.showAndWait(parentWindow.value)
+      InitNumericContractDialog.showAndWait(parentWindow.value)
     }
 
     result match {
@@ -125,10 +125,13 @@ class DLCPaneModel(resultArea: TextArea, oracleInfoArea: TextArea) {
             }
           case contractInfo: MultiNonceContractInfo =>
             builder.append("Oracle sigs:\n")
-            val max = UnsignedNumericOutcome(
-              contractInfo.outcomeVec.maxBy(_._2)._1)
-            val min = UnsignedNumericOutcome(
-              contractInfo.outcomeVec.minBy(_._2)._1)
+
+            val sortedOutcomes = contractInfo.outcomeVec.sortBy(_._2)
+
+            val max = UnsignedNumericOutcome(sortedOutcomes.last._1)
+            val middle = UnsignedNumericOutcome(
+              sortedOutcomes(sortedOutcomes.size / 2)._1)
+            val min = UnsignedNumericOutcome(sortedOutcomes.head._1)
 
             val sigsMax =
               max.serialized.zip(kValues.take(max.digits.size)).map {
@@ -136,6 +139,14 @@ class DLCPaneModel(resultArea: TextArea, oracleInfoArea: TextArea) {
                   val hash = CryptoUtil.sha256(bytes).bytes
                   privKey.schnorrSignWithNonce(hash, kValue)
               }
+
+            val sigsMiddle =
+              middle.serialized.zip(kValues.take(middle.digits.size)).map {
+                case (bytes, kValue) =>
+                  val hash = CryptoUtil.sha256(bytes).bytes
+                  privKey.schnorrSignWithNonce(hash, kValue)
+              }
+
             val sigsMin =
               min.serialized.zip(kValues.take(min.digits.size)).map {
                 case (bytes, kValue) =>
@@ -145,6 +156,9 @@ class DLCPaneModel(resultArea: TextArea, oracleInfoArea: TextArea) {
 
             val maxSigsStr = sigsMax.map(_.hex).mkString("\n")
             builder.append(s"local win sigs - $maxSigsStr\n\n\n")
+
+            val middleSigsStr = sigsMiddle.map(_.hex).mkString("\n")
+            builder.append(s"tie sigs - $middleSigsStr\n\n\n")
 
             val minSigsStr = sigsMin.map(_.hex).mkString("\n")
             builder.append(s"remote win sigs - $minSigsStr")

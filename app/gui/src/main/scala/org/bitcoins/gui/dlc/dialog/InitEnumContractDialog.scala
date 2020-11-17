@@ -13,7 +13,7 @@ import scalafx.stage.Window
 
 import scala.collection._
 
-object InitSingleNonceOracleDialog {
+object InitEnumContractDialog {
 
   def showAndWait(parentWindow: Window): Option[SingleNonceContractInfo] = {
     val dialog =

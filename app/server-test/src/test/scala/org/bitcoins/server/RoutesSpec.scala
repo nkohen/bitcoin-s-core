@@ -940,14 +940,34 @@ class RoutesSpec extends AnyWordSpec with ScalatestRouteTest with MockFactory {
 
     "execute a dlc" in {
       (mockWalletApi
-        .executeDLC(_: ByteVector, _: SchnorrDigitalSignature))
-        .expects(contractId, dummyOracleSig)
+        .executeDLC(_: ByteVector, _: Vector[SchnorrDigitalSignature]))
+        .expects(contractId, Vector(dummyOracleSig))
         .returning(Future.successful(EmptyTransaction))
 
       val route = walletRoutes.handleCommand(
         ServerCommand(
           "executedlc",
-          Arr(Str(contractId.toHex), Str(dummyOracleSig.hex), Bool(true))))
+          Arr(Str(contractId.toHex), Arr(Str(dummyOracleSig.hex)), Bool(true))))
+
+      Post() ~> route ~> check {
+        assert(contentType == `application/json`)
+        assert(
+          responseAs[
+            String] == s"""{"result":"${EmptyTransaction.hex}","error":null}""")
+      }
+    }
+
+    "execute a dlc with multiple sigs" in {
+      (mockWalletApi
+        .executeDLC(_: ByteVector, _: Vector[SchnorrDigitalSignature]))
+        .expects(contractId, Vector(dummyOracleSig, dummyOracleSig))
+        .returning(Future.successful(EmptyTransaction))
+
+      val route = walletRoutes.handleCommand(
+        ServerCommand("executedlc",
+                      Arr(Str(contractId.toHex),
+                          Arr(Str(dummyOracleSig.hex), Str(dummyOracleSig.hex)),
+                          Bool(true))))
 
       Post() ~> route ~> check {
         assert(contentType == `application/json`)
@@ -959,8 +979,8 @@ class RoutesSpec extends AnyWordSpec with ScalatestRouteTest with MockFactory {
 
     "execute a dlc with broadcast" in {
       (mockWalletApi
-        .executeDLC(_: ByteVector, _: SchnorrDigitalSignature))
-        .expects(contractId, dummyOracleSig)
+        .executeDLC(_: ByteVector, _: Vector[SchnorrDigitalSignature]))
+        .expects(contractId, Vector(dummyOracleSig))
         .returning(Future.successful(EmptyTransaction))
 
       (mockWalletApi.broadcastTransaction _)
@@ -969,9 +989,10 @@ class RoutesSpec extends AnyWordSpec with ScalatestRouteTest with MockFactory {
         .anyNumberOfTimes()
 
       val route = walletRoutes.handleCommand(
-        ServerCommand(
-          "executedlc",
-          Arr(Str(contractId.toHex), Str(dummyOracleSig.hex), Bool(false))))
+        ServerCommand("executedlc",
+                      Arr(Str(contractId.toHex),
+                          Arr(Str(dummyOracleSig.hex)),
+                          Bool(false))))
 
       Post() ~> route ~> check {
         assert(contentType == `application/json`)
