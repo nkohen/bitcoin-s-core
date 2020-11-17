@@ -57,6 +57,15 @@ case class DLCCETSignatureDAO()(implicit
   }
 
   def findByParamHash(
+      paramHash: Sha256DigestBE,
+      isInit: Boolean): Future[Vector[DLCCETSignatureDb]] = {
+    val q = table
+      .filter(_.paramHash === paramHash)
+      .filter(_.isInitiator === isInit)
+    safeDatabase.run(q.result).map(_.toVector)
+  }
+
+  def findByParamHash(
       paramHash: Sha256Digest): Future[Vector[DLCCETSignatureDb]] =
     findByParamHash(paramHash.flip)
 

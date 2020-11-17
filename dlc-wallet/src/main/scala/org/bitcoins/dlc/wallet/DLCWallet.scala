@@ -688,19 +688,37 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
     */
   override def signDLC(accept: DLCAccept): Future[DLCSign] = {
     for {
-      dlc <- registerDLCAccept(accept)
+      dlc <- dlcDAO.findByTempContractId(accept.tempContractId).map(_.get)
       signer <- signerFromDb(dlc.paramHash)
 
-      cetSigs <- signer.createCETSigs()
+      mySigs <- dlcSigsDAO.findByParamHash(dlc.paramHash, isInit = true)
+
+      cetSigs <-
+        if (mySigs.isEmpty) {
+          for {
+            sigs <- signer.createCETSigs()
+            sigDbs = sigs.outcomeSigs.map(sig =>
+              DLCCETSignatureDb(dlc.paramHash,
+                                isInitiator = true,
+                                sig._1,
+                                sig._2))
+            _ <- dlcSigsDAO.createAll(sigDbs)
+          } yield sigs
+        } else {
+          dlcRefundSigDAO.findByParamHash(dlc.paramHash, isInit = true).map {
+            case Some(refundDb) =>
+              val outcomeSigs = mySigs.map(_.toTuple)
+              CETSignatures(outcomeSigs, refundDb.refundSig)
+            case None =>
+              throw new RuntimeException("Missing refund sig")
+          }
+        }
+
       fundingSigs <- signer.createFundingTxSigs()
 
       refundSigDb =
         DLCRefundSigDb(dlc.paramHash, isInitiator = true, cetSigs.refundSig)
       _ <- dlcRefundSigDAO.upsert(refundSigDb)
-
-      sigDbs = cetSigs.outcomeSigs.map(sig =>
-        DLCCETSignatureDb(dlc.paramHash, isInitiator = true, sig._1, sig._2))
-      _ <- dlcSigsDAO.createAll(sigDbs)
 
       _ <- updateDLCState(dlc.paramHash, DLCState.Signed)
     } yield {

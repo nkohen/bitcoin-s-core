@@ -154,7 +154,7 @@ object ConsoleCli {
                                      UInt32.zero)))
         .text("Creates a DLC offer that another party can accept")
         .children(
-          opt[OracleInfo]("oracleInfo")
+          arg[OracleInfo]("oracleInfo")
             .required()
             .action((info, conf) =>
               conf.copy(command = conf.command match {
@@ -162,7 +162,7 @@ object ConsoleCli {
                   offer.copy(oracleInfo = info)
                 case other => other
               })),
-          opt[ContractInfoTLV]("contractInfo")
+          arg[ContractInfoTLV]("contractInfo")
             .required()
             .action((info, conf) =>
               conf.copy(command = conf.command match {
@@ -170,7 +170,7 @@ object ConsoleCli {
                   offer.copy(contractInfo = info)
                 case other => other
               })),
-          opt[Satoshis]("collateral")
+          arg[Satoshis]("collateral")
             .required()
             .action((collateral, conf) =>
               conf.copy(command = conf.command match {
@@ -178,7 +178,7 @@ object ConsoleCli {
                   offer.copy(collateral = collateral)
                 case other => other
               })),
-          opt[SatoshisPerVirtualByte]("feerate")
+          arg[SatoshisPerVirtualByte]("feerate")
             .optional()
             .action((feeRate, conf) =>
               conf.copy(command = conf.command match {
@@ -186,7 +186,7 @@ object ConsoleCli {
                   offer.copy(feeRateOpt = Some(feeRate))
                 case other => other
               })),
-          opt[UInt32]("locktime")
+          arg[UInt32]("locktime")
             .required()
             .action((locktime, conf) =>
               conf.copy(command = conf.command match {
@@ -194,7 +194,7 @@ object ConsoleCli {
                   offer.copy(locktime = locktime)
                 case other => other
               })),
-          opt[UInt32]("refundlocktime")
+          arg[UInt32]("refundlocktime")
             .required()
             .action((refundLT, conf) =>
               conf.copy(command = conf.command match {
@@ -208,7 +208,7 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(command = AcceptDLCOffer(null)))
         .text("Accepts a DLC offer given from another party")
         .children(
-          opt[LnMessage[DLCOfferTLV]]("offer")
+          arg[LnMessage[DLCOfferTLV]]("offer")
             .required()
             .action((offer, conf) =>
               conf.copy(command = conf.command match {
@@ -222,7 +222,7 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(command = SignDLC(null)))
         .text("Signs a DLC")
         .children(
-          opt[LnMessage[DLCAcceptTLV]]("accept")
+          arg[LnMessage[DLCAcceptTLV]]("accept")
             .required()
             .action((accept, conf) =>
               conf.copy(command = conf.command match {
@@ -236,7 +236,7 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(command = AddDLCSigs(null)))
         .text("Adds DLC Signatures into the database")
         .children(
-          opt[LnMessage[DLCSignTLV]]("sigs")
+          arg[LnMessage[DLCSignTLV]]("sigs")
             .required()
             .action((sigs, conf) =>
               conf.copy(command = conf.command match {
@@ -264,7 +264,7 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(command = BroadcastDLCFundingTx(null)))
         .text("Broadcasts the funding Tx corresponding to the DLC with the given contractId")
         .children(
-          opt[ByteVector]("contractId")
+          arg[ByteVector]("contractId")
             .required()
             .action((contractId, conf) =>
               conf.copy(command = conf.command match {
@@ -311,7 +311,7 @@ object ConsoleCli {
           conf.copy(command = ExecuteDLCRefund(null, noBroadcast = false)))
         .text("Executes the Refund transaction for the given DLC")
         .children(
-          opt[ByteVector]("contractId")
+          arg[ByteVector]("contractId")
             .required()
             .action((contractId, conf) =>
               conf.copy(command = conf.command match {
