@@ -32,23 +32,25 @@ class DLCPane(glassPane: VBox) {
 
   model.setUp()
 
-  private val enumOracleButton = new Button {
-    text = "Enum Oracle"
+  private val enumContractButton = new Button {
+    text = "Enum Contract"
     onAction = new EventHandler[ActionEvent] {
-      override def handle(event: ActionEvent): Unit = model.onInitOracle(true)
+      override def handle(event: ActionEvent): Unit = model.onInitContract(true)
     }
   }
 
-  private val numericOracleButton = new Button {
-    text = "Numeric Oracle"
+  private val numericContractButton = new Button {
+    text = "Numeric Contract"
     onAction = new EventHandler[ActionEvent] {
-      override def handle(event: ActionEvent): Unit = model.onInitOracle(false)
+
+      override def handle(event: ActionEvent): Unit =
+        model.onInitContract(false)
     }
   }
 
   private val oracleButtonHBox = new HBox {
     alignment = Pos.Center
-    children = Seq(enumOracleButton, numericOracleButton)
+    children = Seq(enumContractButton, numericContractButton)
     spacing = 15
   }
 

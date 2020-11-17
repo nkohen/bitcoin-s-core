@@ -78,7 +78,7 @@ class DLCPaneModel(resultArea: TextArea, oracleInfoArea: TextArea) {
     }
   }
 
-  def onInitOracle(isEnum: Boolean): Unit = {
+  def onInitContract(isEnum: Boolean): Unit = {
     val result = if (isEnum) {
       InitSingleNonceOracleDialog.showAndWait(parentWindow.value)
     } else {

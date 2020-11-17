@@ -96,6 +96,48 @@ object InitMultiNonceOracleDialog {
       onAction = _ => addPointRow()
     }
 
+    val roundingMap: scala.collection.mutable.Map[Int, (TextField, TextField)] =
+      scala.collection.mutable.Map.empty
+
+    var nextRoundingRow: Int = 2
+    val roundingGrid: GridPane = new GridPane {
+      alignment = Pos.Center
+      padding = Insets(top = 10, right = 10, bottom = 10, left = 10)
+      hgap = 5
+      vgap = 5
+
+      add(new Label("Outcome"), 0, 0)
+      add(new Label("Rounding Level"), 1, 0)
+    }
+
+    def addRoundingRow(): Unit = {
+
+      val outcomeTF = new TextField() {
+        promptText = "Outcome (base 10)"
+      }
+      val roundingLevelTF = new TextField() {
+        promptText = "Satoshis"
+      }
+      setNumericInput(outcomeTF)
+      setNumericInput(roundingLevelTF)
+
+      val row = nextRoundingRow
+      roundingMap.addOne((row, (outcomeTF, roundingLevelTF)))
+
+      roundingGrid.add(outcomeTF, 0, row)
+      roundingGrid.add(roundingLevelTF, 1, row)
+
+      nextRoundingRow += 1
+      dialog.dialogPane().getScene.getWindow.sizeToScene()
+    }
+
+    addRoundingRow()
+    addRoundingRow()
+
+    val addRoundingRowButton: Button = new Button("+") {
+      onAction = _ => addRoundingRow()
+    }
+
     def getContractInfo: Try[MultiNonceContractInfo] = {
       Try {
         val base = baseTF.text.value.toInt
@@ -119,6 +161,28 @@ object InitMultiNonceOracleDialog {
 
         val func = OutcomeValueFunction(outcomesValuePoints)
         MultiNonceContractInfo(func, base, numDigits, totalCollateral)
+      }
+    }
+
+    def getRoundingIntervals: RoundingIntervals = {
+      val roundingIntervalsT = Try {
+        roundingMap.values.toVector.flatMap {
+          case (outcomeTF, roundingLevelTF) =>
+            if (
+              outcomeTF.text.value.nonEmpty && roundingLevelTF.text.value.nonEmpty
+            ) {
+              val outcome = BigDecimal(outcomeTF.text.value.toDouble)
+              val level = roundingLevelTF.text.value.toLong
+              Some(outcome, level)
+            } else {
+              None
+            }
+        }
+      }
+
+      roundingIntervalsT match {
+        case Failure(_)         => RoundingIntervals.noRounding
+        case Success(intervals) => RoundingIntervals(intervals)
       }
     }
 
@@ -151,6 +215,27 @@ object InitMultiNonceOracleDialog {
         children = Vector(label, pointGrid)
       }
 
+      val roundingIntervals: VBox = new VBox {
+        alignment = Pos.Center
+
+        val label: HBox = new HBox {
+          alignment = Pos.Center
+          spacing = 10
+          children =
+            Vector(new Label("Rounding Intervals"), addRoundingRowButton)
+        }
+        children = Vector(label, roundingGrid)
+      }
+
+      val roundingPane: TitledPane = new TitledPane() {
+        text = "Rounding Info"
+        content = roundingIntervals
+      }
+
+      val roundingAccordion: Accordion = new Accordion() {
+        panes = Vector(roundingPane)
+      }
+
       val previewGraphButton: Button = new Button("Preview Graph") {
         onAction = _ => {
           getContractInfo match {
@@ -161,14 +246,17 @@ object InitMultiNonceOracleDialog {
                 contractInfo.numDigits,
                 contractInfo.outcomeValueFunc,
                 contractInfo.totalCollateral,
-                RoundingIntervals.noRounding)
+                getRoundingIntervals)
               ()
           }
         }
       }
 
-      children =
-        Vector(eventDataGrid, new Separator(), outcomes, previewGraphButton)
+      children = Vector(eventDataGrid,
+                        new Separator(),
+                        outcomes,
+                        roundingAccordion,
+                        previewGraphButton)
     }
     // Enable/Disable OK button depending on whether all data was entered.
     val okButton = dialog.dialogPane().lookupButton(ButtonType.OK)
