@@ -3,14 +3,7 @@ package org.bitcoins.commons.jsonmodels.dlc
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage._
 import org.bitcoins.core.policy.Policy
 import org.bitcoins.core.protocol.script.P2WSHWitnessV0
-import org.bitcoins.core.protocol.tlv.{
-  DLCAcceptTLV,
-  DLCOfferTLV,
-  DLCOutcomeType,
-  DLCSignTLV,
-  EnumOutcome,
-  UnsignedNumericOutcome
-}
+import org.bitcoins.core.protocol.tlv._
 import org.bitcoins.core.protocol.transaction.{Transaction, WitnessTransaction}
 import org.bitcoins.crypto._
 import scodec.bits.ByteVector
@@ -72,7 +65,7 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(offer.toTLV.hex)
+        "offer" -> Str(LnMessage(offer.toTLV).hex)
       )
   }
 
@@ -96,8 +89,8 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(offer.toTLV.hex),
-        "accept" -> Str(accept.toTLV.hex)
+        "offer" -> Str(LnMessage(offer.toTLV).hex),
+        "accept" -> Str(LnMessage(accept.toTLV).hex)
       )
   }
 
@@ -128,9 +121,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(offer.toTLV.hex),
-        "accept" -> Str(accept.toTLV.hex),
-        "sign" -> Str(sign.toTLV.hex)
+        "offer" -> Str(LnMessage(offer.toTLV).hex),
+        "accept" -> Str(LnMessage(accept.toTLV).hex),
+        "sign" -> Str(LnMessage(sign.toTLV).hex)
       )
   }
 
@@ -157,9 +150,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(offer.toTLV.hex),
-        "accept" -> Str(accept.toTLV.hex),
-        "sign" -> Str(sign.toTLV.hex),
+        "offer" -> Str(LnMessage(offer.toTLV).hex),
+        "accept" -> Str(LnMessage(accept.toTLV).hex),
+        "sign" -> Str(LnMessage(sign.toTLV).hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex)
       )
@@ -201,9 +194,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(offer.toTLV.hex),
-        "accept" -> Str(accept.toTLV.hex),
-        "sign" -> Str(sign.toTLV.hex),
+        "offer" -> Str(LnMessage(offer.toTLV).hex),
+        "accept" -> Str(LnMessage(accept.toTLV).hex),
+        "sign" -> Str(LnMessage(sign.toTLV).hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex)
       )
@@ -229,9 +222,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(offer.toTLV.hex),
-        "accept" -> Str(accept.toTLV.hex),
-        "sign" -> Str(sign.toTLV.hex),
+        "offer" -> Str(LnMessage(offer.toTLV).hex),
+        "accept" -> Str(LnMessage(accept.toTLV).hex),
+        "sign" -> Str(LnMessage(sign.toTLV).hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex),
         "oracleSigs" -> oracleSigs.map(sig => Str(sig.hex)),
@@ -239,7 +232,7 @@ object DLCStatus {
         "cet" -> Str(cet.hex)
       )
 
-    override def closingTx: Transaction = cet
+    override lazy val closingTx: Transaction = cet
   }
 
   /** The state where one of the CETs has been accepted by the network
@@ -386,9 +379,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(offer.toTLV.hex),
-        "accept" -> Str(accept.toTLV.hex),
-        "sign" -> Str(sign.toTLV.hex),
+        "offer" -> Str(LnMessage(offer.toTLV).hex),
+        "accept" -> Str(LnMessage(accept.toTLV).hex),
+        "sign" -> Str(LnMessage(sign.toTLV).hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex),
         "oracleSig" -> Str(oracleSig.hex),
@@ -398,7 +391,7 @@ object DLCStatus {
       )
     }
 
-    override def closingTx: Transaction = cet
+    override lazy val closingTx: Transaction = cet
   }
 
   /** The state where the DLC refund transaction has been
@@ -420,16 +413,16 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(offer.toTLV.hex),
-        "accept" -> Str(accept.toTLV.hex),
-        "sign" -> Str(sign.toTLV.hex),
+        "offer" -> Str(LnMessage(offer.toTLV).hex),
+        "accept" -> Str(LnMessage(accept.toTLV).hex),
+        "sign" -> Str(LnMessage(sign.toTLV).hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex),
         "refundTxId" -> Str(refundTx.txIdBE.hex),
         "refundTx" -> Str(refundTx.hex)
       )
 
-    override def closingTx: Transaction = refundTx
+    override lazy val closingTx: Transaction = refundTx
   }
 
   def fromJson(json: Value): DLCStatus = {
@@ -438,10 +431,15 @@ object DLCStatus {
     val state = DLCState.fromString(obj("state").str)
     val paramHash = Sha256DigestBE(obj("paramHash").str)
     val isInitiator = obj("isInitiator").bool
-    val offer = DLCOffer.fromTLV(DLCOfferTLV(obj("offer").str))
+    val offer = DLCOffer.fromTLV(
+      LnMessageFactory(DLCOfferTLV).fromHex(obj("offer").str).tlv)
 
-    lazy val accept = DLCAccept.fromTLV(DLCAcceptTLV(obj("accept").str), offer)
-    lazy val sign = DLCSign.fromTLV(DLCSignTLV(obj("sign").str), offer)
+    lazy val accept = DLCAccept.fromTLV(
+      LnMessageFactory(DLCAcceptTLV).fromHex(obj("accept").str).tlv,
+      offer)
+    lazy val sign = DLCSign.fromTLV(
+      LnMessageFactory(DLCSignTLV).fromHex(obj("sign").str).tlv,
+      offer)
     lazy val fundingTx = Transaction(obj("fundingTx").str)
     lazy val cet = Transaction(obj("cet").str)
     lazy val refundTx = Transaction(obj("refundTx").str)

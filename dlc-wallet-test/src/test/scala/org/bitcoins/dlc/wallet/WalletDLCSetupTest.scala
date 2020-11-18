@@ -39,8 +39,10 @@ class WalletDLCSetupTest extends BitcoinSDualWalletTest {
       )
       paramHash = offer.paramHash
       dlcA1Opt <- walletA.dlcDAO.read(paramHash)
+      find1 <- walletA.findDLC(paramHash)
       _ = {
         assert(dlcA1Opt.isDefined)
+        assert(find1.isDefined)
         assert(dlcA1Opt.get.state == DLCState.Offered)
         assert(offer.oracleInfo == offerData.oracleInfo)
         assert(offer.contractInfo == offerData.contractInfo)
