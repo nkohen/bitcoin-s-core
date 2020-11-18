@@ -126,13 +126,7 @@ object DLCPlotUtil {
       numDigits: Int,
       executedCETOpt: Option[Vector[Int]]): Figure = {
     def fromDigits(digits: Vector[Int]): Int = {
-      digits.indices
-        .foldLeft(0.0) {
-          case (numSoFar, index) =>
-            if (digits(index) == 0) numSoFar
-            else numSoFar + math.pow(base, numDigits - 1 - index)
-        }
-        .toInt
+      CETCalculator.fromDigits(digits, base, numDigits).toInt
     }
 
     val xs = cets.map(_._1).map(fromDigits)
@@ -141,10 +135,9 @@ object DLCPlotUtil {
     val figure = Figure("DLC Payout Curve")
     val cetPlot = figure.subplot(0)
 
-    // Can be made faster with binary search of xs if needed
     val canonicalCETOpt = executedCETOpt
       .flatMap { outcome =>
-        cets.map(_._1).find(outcome.startsWith(_))
+        CETCalculator.searchForPrefix(outcome, cets.map(_._1))(identity)
       }
       .map(fromDigits)
     val markedCETNumOpt = canonicalCETOpt.map(xs.indexOf)

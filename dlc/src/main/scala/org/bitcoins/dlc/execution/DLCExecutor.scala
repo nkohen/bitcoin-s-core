@@ -78,9 +78,7 @@ case class DLCExecutor(signer: DLCTxSigner)(implicit ec: ExecutionContext) {
     ExecutedDLCOutcome] = {
     val SetupDLC(fundingTx, cetInfos, _) = dlcSetup
 
-    val msgOpt =
-      builder.oracleAndContractInfo.allOutcomes.find(msg =>
-        builder.oracleAndContractInfo.verifySigs(msg, oracleSigs))
+    val msgOpt = builder.oracleAndContractInfo.findOutcome(oracleSigs)
     val (msg, remoteAdaptorSig) = msgOpt match {
       case Some(msg) =>
         val cetInfo = cetInfos(msg)
