@@ -126,7 +126,8 @@ object Deps {
                                javaFxWeb)
 
     val breezeViz =
-      "org.scalanlp" %% "breeze-viz" % V.breezeV withSources () withJavadoc ()
+      ("org.scalanlp" %% "breeze-viz" % V.breezeV withSources () withJavadoc ())
+        .exclude("bouncycastle", "bcprov-jdk14")
 
     val playJson =
       "com.typesafe.play" %% "play-json" % V.playv withSources () withJavadoc ()
