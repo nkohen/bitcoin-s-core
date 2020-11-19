@@ -1,19 +1,30 @@
 package org.bitcoins.gui.dlc.dialog
 
-import org.bitcoins.cli.CliCommand.AcceptDLCOffer
+import org.bitcoins.cli.CliCommand._
 import org.bitcoins.core.protocol.tlv._
+import scalafx.scene.Node
 
 object AcceptDLCDialog
-    extends DLCDialog[AcceptDLCOffer](
+    extends DLCDialog[AcceptDLCCliCommand](
       "Accept DLC Offer",
-      "Enter DLC offer to accept",
-      Vector(DLCDialog.dlcOfferStr -> DLCDialog.textArea())) {
+      "Enter DLC offer to accept or open from file",
+      Vector(DLCDialog.dlcOfferStr -> DLCDialog.textArea(),
+             DLCDialog.dlcOfferFileStr -> DLCDialog.fileChooserButton(file =>
+               DLCDialog.offerDLCFile = Some(file))),
+      Vector(DLCDialog.dlcOfferStr, DLCDialog.dlcOfferFileStr)) {
   import DLCDialog._
 
   override def constructFromInput(
-      inputs: Map[String, String]): AcceptDLCOffer = {
-    val offer = LnMessageFactory(DLCOfferTLV).fromHex(inputs(dlcOfferStr))
+      inputs: Map[String, Node]): AcceptDLCCliCommand = {
+    offerDLCFile match {
+      case Some(file) =>
+        offerDLCFile = None // reset
+        AcceptDLCOfferFromFile(file.toPath)
+      case None =>
+        val offerHex = readStringFromNode(inputs(dlcOfferStr))
+        val offer = LnMessageFactory(DLCOfferTLV).fromHex(offerHex)
 
-    AcceptDLCOffer(offer)
+        AcceptDLCOffer(offer)
+    }
   }
 }

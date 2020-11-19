@@ -1221,17 +1221,25 @@ object CliCommand {
       refundLT: UInt32)
       extends CliCommand
 
-  case class AcceptDLCOffer(offer: LnMessage[DLCOfferTLV]) extends CliCommand
+  sealed trait AcceptDLCCliCommand extends CliCommand
 
-  case class AcceptDLCOfferFromFile(path: Path) extends CliCommand
+  case class AcceptDLCOffer(offer: LnMessage[DLCOfferTLV])
+      extends AcceptDLCCliCommand
 
-  case class SignDLC(accept: LnMessage[DLCAcceptTLV]) extends CliCommand
+  case class AcceptDLCOfferFromFile(path: Path) extends AcceptDLCCliCommand
 
-  case class SignDLCFromFile(path: Path) extends CliCommand
+  sealed trait SignDLCCliCommand extends CliCommand
 
-  case class AddDLCSigs(sigs: LnMessage[DLCSignTLV]) extends CliCommand
+  case class SignDLC(accept: LnMessage[DLCAcceptTLV]) extends SignDLCCliCommand
 
-  case class AddDLCSigsFromFile(path: Path) extends CliCommand
+  case class SignDLCFromFile(path: Path) extends SignDLCCliCommand
+
+  sealed trait AddDLCSigsCliCommand extends CliCommand
+
+  case class AddDLCSigs(sigs: LnMessage[DLCSignTLV])
+      extends AddDLCSigsCliCommand
+
+  case class AddDLCSigsFromFile(path: Path) extends AddDLCSigsCliCommand
 
   case class GetDLCFundingTx(contractId: ByteVector) extends CliCommand
 

@@ -1,10 +1,17 @@
 package org.bitcoins.gui.dlc
 
+import java.io.File
+import java.nio.file.Files
+
 import javafx.event.{ActionEvent, EventHandler}
 import org.bitcoins.gui.{GlobalData, TaskRunner}
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.control._
 import scalafx.scene.layout._
+import scalafx.stage.FileChooser
+import scalafx.stage.FileChooser.ExtensionFilter
+
+import scala.util.Properties
 
 class DLCPane(glassPane: VBox) {
 
@@ -14,11 +21,41 @@ class DLCPane(glassPane: VBox) {
     text <== GlobalData.statusText
   }
 
-  private val resultArea = new TextArea {
+  private val resultTextArea = new TextArea {
     editable = false
     text = "Click on Offer or Accept to begin."
     wrapText = true
   }
+
+  private val exportButton = new Button("Export Result") {
+    alignmentInParent = Pos.BottomRight
+    onAction = _ => {
+      val txtFilter = new ExtensionFilter("Text Files", "*.txt")
+      val allExtensionFilter = new ExtensionFilter("All Files", "*")
+      val fileChooser = new FileChooser() {
+        extensionFilters.addAll(txtFilter, allExtensionFilter)
+        selectedExtensionFilter = txtFilter
+        initialDirectory = new File(Properties.userHome)
+      }
+
+      val selectedFile = fileChooser.showSaveDialog(null)
+
+      if (selectedFile != null) {
+        val bytes = resultTextArea.text.value.getBytes
+
+        Files.write(selectedFile.toPath, bytes)
+        ()
+      }
+    }
+  }
+
+  private val resultArea = new BorderPane() {
+    padding = Insets(10)
+    center = resultTextArea
+    bottom = exportButton
+  }
+
+  BorderPane.setMargin(exportButton, Insets(10))
 
   private val demoOracleArea = new TextArea {
     editable = false
@@ -28,7 +65,7 @@ class DLCPane(glassPane: VBox) {
   }
 
   private val model =
-    new DLCPaneModel(resultArea, demoOracleArea)
+    new DLCPaneModel(resultTextArea, demoOracleArea)
 
   model.setUp()
 
@@ -55,6 +92,7 @@ class DLCPane(glassPane: VBox) {
   }
 
   private val demoOracleVBox = new VBox {
+    padding = Insets(10)
     children = Seq(demoOracleArea, oracleButtonHBox)
     spacing = 15
   }

@@ -165,7 +165,7 @@ class DLCPaneModel(resultArea: TextArea, oracleInfoArea: TextArea) {
         }
 
         GlobalDLCData.lastOracleInfo = oracleInfo.hex
-        GlobalDLCData.lastContractInfo = contractInfo.hex
+        GlobalDLCData.lastContractInfo = contractInfo.toTLV.hex
 
         oracleInfoArea.text = builder.result()
       case None => ()
