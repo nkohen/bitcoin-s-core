@@ -1,5 +1,7 @@
 package org.bitcoins.cli
 
+import java.io.File
+import java.nio.file.Path
 import java.time.{Instant, ZoneId, ZonedDateTime}
 
 import org.bitcoins.commons.jsonmodels.bitcoind.RpcOpts.LockUnspentOutputParameter
@@ -22,6 +24,12 @@ import scopt._
 
 /** scopt readers for parsing CLI params and options */
 object CliReaders {
+
+  implicit val pathReads: Read[Path] = new Read[Path] {
+    val arity = 1
+
+    val reads: String => Path = str => new File(str).toPath
+  }
 
   implicit val npReads: Read[NetworkParameters] =
     new Read[NetworkParameters] {

@@ -1,5 +1,7 @@
 package org.bitcoins.cli
 
+import java.io.File
+import java.nio.file.Path
 import java.time.Instant
 
 import org.bitcoins.cli.CliCommand._
@@ -143,7 +145,6 @@ object ConsoleCli {
         .action((_, conf) => conf.copy(command = IsEmpty))
         .text("Checks if the wallet contains any data"),
       cmd("createdlcoffer")
-        .hidden()
         .action((_, conf) =>
           conf.copy(
             command = CreateDLCOffer(OracleInfo.dummy,
@@ -204,7 +205,6 @@ object ConsoleCli {
               }))
         ),
       cmd("acceptdlcoffer")
-        .hidden()
         .action((_, conf) => conf.copy(command = AcceptDLCOffer(null)))
         .text("Accepts a DLC offer given from another party")
         .children(
@@ -217,8 +217,21 @@ object ConsoleCli {
                 case other => other
               }))
         ),
+      cmd("acceptdlcofferfromfile")
+        .action((_, conf) =>
+          conf.copy(command = AcceptDLCOfferFromFile(new File("").toPath)))
+        .text("Accepts a DLC offer given from another party")
+        .children(
+          arg[Path]("path")
+            .required()
+            .action((path, conf) =>
+              conf.copy(command = conf.command match {
+                case accept: AcceptDLCOfferFromFile =>
+                  accept.copy(path = path)
+                case other => other
+              }))
+        ),
       cmd("signdlc")
-        .hidden()
         .action((_, conf) => conf.copy(command = SignDLC(null)))
         .text("Signs a DLC")
         .children(
@@ -231,8 +244,21 @@ object ConsoleCli {
                 case other => other
               }))
         ),
+      cmd("signdlcfromfile")
+        .action((_, conf) =>
+          conf.copy(command = SignDLCFromFile(new File("").toPath)))
+        .text("Signs a DLC")
+        .children(
+          arg[Path]("path")
+            .required()
+            .action((path, conf) =>
+              conf.copy(command = conf.command match {
+                case signDLC: SignDLCFromFile =>
+                  signDLC.copy(path = path)
+                case other => other
+              }))
+        ),
       cmd("adddlcsigs")
-        .hidden()
         .action((_, conf) => conf.copy(command = AddDLCSigs(null)))
         .text("Adds DLC Signatures into the database")
         .children(
@@ -245,8 +271,21 @@ object ConsoleCli {
                 case other => other
               }))
         ),
+      cmd("adddlcsigsfromfile")
+        .action((_, conf) =>
+          conf.copy(command = AddDLCSigsFromFile(new File("").toPath)))
+        .text("Adds DLC Signatures into the database")
+        .children(
+          arg[Path]("path")
+            .required()
+            .action((path, conf) =>
+              conf.copy(command = conf.command match {
+                case addDLCSigs: AddDLCSigsFromFile =>
+                  addDLCSigs.copy(path = path)
+                case other => other
+              }))
+        ),
       cmd("getdlcfundingtx")
-        .hidden()
         .action((_, conf) => conf.copy(command = GetDLCFundingTx(null)))
         .text("Returns the Funding Tx corresponding to the DLC with the given contractId")
         .children(
@@ -260,7 +299,6 @@ object ConsoleCli {
               }))
         ),
       cmd("broadcastdlcfundingtx")
-        .hidden()
         .action((_, conf) => conf.copy(command = BroadcastDLCFundingTx(null)))
         .text("Broadcasts the funding Tx corresponding to the DLC with the given contractId")
         .children(
@@ -274,7 +312,6 @@ object ConsoleCli {
               }))
         ),
       cmd("executedlc")
-        .hidden()
         .action((_, conf) =>
           conf.copy(command =
             ExecuteDLC(ByteVector.empty, Vector.empty, noBroadcast = false)))
@@ -306,7 +343,6 @@ object ConsoleCli {
               }))
         ),
       cmd("executedlcrefund")
-        .hidden()
         .action((_, conf) =>
           conf.copy(command = ExecuteDLCRefund(null, noBroadcast = false)))
         .text("Executes the Refund transaction for the given DLC")
@@ -946,10 +982,16 @@ object ConsoleCli {
         )
       case AcceptDLCOffer(offer) =>
         RequestParam("acceptdlcoffer", Seq(up.writeJs(offer)))
+      case AcceptDLCOfferFromFile(path) =>
+        RequestParam("acceptdlcofferfromfile", Seq(up.writeJs(path)))
       case SignDLC(accept) =>
         RequestParam("signdlc", Seq(up.writeJs(accept)))
+      case SignDLCFromFile(path) =>
+        RequestParam("signdlcfromfile", Seq(up.writeJs(path)))
       case AddDLCSigs(sigs) =>
         RequestParam("adddlcsigs", Seq(up.writeJs(sigs)))
+      case AddDLCSigsFromFile(path) =>
+        RequestParam("adddlcsigsfromfile", Seq(up.writeJs(path)))
       case ExecuteDLC(contractId, oracleSigs, noBroadcast) =>
         RequestParam("executedlc",
                      Seq(up.writeJs(contractId),
@@ -1181,9 +1223,15 @@ object CliCommand {
 
   case class AcceptDLCOffer(offer: LnMessage[DLCOfferTLV]) extends CliCommand
 
+  case class AcceptDLCOfferFromFile(path: Path) extends CliCommand
+
   case class SignDLC(accept: LnMessage[DLCAcceptTLV]) extends CliCommand
 
+  case class SignDLCFromFile(path: Path) extends CliCommand
+
   case class AddDLCSigs(sigs: LnMessage[DLCSignTLV]) extends CliCommand
+
+  case class AddDLCSigsFromFile(path: Path) extends CliCommand
 
   case class GetDLCFundingTx(contractId: ByteVector) extends CliCommand
 

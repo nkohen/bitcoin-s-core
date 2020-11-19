@@ -1,5 +1,7 @@
 package org.bitcoins.server
 
+import java.io.File
+import java.nio.file.Path
 import java.time.Instant
 
 import org.bitcoins.commons.jsonmodels.bitcoind.RpcOpts.LockUnspentOutputParameter
@@ -512,6 +514,27 @@ object AddDLCSigs extends ServerJsonModels {
         }
       case Nil =>
         Failure(new IllegalArgumentException("Missing sigs argument"))
+      case other =>
+        Failure(
+          new IllegalArgumentException(
+            s"Bad number of arguments: ${other.length}. Expected: 1"))
+    }
+  }
+}
+
+case class DLCDataFromFile(path: Path)
+
+object DLCDataFromFile extends ServerJsonModels {
+
+  def fromJsArr(jsArr: ujson.Arr): Try[DLCDataFromFile] = {
+    jsArr.arr.toList match {
+      case pathJs :: Nil =>
+        Try {
+          val path = new File(pathJs.str).toPath
+          DLCDataFromFile(path)
+        }
+      case Nil =>
+        Failure(new IllegalArgumentException("Missing path argument"))
       case other =>
         Failure(
           new IllegalArgumentException(

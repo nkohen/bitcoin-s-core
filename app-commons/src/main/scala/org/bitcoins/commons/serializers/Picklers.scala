@@ -1,5 +1,7 @@
 package org.bitcoins.commons.serializers
 
+import java.io.File
+import java.nio.file.Path
 import java.time.Instant
 
 import org.bitcoins.commons.jsonmodels.bitcoind.RpcOpts.LockUnspentOutputParameter
@@ -20,6 +22,9 @@ import scodec.bits.ByteVector
 import upickle.default._
 
 object Picklers {
+
+  implicit val pathPickler: ReadWriter[Path] =
+    readwriter[String].bimap(_.toString, str => new File(str).toPath)
 
   implicit val byteVectorPickler: ReadWriter[ByteVector] =
     readwriter[String].bimap(_.toHex, str => ByteVector.fromValidHex(str))
