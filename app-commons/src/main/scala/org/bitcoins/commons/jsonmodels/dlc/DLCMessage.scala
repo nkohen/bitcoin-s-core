@@ -294,9 +294,7 @@ object DLCMessage {
     override def apply(outcome: DLCOutcomeType): Satoshis = {
       outcome match {
         case UnsignedNumericOutcome(digits) =>
-          outcomeVec.find {
-            case (possibleOutcome, _) => digits.startsWith(possibleOutcome)
-          } match {
+          CETCalculator.searchForPrefix(digits, outcomeVec)(_._1) match {
             case Some((_, amt)) => amt
             case None =>
               throw new IllegalArgumentException(
@@ -392,6 +390,27 @@ object DLCMessage {
         outcome: DLCOutcomeType,
         sigs: Vector[SchnorrDigitalSignature]): Boolean = {
       oracleInfo.verifySigs(outcome, sigs)
+    }
+
+    def findOutcome(
+        sigs: Vector[SchnorrDigitalSignature]): Option[DLCOutcomeType] = {
+      offerContractInfo match {
+        case SingleNonceContractInfo(_) =>
+          allOutcomes.find(verifySigs(_, sigs))
+        case MultiNonceContractInfo(_, base, _, _) =>
+          val digitsSigned = sigs.map { sig =>
+            (0 until base)
+              .find { possibleDigit =>
+                oracleInfo.pubKey.verify(
+                  CryptoUtil.sha256(possibleDigit.toString).bytes,
+                  sig)
+              }
+              .getOrElse(throw new IllegalArgumentException(
+                s"Signature $sig does not match any digit 0-${base - 1}"))
+          }
+
+          CETCalculator.searchForNumericOutcome(digitsSigned, allOutcomes)
+      }
     }
 
     lazy val outcomeMap: Map[

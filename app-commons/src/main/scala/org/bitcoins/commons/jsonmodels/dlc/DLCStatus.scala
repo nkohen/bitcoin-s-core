@@ -217,6 +217,15 @@ object DLCStatus {
       extends ClosedDLCStatus {
     override val state: DLCState = DLCState.Claimed
 
+    val outcome: DLCOutcomeType = {
+      offer.oracleAndContractInfo.findOutcome(oracleSigs) match {
+        case Some(outcome) => outcome
+        case None =>
+          throw new IllegalArgumentException(
+            s"No outcome found for signatures: $oracleSigs")
+      }
+    }
+
     override lazy val toJson: Value =
       Obj(
         "state" -> Str(state.toString),
