@@ -5,14 +5,21 @@ import org.bitcoins.core.protocol.tlv._
 import scalafx.scene.Node
 
 object AddSigsDLCDialog
-    extends DLCDialog[AddDLCSigsCliCommand](
-      "Add DLC Signatures",
-      "Enter DLC signatures message",
-      Vector(DLCDialog.dlcSigStr -> DLCDialog.textArea(),
-             DLCDialog.dlcSignFileStr ->
-               DLCDialog.fileChooserButton(file =>
-                 DLCDialog.signDLCFile = Some(file))),
-      Vector(DLCDialog.dlcSigStr, DLCDialog.dlcSignFileStr)) {
+    extends DLCDialog[AddDLCSigsCliCommand]("Add DLC Signatures",
+                                            "Enter DLC signatures message",
+                                            Vector(
+                                              DLCDialog.dlcSigStr -> DLCDialog
+                                                .textArea(),
+                                              DLCDialog.dlcSignFileStr ->
+                                                DLCDialog.fileChooserButton { file =>
+                                                  DLCDialog.signDLCFile =
+                                                    Some(file)
+                                                  DLCDialog.signFileChosenLabel.text =
+                                                    file.toString
+                                                }
+                                            ),
+                                            Vector(DLCDialog.dlcSigStr,
+                                                   DLCDialog.dlcSignFileStr)) {
 
   import DLCDialog._
 
@@ -21,6 +28,7 @@ object AddSigsDLCDialog
     signDLCFile match {
       case Some(file) =>
         signDLCFile = None // reset
+        signFileChosenLabel.text = "" // reset
         AddDLCSigsFromFile(file.toPath)
       case None =>
         val signHex = readStringFromNode(inputs(dlcSigStr))

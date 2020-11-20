@@ -7,10 +7,15 @@ import scalafx.scene.Node
 object AcceptDLCDialog
     extends DLCDialog[AcceptDLCCliCommand](
       "Accept DLC Offer",
-      "Enter DLC offer to accept or open from file",
-      Vector(DLCDialog.dlcOfferStr -> DLCDialog.textArea(),
-             DLCDialog.dlcOfferFileStr -> DLCDialog.fileChooserButton(file =>
-               DLCDialog.offerDLCFile = Some(file))),
+      "Enter DLC Offer to accept or open from file",
+      Vector(
+        DLCDialog.dlcOfferStr -> DLCDialog.textArea(),
+        DLCDialog.dlcOfferFileStr -> DLCDialog.fileChooserButton(file => {
+          DLCDialog.offerDLCFile = Some(file)
+          DLCDialog.offerFileChosenLabel.text = file.toString
+        }),
+        DLCDialog.fileChosenStr -> DLCDialog.offerFileChosenLabel
+      ),
       Vector(DLCDialog.dlcOfferStr, DLCDialog.dlcOfferFileStr)) {
   import DLCDialog._
 
@@ -19,6 +24,7 @@ object AcceptDLCDialog
     offerDLCFile match {
       case Some(file) =>
         offerDLCFile = None // reset
+        offerFileChosenLabel.text = "" // reset
         AcceptDLCOfferFromFile(file.toPath)
       case None =>
         val offerHex = readStringFromNode(inputs(dlcOfferStr))

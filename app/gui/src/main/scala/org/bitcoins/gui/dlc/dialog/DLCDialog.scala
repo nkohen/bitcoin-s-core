@@ -171,12 +171,18 @@ object DLCDialog {
   var acceptDLCFile: Option[File] = None
   var signDLCFile: Option[File] = None
 
+  val offerFileChosenLabel = new Label("")
+  val acceptFileChosenLabel = new Label("")
+  val signFileChosenLabel = new Label("")
+
   val oracleInfoStr = "Oracle Info"
   val contractInfoStr = "Contract Info"
   val collateralStr = "Collateral"
   val feeRateStr = "Fee Rate"
   val locktimeStr = "Locktime"
   val refundLocktimeStr = "Refund Locktime"
+
+  val fileChosenStr = ""
 
   val allOfferFields: Map[String, String] = Map[String, String](
     oracleInfoStr -> "",
