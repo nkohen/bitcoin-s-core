@@ -252,7 +252,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
                               locktime,
                               refundLT)
               .map { offer =>
-                Server.httpSuccess(LnMessage(offer.toTLV).hex)
+                Server.httpSuccess(offer.toMessage.hex)
               }
           }
       }
@@ -266,7 +266,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
             wallet
               .acceptDLCOffer(offer.tlv)
               .map { accept =>
-                Server.httpSuccess(LnMessage(accept.toTLV).hex)
+                Server.httpSuccess(accept.toMessage.hex)
               }
           }
       }
@@ -285,7 +285,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
             wallet
               .acceptDLCOffer(offerMessage.tlv)
               .map { accept =>
-                Server.httpSuccess(LnMessage(accept.toTLV).hex)
+                Server.httpSuccess(accept.toMessage.hex)
               }
           }
       }
@@ -299,7 +299,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
             wallet
               .signDLC(accept.tlv)
               .map { sign =>
-                Server.httpSuccess(LnMessage(sign.toTLV).hex)
+                Server.httpSuccess(sign.toMessage.hex)
               }
           }
       }
@@ -318,7 +318,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
             wallet
               .signDLC(acceptMessage.tlv)
               .map { sign =>
-                Server.httpSuccess(LnMessage(sign.toTLV).hex)
+                Server.httpSuccess(sign.toMessage.hex)
               }
           }
       }

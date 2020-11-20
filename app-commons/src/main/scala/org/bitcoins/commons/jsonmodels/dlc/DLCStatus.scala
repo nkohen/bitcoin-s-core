@@ -65,7 +65,7 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(LnMessage(offer.toTLV).hex)
+        "offer" -> Str(offer.toMessage.hex)
       )
   }
 
@@ -89,8 +89,8 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(LnMessage(offer.toTLV).hex),
-        "accept" -> Str(LnMessage(accept.toTLV).hex)
+        "offer" -> Str(offer.toMessage.hex),
+        "accept" -> Str(accept.toMessage.hex)
       )
   }
 
@@ -121,9 +121,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(LnMessage(offer.toTLV).hex),
-        "accept" -> Str(LnMessage(accept.toTLV).hex),
-        "sign" -> Str(LnMessage(sign.toTLV).hex)
+        "offer" -> Str(offer.toMessage.hex),
+        "accept" -> Str(accept.toMessage.hex),
+        "sign" -> Str(sign.toMessage.hex)
       )
   }
 
@@ -150,9 +150,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(LnMessage(offer.toTLV).hex),
-        "accept" -> Str(LnMessage(accept.toTLV).hex),
-        "sign" -> Str(LnMessage(sign.toTLV).hex),
+        "offer" -> Str(offer.toMessage.hex),
+        "accept" -> Str(accept.toMessage.hex),
+        "sign" -> Str(sign.toMessage.hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex)
       )
@@ -194,9 +194,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(LnMessage(offer.toTLV).hex),
-        "accept" -> Str(LnMessage(accept.toTLV).hex),
-        "sign" -> Str(LnMessage(sign.toTLV).hex),
+        "offer" -> Str(offer.toMessage.hex),
+        "accept" -> Str(accept.toMessage.hex),
+        "sign" -> Str(sign.toMessage.hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex)
       )
@@ -226,20 +226,29 @@ object DLCStatus {
       }
     }
 
-    override lazy val toJson: Value =
+    override lazy val toJson: Value = {
+      val outcomeJs = outcome match {
+        case EnumOutcome(outcome) =>
+          Str(outcome)
+        case UnsignedNumericOutcome(digits) =>
+          Arr.from(digits.map(num => Num(num)))
+      }
+
       Obj(
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(LnMessage(offer.toTLV).hex),
-        "accept" -> Str(LnMessage(accept.toTLV).hex),
-        "sign" -> Str(LnMessage(sign.toTLV).hex),
+        "offer" -> Str(offer.toMessage.hex),
+        "accept" -> Str(accept.toMessage.hex),
+        "sign" -> Str(sign.toMessage.hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex),
         "oracleSigs" -> oracleSigs.map(sig => Str(sig.hex)),
+        "outcome" -> outcomeJs,
         "cetTxId" -> Str(cet.txIdBE.hex),
         "cet" -> Str(cet.hex)
       )
+    }
 
     override lazy val closingTx: Transaction = cet
   }
@@ -388,9 +397,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(LnMessage(offer.toTLV).hex),
-        "accept" -> Str(LnMessage(accept.toTLV).hex),
-        "sign" -> Str(LnMessage(sign.toTLV).hex),
+        "offer" -> Str(offer.toMessage.hex),
+        "accept" -> Str(accept.toMessage.hex),
+        "sign" -> Str(sign.toMessage.hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex),
         "oracleSig" -> Str(oracleSig.hex),
@@ -422,9 +431,9 @@ object DLCStatus {
         "state" -> Str(state.toString),
         "paramHash" -> Str(paramHash.hex),
         "isInitiator" -> Bool(isInitiator),
-        "offer" -> Str(LnMessage(offer.toTLV).hex),
-        "accept" -> Str(LnMessage(accept.toTLV).hex),
-        "sign" -> Str(LnMessage(sign.toTLV).hex),
+        "offer" -> Str(offer.toMessage.hex),
+        "accept" -> Str(accept.toMessage.hex),
+        "sign" -> Str(sign.toMessage.hex),
         "fundingTxId" -> Str(fundingTx.txIdBE.hex),
         "fundingTx" -> Str(fundingTx.hex),
         "refundTxId" -> Str(refundTx.txIdBE.hex),
@@ -440,14 +449,14 @@ object DLCStatus {
     val state = DLCState.fromString(obj("state").str)
     val paramHash = Sha256DigestBE(obj("paramHash").str)
     val isInitiator = obj("isInitiator").bool
-    val offer = DLCOffer.fromTLV(
-      LnMessageFactory(DLCOfferTLV).fromHex(obj("offer").str).tlv)
+    val offer = DLCOffer.fromMessage(
+      LnMessageFactory(DLCOfferTLV).fromHex(obj("offer").str))
 
-    lazy val accept = DLCAccept.fromTLV(
-      LnMessageFactory(DLCAcceptTLV).fromHex(obj("accept").str).tlv,
+    lazy val accept = DLCAccept.fromMessage(
+      LnMessageFactory(DLCAcceptTLV).fromHex(obj("accept").str),
       offer)
-    lazy val sign = DLCSign.fromTLV(
-      LnMessageFactory(DLCSignTLV).fromHex(obj("sign").str).tlv,
+    lazy val sign = DLCSign.fromMessage(
+      LnMessageFactory(DLCSignTLV).fromHex(obj("sign").str),
       offer)
     lazy val fundingTx = Transaction(obj("fundingTx").str)
     lazy val cet = Transaction(obj("cet").str)
