@@ -426,17 +426,6 @@ object DLCMessage {
       outcomeMap(outcome)
     }
 
-    def outcomeFromSignature(
-        sigs: Vector[SchnorrDigitalSignature]): DLCOutcomeType = {
-      val sigPoint = sigs.map(_.sig.getPublicKey).reduce(_.add(_))
-      outcomeMap.find(_._2._1 == sigPoint) match {
-        case Some((outcome, _)) => outcome
-        case None =>
-          throw new IllegalArgumentException(
-            s"Signatures do not correspond to a possible outcome! $sigs")
-      }
-    }
-
     def sigPointForOutcome(outcome: DLCOutcomeType): ECPublicKey = {
       resultOfOutcome(outcome)._1
     }
@@ -447,7 +436,12 @@ object DLCMessage {
     /** Returns the payouts for the signature as (toOffer, toAccept) */
     def getPayouts(
         sigs: Vector[SchnorrDigitalSignature]): (Satoshis, Satoshis) = {
-      val outcome = outcomeFromSignature(sigs)
+      val outcome = findOutcome(sigs) match {
+        case Some(outcome) => outcome
+        case None =>
+          throw new IllegalArgumentException(
+            s"Signatures do not correspond to a possible outcome! $sigs")
+      }
       getPayouts(outcome)
     }
 
