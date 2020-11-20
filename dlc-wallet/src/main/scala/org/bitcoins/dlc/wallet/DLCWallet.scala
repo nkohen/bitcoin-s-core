@@ -1426,6 +1426,10 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
               dlcDb.outcomeOpt.get
             )
           case DLCState.RemoteClaimed =>
+            val oracleSigs = dlcDb.oracleSigsOpt.get
+            require(oracleSigs.size == 1,
+                    "Remote claimed should only have one oracle sig")
+
             SerializedRemoteClaimed(
               paramHash,
               dlcDb.isInitiator,
@@ -1439,7 +1443,7 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
               localCollateral,
               dlcDb.fundingTxIdOpt.get,
               dlcDb.closingTxIdOpt.get,
-              dlcDb.oracleSigsOpt.get,
+              oracleSigs.head,
               dlcDb.outcomeOpt.get
             )
           case DLCState.Refunded =>

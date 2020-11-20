@@ -283,10 +283,11 @@ object SerializedDLCStatus {
       localCollateral: CurrencyUnit,
       fundingTxId: DoubleSha256DigestBE,
       closingTxId: DoubleSha256DigestBE,
-      oracleSigs: Vector[SchnorrDigitalSignature],
+      oracleSig: SchnorrDigitalSignature,
       outcome: DLCOutcomeType)
       extends ClaimedSerializedDLCStatus {
     override val state: DLCState = DLCState.RemoteClaimed
+    override val oracleSigs: Vector[SchnorrDigitalSignature] = Vector(oracleSig)
 
     override lazy val toJson: Value = {
       val outcomeJs = outcome match {
@@ -515,6 +516,8 @@ object SerializedDLCStatus {
           outcome
         )
       case DLCState.RemoteClaimed =>
+        require(oracleSigs.size == 1,
+                "Remote claimed should only have one oracle sig")
         SerializedRemoteClaimed(
           paramHash,
           isInitiator,
@@ -528,7 +531,7 @@ object SerializedDLCStatus {
           localCollateral,
           fundingTxId,
           closingTxId,
-          oracleSigs,
+          oracleSigs.head,
           outcome
         )
       case DLCState.Refunded =>
