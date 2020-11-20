@@ -2,6 +2,7 @@ package org.bitcoins.dlc.wallet.models
 
 import org.bitcoins.commons.jsonmodels.dlc.DLCState
 import org.bitcoins.core.hd.HDAccount
+import org.bitcoins.core.protocol.tlv.DLCOutcomeType
 import org.bitcoins.core.protocol.transaction.TransactionOutPoint
 import org.bitcoins.crypto.{
   DoubleSha256DigestBE,
@@ -144,6 +145,8 @@ case class DLCDAO()(implicit
     def closingTxIdOpt: Rep[Option[DoubleSha256DigestBE]] =
       column("closing_tx_id")
 
+    def outcomeOpt: Rep[Option[DLCOutcomeType]] = column("outcome")
+
     def * : ProvenShape[DLCDb] =
       (paramHash,
        tempContractId,
@@ -155,7 +158,8 @@ case class DLCDAO()(implicit
        oracleSigsOpt,
        fundingOutPointOpt,
        fundingTxIdOpt,
-       closingTxIdOpt).<>(DLCDb.tupled, DLCDb.unapply)
+       closingTxIdOpt,
+       outcomeOpt).<>(DLCDb.tupled, DLCDb.unapply)
 
     def primaryKey: PrimaryKey =
       primaryKey(name = "pk_dlc", sourceColumns = paramHash)

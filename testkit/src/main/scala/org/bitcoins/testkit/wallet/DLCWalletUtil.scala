@@ -175,7 +175,8 @@ object DLCWalletUtil {
     oracleSigsOpt = Some(Vector(sampleOracleLoseSig)),
     fundingOutPointOpt = None,
     fundingTxIdOpt = None,
-    closingTxIdOpt = None
+    closingTxIdOpt = None,
+    outcomeOpt = None
   )
 
   def initDLC(

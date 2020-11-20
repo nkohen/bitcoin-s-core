@@ -4,6 +4,7 @@ import java.time.Instant
 
 import org.bitcoins.commons.jsonmodels.dlc.DLCMessage._
 import org.bitcoins.commons.jsonmodels.dlc.DLCState._
+import org.bitcoins.commons.jsonmodels.dlc.SerializedDLCStatus._
 import org.bitcoins.commons.jsonmodels.dlc._
 import org.bitcoins.core.api.chain.ChainQueryApi
 import org.bitcoins.core.api.feeprovider.FeeRateApi
@@ -160,6 +161,20 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
     }
   }
 
+  private def updateDLCOutcome(
+      contractId: ByteVector,
+      outcome: DLCOutcomeType): Future[DLCDb] = {
+    dlcDAO.findByContractId(contractId).flatMap {
+      case Some(dlcDb) =>
+        logger.debug(s"Updating DLC's (${contractId.toHex} outcome to $outcome")
+        dlcDAO.update(dlcDb.copy(outcomeOpt = Some(outcome)))
+      case None =>
+        Future.failed(
+          new NoSuchElementException(
+            s"No DLC found with that contractId ${contractId.toHex}"))
+    }
+  }
+
   private def calcDLCPubKeys(
       xpub: ExtPublicKey,
       keyIndex: Int): DLCPublicKeys = {
@@ -197,21 +212,36 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
   private def calculateAndSetState(dlcDb: DLCDb): Future[DLCDb] = {
     (dlcDb.contractIdOpt, dlcDb.closingTxIdOpt) match {
       case (Some(id), Some(txId)) =>
-        executorAndSetupFromDb(id).map {
+        executorAndSetupFromDb(id).flatMap {
           case (_, setup) =>
-            val state =
-              if (txId == setup.refundTx.txIdBE) {
-                DLCState.Refunded
-              } else if (dlcDb.state == DLCState.Claimed) {
-                DLCState.Claimed
-              } else {
-                DLCState.RemoteClaimed
-              }
+            if (txId == setup.refundTx.txIdBE) {
+              Future.successful(dlcDb.copy(state = DLCState.Refunded))
+            } else if (dlcDb.state == DLCState.Claimed) {
+              Future.successful(dlcDb.copy(state = DLCState.Claimed))
+            } else {
+              val withState = dlcDb.copy(state = DLCState.RemoteClaimed)
+              if (dlcDb.outcomeOpt.isEmpty || dlcDb.oracleSigsOpt.isEmpty) {
+                calculateAndSetOutcome(withState)
+              } else Future.successful(withState)
+            }
 
-            dlcDb.copy(state = state)
         }
       case (None, None) | (None, Some(_)) | (Some(_), None) =>
         Future.successful(dlcDb)
+    }
+  }
+
+  private def calculateAndSetOutcome(dlcDb: DLCDb): Future[DLCDb] = {
+    if (dlcDb.state == DLCState.RemoteClaimed && dlcDb.outcomeOpt.isEmpty) {
+      findDLC(dlcDb.paramHash).map {
+        case Some(status: DLCStatus.RemoteClaimed) =>
+          dlcDb.copy(outcomeOpt = Some(status.outcome),
+                     oracleSigsOpt = Some(Vector(status.oracleSig)))
+        case res @ (None | Some(_)) =>
+          throw new RuntimeException(s"Unexpected return from findDLC got $res")
+      }
+    } else {
+      Future.successful(dlcDb)
     }
   }
 
@@ -378,7 +408,8 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
         oracleSigsOpt = None,
         fundingOutPointOpt = None,
         fundingTxIdOpt = None,
-        closingTxIdOpt = None
+        closingTxIdOpt = None,
+        outcomeOpt = None
       )
 
       dlc <- dlcDAO.create(dlcDb)
@@ -425,7 +456,8 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
               oracleSigsOpt = None,
               fundingOutPointOpt = None,
               fundingTxIdOpt = None,
-              closingTxIdOpt = None
+              closingTxIdOpt = None,
+              outcomeOpt = None
             )
           }
           _ <- writeDLCKeysToAddressDb(account, nextIndex)
@@ -1258,13 +1290,15 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
         throw new UnsupportedOperationException(
           "Cannot execute a losing outcome")
 
-      tx <- executor.executeDLC(setup, oracleSigs).map(_.cet)
+      executed <- executor.executeDLC(setup, oracleSigs)
+      (tx, outcome) = (executed.cet, executed.outcome)
       _ = logger.info(s"Created DLC execution transaction ${tx.txIdBE.hex}")
 
       _ <- updateDLCOracleSigs(contractId, oracleSigs)
 
       _ <- processTransaction(tx, None)
       _ <- updateDLCState(contractId, DLCState.Claimed)
+      _ <- updateDLCOutcome(contractId, outcome)
       _ <- updateClosingTxId(contractId, tx.txIdBE)
     } yield tx
   }
@@ -1280,15 +1314,154 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
     } yield refundTx
   }
 
-  override def listDLCs(): Future[Vector[DLCStatus]] = {
+  override def listDLCs(): Future[Vector[SerializedDLCStatus]] = {
     for {
       ids <- dlcDAO.findAll().map(_.map(_.paramHash))
-      dlcFs = ids.map(findDLC)
+      dlcFs = ids.map(findSerializedDLC)
       dlcs <- Future.sequence(dlcFs)
     } yield {
       dlcs.collect {
         case Some(dlc) => dlc
       }
+    }
+  }
+
+  def findSerializedDLC(
+      paramHash: Sha256DigestBE): Future[Option[SerializedDLCStatus]] = {
+    for {
+      dlcDbOpt <- dlcDAO.read(paramHash)
+      offerDbOpt <- dlcOfferDAO.read(paramHash)
+    } yield (dlcDbOpt, offerDbOpt) match {
+      case (Some(dlcDb), Some(offerDb)) =>
+        val totalCollateral = offerDb.contractInfo.max
+
+        val localCollateral = if (dlcDb.isInitiator) {
+          offerDb.totalCollateral
+        } else {
+          totalCollateral - offerDb.totalCollateral
+        }
+
+        val serializedStatus = dlcDb.state match {
+          case DLCState.Offered =>
+            SerializedOffered(
+              paramHash,
+              dlcDb.isInitiator,
+              dlcDb.tempContractId,
+              offerDb.oracleInfo,
+              offerDb.contractInfo,
+              offerDb.dlcTimeouts,
+              offerDb.feeRate,
+              totalCollateral,
+              localCollateral
+            )
+          case DLCState.Accepted =>
+            SerializedAccepted(
+              paramHash,
+              dlcDb.isInitiator,
+              dlcDb.tempContractId,
+              dlcDb.contractIdOpt.get,
+              offerDb.oracleInfo,
+              offerDb.contractInfo,
+              offerDb.dlcTimeouts,
+              offerDb.feeRate,
+              totalCollateral,
+              localCollateral
+            )
+          case DLCState.Signed =>
+            SerializedSigned(
+              paramHash,
+              dlcDb.isInitiator,
+              dlcDb.tempContractId,
+              dlcDb.contractIdOpt.get,
+              offerDb.oracleInfo,
+              offerDb.contractInfo,
+              offerDb.dlcTimeouts,
+              offerDb.feeRate,
+              totalCollateral,
+              localCollateral
+            )
+          case DLCState.Broadcasted =>
+            SerializedBroadcasted(
+              paramHash,
+              dlcDb.isInitiator,
+              dlcDb.tempContractId,
+              dlcDb.contractIdOpt.get,
+              offerDb.oracleInfo,
+              offerDb.contractInfo,
+              offerDb.dlcTimeouts,
+              offerDb.feeRate,
+              totalCollateral,
+              localCollateral,
+              dlcDb.fundingTxIdOpt.get
+            )
+          case DLCState.Confirmed =>
+            SerializedConfirmed(
+              paramHash,
+              dlcDb.isInitiator,
+              dlcDb.tempContractId,
+              dlcDb.contractIdOpt.get,
+              offerDb.oracleInfo,
+              offerDb.contractInfo,
+              offerDb.dlcTimeouts,
+              offerDb.feeRate,
+              totalCollateral,
+              localCollateral,
+              dlcDb.fundingTxIdOpt.get
+            )
+          case DLCState.Claimed =>
+            SerializedClaimed(
+              paramHash,
+              dlcDb.isInitiator,
+              dlcDb.tempContractId,
+              dlcDb.contractIdOpt.get,
+              offerDb.oracleInfo,
+              offerDb.contractInfo,
+              offerDb.dlcTimeouts,
+              offerDb.feeRate,
+              totalCollateral,
+              localCollateral,
+              dlcDb.fundingTxIdOpt.get,
+              dlcDb.closingTxIdOpt.get,
+              dlcDb.oracleSigsOpt.get,
+              dlcDb.outcomeOpt.get
+            )
+          case DLCState.RemoteClaimed =>
+            SerializedRemoteClaimed(
+              paramHash,
+              dlcDb.isInitiator,
+              dlcDb.tempContractId,
+              dlcDb.contractIdOpt.get,
+              offerDb.oracleInfo,
+              offerDb.contractInfo,
+              offerDb.dlcTimeouts,
+              offerDb.feeRate,
+              totalCollateral,
+              localCollateral,
+              dlcDb.fundingTxIdOpt.get,
+              dlcDb.closingTxIdOpt.get,
+              dlcDb.oracleSigsOpt.get,
+              dlcDb.outcomeOpt.get
+            )
+          case DLCState.Refunded =>
+            SerializedRefunded(
+              paramHash,
+              dlcDb.isInitiator,
+              dlcDb.tempContractId,
+              dlcDb.contractIdOpt.get,
+              offerDb.oracleInfo,
+              offerDb.contractInfo,
+              offerDb.dlcTimeouts,
+              offerDb.feeRate,
+              totalCollateral,
+              localCollateral,
+              dlcDb.fundingTxIdOpt.get,
+              dlcDb.closingTxIdOpt.get
+            )
+        }
+
+        Some(serializedStatus)
+      case (None, None) | (None, Some(_)) | (Some(_), None) =>
+        None
     }
   }
 

@@ -224,7 +224,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit system: ActorSystem)
           reject(ValidationRejection("failure", Some(exception)))
         case Success(GetDLC(paramHash)) =>
           complete {
-            wallet.findDLC(paramHash).map {
+            wallet.findSerializedDLC(paramHash).map {
               case None => Server.httpSuccess(ujson.Null)
               case Some(dlc) =>
                 Server.httpSuccess(dlc.toJson)

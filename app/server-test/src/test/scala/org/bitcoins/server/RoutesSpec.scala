@@ -889,7 +889,8 @@ class RoutesSpec extends AnyWordSpec with ScalatestRouteTest with MockFactory {
           oracleSigsOpt = None,
           fundingOutPointOpt = None,
           fundingTxIdOpt = None,
-          closingTxIdOpt = None
+          closingTxIdOpt = None,
+          outcomeOpt = None
         )))
 
       val route = walletRoutes.handleCommand(

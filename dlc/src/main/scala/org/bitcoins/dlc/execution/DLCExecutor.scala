@@ -89,7 +89,7 @@ case class DLCExecutor(signer: DLCTxSigner)(implicit ec: ExecutionContext) {
     }
 
     signer.signCET(msg, remoteAdaptorSig, oracleSigs).map { cet =>
-      ExecutedDLCOutcome(fundingTx, cet)
+      ExecutedDLCOutcome(fundingTx, cet, msg)
     }
   }
 
