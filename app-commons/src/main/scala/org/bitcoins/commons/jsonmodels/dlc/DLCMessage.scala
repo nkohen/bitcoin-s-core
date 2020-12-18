@@ -216,7 +216,7 @@ object DLCMessage {
 
     override def toTLV: ContractInfoV0TLV =
       ContractInfoV0TLV(outcomeValueMap.map {
-        case (outcome, amt) => outcome.outcome -> amt
+        case (outcome, amt) => CryptoUtil.sha256(outcome.outcome).hex -> amt
       })
 
     override def flip(totalCollateral: Satoshis): SingleNonceContractInfo = {

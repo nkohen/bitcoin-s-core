@@ -749,10 +749,7 @@ case class ContractInfoV0TLV(outcomes: Vector[(String, Satoshis)])
   override val value: ByteVector = {
     outcomes.foldLeft(ByteVector.empty) {
       case (bytes, (outcome, amt)) =>
-        val outcomeBytes = CryptoUtil.serializeForHash(outcome)
-        bytes ++ BigSizeUInt
-          .calcFor(outcomeBytes)
-          .bytes ++ outcomeBytes ++ amt.toUInt64.bytes
+        bytes ++ ByteVector.fromValidHex(outcome) ++ amt.toUInt64.bytes
     }
   }
 }
@@ -766,10 +763,7 @@ object ContractInfoV0TLV extends TLVFactory[ContractInfoV0TLV] {
     val builder = Vector.newBuilder[(String, Satoshis)]
 
     while (iter.index < value.length) {
-      val outcomeLen = BigSizeUInt(iter.current)
-      iter.skip(outcomeLen)
-      val outcome =
-        new String(iter.take(outcomeLen.toInt).toArray, StandardCharsets.UTF_8)
+      val outcome = iter.take(32).toHex
       val amt = Satoshis(UInt64(iter.takeBits(64)))
       builder.+=(outcome -> amt)
     }

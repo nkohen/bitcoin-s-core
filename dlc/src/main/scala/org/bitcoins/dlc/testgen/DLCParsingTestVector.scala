@@ -153,9 +153,9 @@ object DLCParsingTestVector extends TestVectorParser[DLCParsingTestVector] {
         val fields = Vector(
           "tpe" -> Element(ContractInfoV0TLV.tpe),
           "length" -> Element(tlv.length),
-          "outcomes" -> MultiElement(outcomes.toVector.map {
+          "outcomes" -> MultiElement(outcomes.map {
             case (outcome, amt) =>
-              NamedMultiElement("outcome" -> CryptoUtil.sha256(outcome).bytes,
+              NamedMultiElement("outcome" -> ByteVector.fromValidHex(outcome),
                                 "localPayout" -> amt.toUInt64.bytes)
           })
         )
