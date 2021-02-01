@@ -584,6 +584,8 @@ object CETCalculator {
                                   numOracles).tail
   }
 
+  var basesUsed: Vector[Int] = Vector(2)
+
   /** Given the primary oracle's CET, computes the set of CETs needed
     * for two oracles with an allowed difference (which is bounded).
     *
@@ -600,7 +602,8 @@ object CETCalculator {
       maxErrorExp: Int,
       minFailExp: Int,
       maximizeCoverage: Boolean,
-      numOracles: Int): Vector[MultiOracleDigits] = {
+      numOracles: Int,
+      otherBases: Vector[Int] = Vector.empty): Vector[MultiOracleDigits] = {
     require(numOracles > 1,
             "For single oracle, just use your cetDigits parameter")
 
@@ -624,73 +627,95 @@ object CETCalculator {
        * leftErrorCET   (leftErrorCET + minFail)     (rightErrorCET - minFail)  rightErrorCET
        */
 
-      if (start >= leftErrorCET + minFail && end <= rightErrorCET - minFail) { // case: Middle CET
+      if (start >= leftErrorCET + minFail && end <= rightErrorCET - minFail) { // case: binary Middle CET
         val coverCET = if (maximizeCoverage) {
           errorCET
         } else {
           minCoverMidCET(start, end, minFail, numDigits)
         }
 
-        val multiOracleDigits =
-          singleCoveringCETCombinations(cetDigits, coverCET, numOracles)
-        Vector(multiOracleDigits)
-      } else if (start < leftErrorCET + minFail) { // case: Left CET
-        val coverCET: Digits = if (maximizeCoverage) {
-          errorCET
-        } else {
-          minCoverLeftCET(end, maxErrorExp, minFail, numDigits)
+        Vector(singleCoveringCETCombinations(cetDigits, coverCET, numOracles))
+      } else {
+        val possibleBaseExpAndCETSizes = otherBases.map { base =>
+          val exp =
+            math.floor(math.log(maxError.toDouble) / math.log(base)).toInt
+          val cetSize = math.pow(base, exp).toLong
+          (base, exp, cetSize)
         }
 
-        lazy val leftCET = if (maximizeCoverage) {
-          // CET of width halfMaxError covering [leftErrorCET - halfMaxError, leftErrorCET - 1]
-          numToVec(leftErrorCET - halfMaxError, numDigits, maxErrorExp - 1)
-        } else {
-          // CET of width minFail covering at least [start - minFail, leftErrorCET - 1]
-          minCoverRightCET(start, maxErrorExp, minFail, numDigits)
-        }
+        // Rather than find, can do filter and then find min and max to have something like maximize coverage flag
+        // Can even have other bases compete with base 2 on this for flag = minimize.
+        val expAndCETSizeOpt = possibleBaseExpAndCETSizes
+          .filter {
+            case (_, _, cetSize) =>
+              (start - minFail) / cetSize == (end + minFail) / cetSize
+          }
+          .minByOption(_._3)
 
-        if (leftErrorCET == 0) { // special case: Leftmost CET
-          val multiOracleDigits: Vector[Digits] =
-            singleCoveringCETCombinations(cetDigits, coverCET, numOracles)
-          Vector(multiOracleDigits)
-        } else {
-          val doubleCovering: Vector[Vector[Digits]] =
+        if (expAndCETSizeOpt.isDefined) { // case: non-binary Middle CET
+          val (base, exp, cetSize) = expAndCETSizeOpt.get
+          val mult = (start - minFail) / cetSize
+          val coverCET =
+            NumberUtil.decompose(mult * cetSize,
+                                 base,
+                                 exp
+            ) // FIXME: exp is wrong
+          if (!basesUsed.contains(base)) {
+            basesUsed = basesUsed.appended(base)
+          }
+          Vector(singleCoveringCETCombinations(cetDigits, coverCET, numOracles))
+        } else if ({ println("FAIL"); start < leftErrorCET + minFail }) { // case: Left CET
+          val coverCET = if (maximizeCoverage) {
+            errorCET
+          } else {
+            minCoverLeftCET(end, maxErrorExp, minFail, numDigits)
+          }
+
+          lazy val leftCET = if (maximizeCoverage) {
+            // CET of width halfMaxError covering [leftErrorCET - halfMaxError, leftErrorCET - 1]
+            numToVec(leftErrorCET - halfMaxError, numDigits, maxErrorExp - 1)
+          } else {
+            // CET of width minFail covering at least [start - minFail, leftErrorCET - 1]
+            minCoverRightCET(start, maxErrorExp, minFail, numDigits)
+          }
+
+          if (leftErrorCET == 0) { // special case: Leftmost CET
+            Vector(
+              singleCoveringCETCombinations(cetDigits, coverCET, numOracles))
+          } else {
             doubleCoveringCETCombinations(cetDigits,
                                           coverCET,
                                           leftCET,
                                           numOracles)
-          doubleCovering
-        }
-      } else if (end > rightErrorCET - minFail) { // case: Right CET
-        val coverCET: Digits = if (maximizeCoverage) {
-          errorCET
-        } else {
-          minCoverRightCET(start, maxErrorExp, minFail, numDigits)
-        }
+          }
+        } else if (end > rightErrorCET - minFail) { // case: Right CET
+          val coverCET = if (maximizeCoverage) {
+            errorCET
+          } else {
+            minCoverRightCET(start, maxErrorExp, minFail, numDigits)
+          }
 
-        lazy val rightCET: Digits = if (maximizeCoverage) {
-          // CET of width halfMaxError covering [rightErrorCET + 1, rightErrorCET + halfMaxError]
-          numToVec(rightErrorCET + 1, numDigits, maxErrorExp - 1)
-        } else {
-          // CET of width minFail covering at least [rightErrorCET + 1, end + minFail]
-          minCoverLeftCET(end, maxErrorExp, minFail, numDigits)
-        }
+          lazy val rightCET = if (maximizeCoverage) {
+            // CET of width halfMaxError covering [rightErrorCET + 1, rightErrorCET + halfMaxError]
+            numToVec(rightErrorCET + 1, numDigits, maxErrorExp - 1)
+          } else {
+            // CET of width minFail covering at least [rightErrorCET + 1, end + minFail]
+            minCoverLeftCET(end, maxErrorExp, minFail, numDigits)
+          }
 
-        if (rightErrorCET == maxNum) { // special case: Rightmost CET
-          val singleCover =
-            singleCoveringCETCombinations(cetDigits, coverCET, numOracles)
-          Vector(singleCover)
-        } else {
-          val doubleCovering: Vector[Vector[Digits]] =
+          if (rightErrorCET == maxNum) { // special case: Rightmost CET
+            Vector(
+              singleCoveringCETCombinations(cetDigits, coverCET, numOracles))
+          } else {
             doubleCoveringCETCombinations(cetDigits,
                                           coverCET,
                                           rightCET,
                                           numOracles)
-          doubleCovering
+          }
+        } else {
+          throw new RuntimeException(
+            s"Unexpected case: $cetDigits, $numDigits, $maxErrorExp, $minFailExp")
         }
-      } else {
-        throw new RuntimeException(
-          s"Unknown CET with case: $cetDigits, $numDigits, $maxErrorExp, $minFailExp")
       }
     } else { // case: Large CET
       val builder = Vector.newBuilder[MultiOracleDigits]
@@ -703,24 +728,53 @@ object CETCalculator {
        * Secondary oracle can be on left side if primary is on right.
        */
       if (start != 0) {
-        val leftInnerCET: Digits = if (maximizeCoverage) {
-          numToVec(start, numDigits, maxErrorExp - 1)
-        } else {
-          numToVec(start, numDigits, minFailExp)
-        }
-        val leftCET = if (maximizeCoverage) {
-          numToVec(start - halfMaxError, numDigits, maxErrorExp - 1)
-        } else {
-          numToVec(start - minFail, numDigits, minFailExp)
+        val possibleBaseExpAndCETSizes = otherBases.map { base =>
+          val exp =
+            math.floor(math.log(maxError.toDouble) / math.log(base)).toInt
+          val cetSize = math.pow(base, exp).toLong
+          (base, exp, cetSize)
         }
 
-        val doubleCovering: Vector[MultiOracleDigits] =
-          doubleCoveringRestrictedCETCombinations(leftInnerCET,
-                                                  leftCET,
-                                                  numOracles)
+        // Rather than find, can do filter and then find min and max to have something like maximize coverage flag
+        // Can even have other bases compete with base 2 on this for flag = minimize.
+        val expAndCETSizeOpt = possibleBaseExpAndCETSizes
+          .filter {
+            case (_, _, cetSize) =>
+              (start - minFail) / cetSize == (start + minFail) / cetSize
+          }
+          .minByOption(_._3)
 
-        builder.++=(doubleCovering)
-        builder.result()
+        if (expAndCETSizeOpt.isDefined) { // case: non-binary Middle CET
+          val (base, exp, cetSize) = expAndCETSizeOpt.get
+          val mult = (start - minFail) / cetSize
+          val coverCET =
+            NumberUtil.decompose(mult * cetSize,
+                                 base,
+                                 exp
+            ) // FIXME: exp is wrong
+          builder.+=(
+            singleCoveringCETCombinations(
+              numToVec(start, numDigits, minFailExp),
+              coverCET,
+              numOracles))
+        } else {
+
+          val leftInnerCET = if (maximizeCoverage) {
+            numToVec(start, numDigits, maxErrorExp - 1)
+          } else {
+            numToVec(start, numDigits, minFailExp)
+          }
+          val leftCET = if (maximizeCoverage) {
+            numToVec(start - halfMaxError, numDigits, maxErrorExp - 1)
+          } else {
+            numToVec(start - minFail, numDigits, minFailExp)
+          }
+
+          builder.++=(
+            doubleCoveringRestrictedCETCombinations(leftInnerCET,
+                                                    leftCET,
+                                                    numOracles))
+        }
       }
 
       /* [start, end]:
@@ -744,21 +798,53 @@ object CETCalculator {
        * Secondary oracle can be on right side if primary is on left.
        */
       if (end != maxNum) {
-        val rightInnerCET: Digits = if (maximizeCoverage) {
-          numToVec(end - halfMaxError + 1, numDigits, maxErrorExp - 1)
-        } else {
-          numToVec(end - minFail + 1, numDigits, minFailExp)
-        }
-        val rightCET: Digits = if (maximizeCoverage) {
-          numToVec(end + 1, numDigits, maxErrorExp - 1)
-        } else {
-          numToVec(end + 1, numDigits, minFailExp)
+        val possibleBaseExpAndCETSizes = otherBases.map { base =>
+          val exp =
+            math.floor(math.log(maxError.toDouble) / math.log(base)).toInt
+          val cetSize = math.pow(base, exp).toLong
+          (base, exp, cetSize)
         }
 
-        val doubleCover = doubleCoveringRestrictedCETCombinations(rightInnerCET,
-                                                                  rightCET,
-                                                                  numOracles)
-        builder.++=(doubleCover)
+        // Rather than find, can do filter and then find min and max to have something like maximize coverage flag
+        // Can even have other bases compete with base 2 on this for flag = minimize.
+        val expAndCETSizeOpt = possibleBaseExpAndCETSizes
+          .filter {
+            case (_, _, cetSize) =>
+              (end - minFail) / cetSize == (end + minFail) / cetSize
+          }
+          .minByOption(_._3)
+
+        if (expAndCETSizeOpt.isDefined) { // case: non-binary Middle CET
+          val (base, exp, cetSize) = expAndCETSizeOpt.get
+          val mult = (end - minFail) / cetSize
+          val coverCET =
+            NumberUtil.decompose(mult * cetSize,
+                                 base,
+                                 exp
+            ) // FIXME: exp is wrong
+          builder.+=(
+            singleCoveringCETCombinations(
+              numToVec(end - minFail + 1, numDigits, minFailExp),
+              coverCET,
+              numOracles))
+        } else {
+
+          val rightInnerCET = if (maximizeCoverage) {
+            numToVec(end - halfMaxError + 1, numDigits, maxErrorExp - 1)
+          } else {
+            numToVec(end - minFail + 1, numDigits, minFailExp)
+          }
+          val rightCET = if (maximizeCoverage) {
+            numToVec(end + 1, numDigits, maxErrorExp - 1)
+          } else {
+            numToVec(end + 1, numDigits, minFailExp)
+          }
+
+          builder.++=(
+            doubleCoveringRestrictedCETCombinations(rightInnerCET,
+                                                    rightCET,
+                                                    numOracles))
+        }
       }
 
       builder.result()
