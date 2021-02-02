@@ -106,8 +106,8 @@ case class ContractInfo(
       case ContractOraclePair.NumericPair(descriptor: NumericContractDescriptor,
                                           oracleInfo: NumericMultiOracleInfo) =>
         val vec: Vector[MultiOracleOutcome] =
-          CETCalculator.computeMultiOracleCETsBinary(
-            descriptor.numDigits,
+          CETCalculator.computeMultiOracleCETs(
+            Vector((2, descriptor.numDigits)),
             descriptor.outcomeValueFunc,
             totalCollateral,
             descriptor.roundingIntervals,
@@ -123,7 +123,7 @@ case class ContractInfo(
             vec.map {
               case MultiOracleOutcome(digitsVec, amt) =>
                 val outcomesVec =
-                  digitsVec.toVector.map(UnsignedNumericOutcome.apply)
+                  digitsVec.map(UnsignedNumericOutcome.apply)
                 (NumericOracleOutcome(oracles.zip(outcomesVec)), amt)
             }
           }
