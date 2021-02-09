@@ -12,7 +12,7 @@ import org.bitcoins.core.protocol.script.{
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.wallet.builder.{
   DualFundingTxFinalizer,
-  RawTxBuilderWithFinalizer
+  RawTxBuilderWithAsyncFinalizer
 }
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.crypto.ECPublicKey
@@ -75,7 +75,7 @@ case class DLCFundingTxBuilder(
   )
 
   def buildFundingTx()(implicit ec: ExecutionContext): Future[Transaction] = {
-    val builder = RawTxBuilderWithFinalizer(fundingTxFinalizer)
+    val builder = RawTxBuilderWithAsyncFinalizer(fundingTxFinalizer)
 
     builder += TransactionOutput(totalInput, fundingSPK)
     builder += TransactionOutput(offerTotalFunding - offerInput, offerChangeSPK)

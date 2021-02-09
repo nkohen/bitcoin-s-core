@@ -30,7 +30,7 @@ import scala.util.{Failure, Random, Success, Try}
   * by taking that transactions inputs (in order), outputs (in order), locktime and
   * version and this RawTxBuilderResult is then given to the second RawTxFinalizer.
   */
-trait RawTxFinalizer {
+trait AsyncRawTxFinalizer {
 
   /** Constructs a finalized (unsigned) transaction */
   def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
@@ -41,13 +41,13 @@ trait RawTxFinalizer {
     * locktime and version and this RawTxBuilderResult is then passed to
     * the other RawTxFinalizer's buildTx
     */
-  def andThen(other: RawTxFinalizer): RawTxFinalizer = {
+  def andThen(other: AsyncRawTxFinalizer): AsyncRawTxFinalizer = {
     // this.buildTx above gets shadowed below, so this allows us to call it
     def thisBuildTx(txBuilderResult: RawTxBuilderResult)(implicit
         ec: ExecutionContext): Future[Transaction] =
       this.buildTx(txBuilderResult)
 
-    new RawTxFinalizer {
+    new AsyncRawTxFinalizer {
       override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
           ec: ExecutionContext): Future[Transaction] = {
         for {
@@ -60,15 +60,46 @@ trait RawTxFinalizer {
   }
 }
 
-abstract class FinalizerFactory[T <: RawTxFinalizer] {
+trait RawTxFinalizer extends AsyncRawTxFinalizer {
+
+  /** Constructs a finalized (unsigned) transaction */
+  def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction
+
+  /** The result of buildTx is converted into a RawTxBuilderResult
+    * by taking that transactions inputs (in order), outputs (in order),
+    * locktime and version and this RawTxBuilderResult is then passed to
+    * the other RawTxFinalizer's buildTx
+    */
+  def andThenSync(other: RawTxFinalizer): RawTxFinalizer = {
+    new RawTxFinalizer {
+
+      /** Constructs a finalized (unsigned) transaction */
+      override def buildTxSync(
+          txBuilderResult: RawTxBuilderResult): Transaction = {
+        other.buildTxSync(
+          RawTxBuilderResult.fromTransaction(
+            this.buildTxSync(txBuilderResult)
+          )
+        )
+      }
+    }
+  }
+
+  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
+      ec: ExecutionContext): Future[Transaction] = {
+    Future.successful(buildTxSync(txBuilderResult))
+  }
+}
+
+abstract class FinalizerFactory[T <: AsyncRawTxFinalizer] {
 
   def txBuilderFrom(
       outputs: Seq[TransactionOutput],
       utxos: Seq[InputSigningInfo[InputInfo]],
       feeRate: FeeUnit,
       changeSPK: ScriptPubKey,
-      defaultSequence: UInt32 = Policy.sequence): RawTxBuilderWithFinalizer[
-    T] = {
+      defaultSequence: UInt32 =
+        Policy.sequence): RawTxBuilderWithAsyncFinalizer[T] = {
     val inputs = InputUtil.calcSequenceForInputs(utxos, defaultSequence)
     val lockTime = TxUtil.calcLockTime(utxos).get
     val builder = RawTxBuilder().setLockTime(lockTime) ++= outputs ++= inputs
@@ -98,9 +129,8 @@ abstract class FinalizerFactory[T <: RawTxFinalizer] {
 /** A trivial finalizer that does no processing */
 case object RawFinalizer extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
-    Future.successful(txBuilderResult.toBaseTransaction)
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
+    txBuilderResult.toBaseTransaction
   }
 }
 
@@ -109,24 +139,22 @@ case object RawFinalizer extends RawTxFinalizer {
   */
 case object FilterDustFinalizer extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     val filteredOutputs =
       txBuilderResult.outputs.filter(_.value >= Policy.dustThreshold)
-    Future.successful(
-      txBuilderResult.toBaseTransaction.copy(outputs = filteredOutputs))
+
+    txBuilderResult.toBaseTransaction.copy(outputs = filteredOutputs)
   }
 }
 
 case object BIP69Finalizer extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     val sortedInputs = txBuilderResult.inputs.sorted
     val sortedOutputs = txBuilderResult.outputs.sorted
-    Future.successful(
-      txBuilderResult.toBaseTransaction.copy(inputs = sortedInputs,
-                                             outputs = sortedOutputs))
+
+    txBuilderResult.toBaseTransaction.copy(inputs = sortedInputs,
+                                           outputs = sortedOutputs)
   }
 }
 
@@ -140,8 +168,7 @@ case class SanityCheckFinalizer(
     changeSPKs: Vector[ScriptPubKey] = Vector.empty)
     extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     val tx = txBuilderResult.toBaseTransaction
 
     val passInOutChecksT =
@@ -154,7 +181,10 @@ case class SanityCheckFinalizer(
       TxUtil.sanityChecks(isSigned = false, inputInfos, expectedFeeRate, tx)
     }
 
-    Future.fromTry(passChecksT.map(_ => tx))
+    passChecksT match {
+      case Success(())  => tx
+      case Failure(err) => throw err
+    }
   }
 }
 
@@ -203,7 +233,7 @@ case class ChangeFinalizer(
     inputInfos: Vector[InputInfo],
     feeRate: FeeUnit,
     changeSPK: ScriptPubKey)
-    extends RawTxFinalizer {
+    extends AsyncRawTxFinalizer {
 
   override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
       ec: ExecutionContext): Future[Transaction] = {
@@ -250,8 +280,7 @@ case class ChangeFinalizer(
 case class AddWitnessDataFinalizer(inputInfos: Vector[InputInfo])
     extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
 
     val result = txBuilderResult.toBaseTransaction
 
@@ -264,14 +293,11 @@ case class AddWitnessDataFinalizer(inputInfos: Vector[InputInfo])
     val witnesses = sortedInputInfos.map(InputInfo.getScriptWitness)
     TransactionWitness.fromWitOpt(witnesses) match {
       case _: EmptyWitness =>
-        Future.successful(txBuilderResult.toBaseTransaction)
+        txBuilderResult.toBaseTransaction
       case wit: TransactionWitness =>
-        val wtx =
-          WitnessTransaction
-            .toWitnessTx(txBuilderResult.toBaseTransaction)
-            .copy(witness = wit)
-
-        Future.successful(wtx)
+        WitnessTransaction
+          .toWitnessTx(txBuilderResult.toBaseTransaction)
+          .copy(witness = wit)
     }
   }
 }
@@ -284,7 +310,7 @@ case class StandardNonInteractiveFinalizer(
     inputInfos: Vector[InputInfo],
     feeRate: FeeUnit,
     changeSPK: ScriptPubKey)
-    extends RawTxFinalizer {
+    extends AsyncRawTxFinalizer {
 
   override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
       ec: ExecutionContext): Future[Transaction] = {
@@ -324,7 +350,7 @@ case class ShufflingNonInteractiveFinalizer(
     inputInfos: Vector[InputInfo],
     feeRate: FeeUnit,
     changeSPK: ScriptPubKey)
-    extends RawTxFinalizer {
+    extends AsyncRawTxFinalizer {
 
   override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
       ec: ExecutionContext): Future[Transaction] = {
@@ -332,7 +358,7 @@ case class ShufflingNonInteractiveFinalizer(
 
     val shuffled = addChange.andThen(ShuffleFinalizer)
 
-    shuffled.buildTx(txBuilderResult).flatMap { tempTx =>
+    shuffled.buildTx(txBuilderResult).map { tempTx =>
       val tempTxBuilderResult = RawTxBuilderResult.fromTransaction(tempTx)
 
       val shuffledInputInfos = tempTxBuilderResult.inputs
@@ -346,8 +372,8 @@ case class ShufflingNonInteractiveFinalizer(
                              changeSPKs = Vector(changeSPK))
 
       sanityCheck
-        .andThen(AddWitnessDataFinalizer(shuffledInputInfos))
-        .buildTx(tempTxBuilderResult)
+        .andThenSync(AddWitnessDataFinalizer(shuffledInputInfos))
+        .buildTxSync(tempTxBuilderResult)
     }
   }
 }
@@ -376,8 +402,7 @@ case class AddFutureFeeFinalizer(
     changeSPKs: Vector[ScriptPubKey])
     extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     val changeOutputs = txBuilderResult.outputs.filter(output =>
       changeSPKs.contains(output.scriptPubKey))
 
@@ -409,7 +434,10 @@ case class AddFutureFeeFinalizer(
       txBuilderResult.toBaseTransaction.copy(outputs = outputs)
     }
 
-    Future.fromTry(txT)
+    txT match {
+      case Success(tx)  => tx
+      case Failure(err) => throw err
+    }
   }
 }
 
@@ -421,17 +449,16 @@ case class AddFutureFeeFinalizer(
 case class SubtractFromOutputFinalizer(spk: ScriptPubKey, subAmt: CurrencyUnit)
     extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     txBuilderResult.outputs.zipWithIndex.find(_._1.scriptPubKey == spk) match {
       case Some((output, index)) =>
         val newOutput = output.copy(value = output.value - subAmt)
         val newOutputs = txBuilderResult.outputs.updated(index, newOutput)
-        Future.successful(
-          txBuilderResult.toBaseTransaction.copy(outputs = newOutputs))
+
+        txBuilderResult.toBaseTransaction.copy(outputs = newOutputs)
       case None =>
-        Future.failed(new RuntimeException(
-          s"Did not find expected SPK $spk in ${txBuilderResult.outputs.map(_.scriptPubKey)}"))
+        throw new RuntimeException(
+          s"Did not find expected SPK $spk in ${txBuilderResult.outputs.map(_.scriptPubKey)}")
     }
   }
 }
@@ -444,7 +471,7 @@ case class SubtractFeeFromOutputsFinalizer(
     inputInfos: Vector[InputInfo],
     feeRate: FeeUnit,
     spks: Vector[ScriptPubKey])
-    extends RawTxFinalizer {
+    extends AsyncRawTxFinalizer {
 
   override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
       ec: ExecutionContext): Future[Transaction] = {
@@ -549,8 +576,7 @@ case class DualFundingTxFinalizer(
   lazy val (acceptFutureFee, acceptFundingFee) =
     computeFees(acceptInputs, acceptPayoutSPK, acceptChangeSPK)
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     val addOfferFutureFee =
       AddFutureFeeFinalizer(fundingSPK, offerFutureFee, Vector(offerChangeSPK))
     val addAcceptFutureFee = AddFutureFeeFinalizer(fundingSPK,
@@ -562,43 +588,40 @@ case class DualFundingTxFinalizer(
       SubtractFromOutputFinalizer(acceptChangeSPK, acceptFundingFee)
 
     addOfferFutureFee
-      .andThen(addAcceptFutureFee)
-      .andThen(subtractOfferFundingFee)
-      .andThen(subtractAcceptFundingFee)
-      .andThen(FilterDustFinalizer)
-      .buildTx(txBuilderResult)
+      .andThenSync(addAcceptFutureFee)
+      .andThenSync(subtractOfferFundingFee)
+      .andThenSync(subtractAcceptFundingFee)
+      .andThenSync(FilterDustFinalizer)
+      .buildTxSync(txBuilderResult)
   }
 }
 
 /** Shuffles in the inputs and outputs of the Transaction into a random order */
 case object ShuffleFinalizer extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     ShuffleInputsFinalizer
-      .andThen(ShuffleOutputsFinalizer)
-      .buildTx(txBuilderResult)
+      .andThenSync(ShuffleOutputsFinalizer)
+      .buildTxSync(txBuilderResult)
   }
 }
 
 /** Shuffles in the inputs of the Transaction into a random order */
 case object ShuffleInputsFinalizer extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     val shuffledInputs = Random.shuffle(txBuilderResult.inputs)
-    Future.successful(
-      txBuilderResult.toBaseTransaction.copy(inputs = shuffledInputs))
+
+    txBuilderResult.toBaseTransaction.copy(inputs = shuffledInputs)
   }
 }
 
 /** Shuffles in the outputs of the Transaction into a random order */
 case object ShuffleOutputsFinalizer extends RawTxFinalizer {
 
-  override def buildTx(txBuilderResult: RawTxBuilderResult)(implicit
-      ec: ExecutionContext): Future[Transaction] = {
+  override def buildTxSync(txBuilderResult: RawTxBuilderResult): Transaction = {
     val shuffledOutputs = Random.shuffle(txBuilderResult.outputs)
-    Future.successful(
-      txBuilderResult.toBaseTransaction.copy(outputs = shuffledOutputs))
+
+    txBuilderResult.toBaseTransaction.copy(outputs = shuffledOutputs)
   }
 }

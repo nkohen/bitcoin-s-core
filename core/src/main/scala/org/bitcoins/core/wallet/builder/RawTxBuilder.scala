@@ -28,11 +28,11 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * Once a transaction is done being built and is ready to be passed to a
   * RawTransactionFinalizer, call the result method to receive a
-  * [[RawTxBuilderResult]] which can be passed into [[RawTxFinalizer.buildTx]].
+  * [[RawTxBuilderResult]] which can be passed into [[AsyncRawTxFinalizer.buildTx]].
   *
   * If you have access to a finalizer before you are ready to call result,
   * you may call the setFinalizer method to receive an instance of type
-  * [[RawTxBuilderWithFinalizer]] which is described below, and where
+  * [[RawTxBuilderWithAsyncFinalizer]] which is described below, and where
   * you may continue to build and then call buildTx directly.
   *
   * Note: RawTxBuilder is not thread safe.
@@ -58,10 +58,18 @@ case class RawTxBuilder() {
                        lockTime)
   }
 
+  /** Returns a RawTxBuilderWithAsyncFinalizer where building can continue
+    * and where buildTx can be called once building is completed.
+    */
+  def setFinalizer[F <: AsyncRawTxFinalizer](
+      finalizer: F): RawTxBuilderWithAsyncFinalizer[F] = {
+    RawTxBuilderWithAsyncFinalizer(this, finalizer)
+  }
+
   /** Returns a RawTxBuilderWithFinalizer where building can continue
     * and where buildTx can be called once building is completed.
     */
-  def setFinalizer[F <: RawTxFinalizer](
+  def setFinalizerSync[F <: RawTxFinalizer](
       finalizer: F): RawTxBuilderWithFinalizer[F] = {
     RawTxBuilderWithFinalizer(this, finalizer)
   }
@@ -144,9 +152,9 @@ case class RawTxBuilder() {
   * access to the RawTxFinalizer's buildTx method which
   * completes the RawTxBuilder and then finalized the result.
   */
-case class RawTxBuilderWithFinalizer[F <: RawTxFinalizer](
-    builder: RawTxBuilder,
-    finalizer: F) {
+class RawTxBuilderWithAsyncFinalizer[F <: AsyncRawTxFinalizer](
+    val builder: RawTxBuilder,
+    val finalizer: F) {
 
   /** Completes the builder and finalizes the result */
   def buildTx()(implicit ec: ExecutionContext): Future[Transaction] = {
@@ -184,9 +192,27 @@ case class RawTxBuilderWithFinalizer[F <: RawTxFinalizer](
   }
 }
 
-object RawTxBuilderWithFinalizer {
+object RawTxBuilderWithAsyncFinalizer {
 
-  def apply[F <: RawTxFinalizer](finalizer: F): RawTxBuilderWithFinalizer[F] = {
-    RawTxBuilderWithFinalizer(RawTxBuilder(), finalizer)
+  def apply[F <: AsyncRawTxFinalizer](
+      builder: RawTxBuilder,
+      finalizer: F): RawTxBuilderWithAsyncFinalizer[F] = {
+    new RawTxBuilderWithAsyncFinalizer(builder, finalizer)
+  }
+
+  def apply[F <: AsyncRawTxFinalizer](
+      finalizer: F): RawTxBuilderWithAsyncFinalizer[F] = {
+    RawTxBuilderWithAsyncFinalizer(RawTxBuilder(), finalizer)
+  }
+}
+
+case class RawTxBuilderWithFinalizer[F <: RawTxFinalizer](
+    override val builder: RawTxBuilder,
+    override val finalizer: F)
+    extends RawTxBuilderWithAsyncFinalizer[F](builder, finalizer) {
+
+  /** Completes the builder and finalizes the result */
+  def buildTxSync(): Transaction = {
+    finalizer.buildTxSync(builder.result())
   }
 }

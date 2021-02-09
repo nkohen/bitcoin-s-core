@@ -57,7 +57,7 @@ trait FundTransactionHandling extends WalletLogger { self: Wallet =>
         CoinSelectionAlgo.AccumulateLargest,
       fromTagOpt: Option[AddressTag],
       markAsReserved: Boolean = false): Future[(
-      RawTxBuilderWithFinalizer[ShufflingNonInteractiveFinalizer],
+      RawTxBuilderWithAsyncFinalizer[ShufflingNonInteractiveFinalizer],
       Vector[ScriptSignatureParams[InputInfo]])] = {
     def utxosF: Future[Vector[(SpendingInfoDb, Transaction)]] =
       for {

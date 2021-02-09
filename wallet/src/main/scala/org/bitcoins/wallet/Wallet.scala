@@ -376,11 +376,11 @@ abstract class Wallet
     }
   }
 
-  /** Takes a [[RawTxBuilderWithFinalizer]] for a transaction to be sent, and completes it by:
+  /** Takes a [[RawTxBuilderWithAsyncFinalizer]] for a transaction to be sent, and completes it by:
     * finalizing and signing the transaction, then correctly processing and logging it
     */
-  private def finishSend[F <: RawTxFinalizer](
-      txBuilder: RawTxBuilderWithFinalizer[F],
+  private def finishSend[F <: AsyncRawTxFinalizer](
+      txBuilder: RawTxBuilderWithAsyncFinalizer[F],
       utxoInfos: Vector[ScriptSignatureParams[InputInfo]],
       sentAmount: CurrencyUnit,
       feeRate: FeeUnit,
