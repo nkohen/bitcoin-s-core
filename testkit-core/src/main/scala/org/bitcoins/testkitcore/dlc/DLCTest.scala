@@ -343,8 +343,8 @@ trait DLCTest {
     val (outcomesDesc, otherOutcomesDesc) =
       DLCTestUtil.genContractDescriptors(outcomeStrs, totalInput)
 
-    val offerInfo = ContractInfo(outcomesDesc, oracleInfo)
-    val acceptInfo = ContractInfo(otherOutcomesDesc, oracleInfo)
+    val offerInfo = SingleContractInfo(outcomesDesc, oracleInfo)
+    val acceptInfo = SingleContractInfo(otherOutcomesDesc, oracleInfo)
 
     val (offerDLC, acceptDLC) = constructDLCClientsFromInfos(
       offerInfo,
@@ -409,8 +409,8 @@ trait DLCTest {
     val numericPairOffer = ContractOraclePair.NumericPair(offerDesc, oracleInfo)
     val numericPairAccept =
       ContractOraclePair.NumericPair(acceptDesc, oracleInfo)
-    val offerInfo = ContractInfo(totalInput.satoshis, numericPairOffer)
-    val acceptInfo = ContractInfo(totalInput.satoshis, numericPairAccept)
+    val offerInfo = SingleContractInfo(totalInput.satoshis, numericPairOffer)
+    val acceptInfo = SingleContractInfo(totalInput.satoshis, numericPairAccept)
     val outcomes =
       offerInfo.allOutcomes.map(_.asInstanceOf[NumericOracleOutcome].outcome)
 
@@ -560,7 +560,7 @@ trait DLCTest {
     outcomes(outcomeIndex.toInt) match {
       case outcome: EnumOutcome =>
         val oracles = chosenOracles
-          .map(dlcOffer.offer.oracleInfo.singleOracleInfos.apply)
+          .map(dlcOffer.offer.oracleInfos.head.singleOracleInfos.apply)
           .map(_.asInstanceOf[EnumSingleOracleInfo])
         EnumOracleOutcome(oracles, outcome)
       case _: NumericDLCOutcomeType =>
@@ -636,7 +636,7 @@ trait DLCTest {
       contractInfo: ContractInfo,
       digits: Vector[Int],
       paramsOpt: Option[OracleParamsV0TLV]): NumericOracleOutcome = {
-    contractInfo.contractOraclePair match {
+    contractInfo.contracts.head.contractOraclePair match {
       case e: ContractOraclePair.EnumPair =>
         Assertions.fail(s"Expected Numeric Contract, got enum=$e")
       case ContractOraclePair.NumericPair(_, oracleInfo) =>
@@ -680,7 +680,7 @@ trait DLCTest {
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long,
       paramsOpt: Option[OracleParamsV0TLV]): NumericOracleOutcome = {
-    dlcOffer.offer.contractInfo.contractOraclePair match {
+    dlcOffer.offer.contractInfo.contracts.head.contractOraclePair match {
       case e: ContractOraclePair.EnumPair =>
         Assertions.fail(s"Expected Numeric Contract, got enum=$e")
       case ContractOraclePair.NumericPair(descriptor, _) =>
@@ -733,7 +733,7 @@ trait DLCTest {
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long,
       paramsOpt: Option[OracleParamsV0TLV]): OracleOutcome = {
-    val oracleInfo = dlcOffer.offer.oracleInfo
+    val oracleInfo = dlcOffer.offer.oracleInfos.head
 
     val oracleIndices =
       0.until(oracleInfo.numOracles).toVector

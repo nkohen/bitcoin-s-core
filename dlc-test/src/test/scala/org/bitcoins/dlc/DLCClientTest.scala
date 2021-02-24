@@ -350,7 +350,7 @@ class DLCClientTest extends BitcoinSJvmTest with DLCTest {
     outcomes.foreach { outcomeUncast =>
       val outcome = outcomeUncast.asInstanceOf[EnumOutcome]
       val oracleInfo =
-        offerClient.offer.oracleInfo.asInstanceOf[EnumSingleOracleInfo]
+        offerClient.offer.oracleInfos.head.asInstanceOf[EnumSingleOracleInfo]
       val oracleOutcome = EnumOracleOutcome(Vector(oracleInfo), outcome)
 
       val oracleSig = genEnumOracleSignature(oracleInfo, outcome.outcome)
@@ -378,9 +378,10 @@ class DLCClientTest extends BitcoinSJvmTest with DLCTest {
     }
 
     outcomes.foreach { outcomeUncast =>
-      val outcome = EnumOracleOutcome(
-        Vector(offerClient.offer.oracleInfo.asInstanceOf[EnumSingleOracleInfo]),
-        outcomeUncast.asInstanceOf[EnumOutcome])
+      val outcome = EnumOracleOutcome(Vector(
+                                        offerClient.offer.oracleInfos.head
+                                          .asInstanceOf[EnumSingleOracleInfo]),
+                                      outcomeUncast.asInstanceOf[EnumOutcome])
 
       assert(offerVerifier.verifyCETSig(outcome, acceptCETSigs(outcome)))
       assert(acceptVerifier.verifyCETSig(outcome, offerCETSigs(outcome)))
@@ -391,9 +392,10 @@ class DLCClientTest extends BitcoinSJvmTest with DLCTest {
     assert(acceptVerifier.verifyRefundSig(acceptCETSigs.refundSig))
 
     outcomes.foreach { outcomeUncast =>
-      val outcome = EnumOracleOutcome(
-        Vector(offerClient.offer.oracleInfo.asInstanceOf[EnumSingleOracleInfo]),
-        outcomeUncast.asInstanceOf[EnumOutcome])
+      val outcome = EnumOracleOutcome(Vector(
+                                        offerClient.offer.oracleInfos.head
+                                          .asInstanceOf[EnumSingleOracleInfo]),
+                                      outcomeUncast.asInstanceOf[EnumOutcome])
 
       assert(!offerVerifier.verifyCETSig(outcome, badAcceptCETSigs(outcome)))
       assert(!acceptVerifier.verifyCETSig(outcome, badOfferCETSigs(outcome)))
@@ -562,7 +564,7 @@ class DLCClientTest extends BitcoinSJvmTest with DLCTest {
                   val outcome =
                     possibleOutcomes(Random.nextInt(possibleOutcomes.length))
 
-                  val oracleInfo = dlcOffer.offer.oracleInfo
+                  val oracleInfo = dlcOffer.offer.oracleInfos.head
 
                   val oracleIndices =
                     0.until(oracleInfo.numOracles).toVector
