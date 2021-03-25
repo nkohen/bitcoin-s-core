@@ -1,25 +1,19 @@
 package org.bitcoins.dlc
 
-import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.dlc.DLCMessage._
 import org.bitcoins.core.protocol.dlc._
-import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.tlv.{
-  DLCOutcomeType,
   EnumOutcome,
   OracleParamsV0TLV,
   UnsignedNumericOutcome
 }
-import org.bitcoins.core.protocol.transaction._
-import org.bitcoins.core.script.crypto.HashType
-import org.bitcoins.core.util.{BitcoinScriptUtil, NumberUtil}
-import org.bitcoins.core.wallet.utxo._
+import org.bitcoins.core.util.NumberUtil
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
 import org.bitcoins.dlc.execution._
 import org.bitcoins.dlc.testgen.TestDLCClient
 import org.bitcoins.dlc.verify.DLCSignatureVerifier
-import org.bitcoins.testkitcore.dlc.{DLCFeeTestUtil, DLCTest}
+import org.bitcoins.testkitcore.dlc.DLCTest
 import org.bitcoins.testkitcore.util.{BitcoinSJvmTest, BytesUtil}
 import org.scalatest.Assertion
 import scodec.bits.BitVector
@@ -29,141 +23,6 @@ import scala.util.Random
 
 class DLCClientTest extends BitcoinSJvmTest with DLCTest {
   behavior of "AdaptorDLCClient"
-
-  def validateOutcome(
-      outcome: DLCOutcome,
-      dlcOffer: TestDLCClient,
-      dlcAccept: TestDLCClient): Assertion = {
-    val fundingTx = outcome.fundingTx
-    assert(noEmptySPKOutputs(fundingTx))
-
-    val fundOutputIndex = dlcOffer.dlcTxBuilder.fundOutputIndex
-
-    val signers = Vector(dlcOffer.fundingPrivKey, dlcAccept.fundingPrivKey)
-    val closingSpendingInfo = ScriptSignatureParams(
-      P2WSHV0InputInfo(
-        TransactionOutPoint(fundingTx.txId, UInt32(fundOutputIndex)),
-        fundingTx.outputs(fundOutputIndex).value,
-        P2WSHWitnessV0(
-          MultiSignatureScriptPubKey(2,
-                                     signers.map(_.publicKey).sortBy(_.hex))),
-        ConditionalPath.NoCondition
-      ),
-      fundingTx,
-      signers,
-      HashType.sigHashAll
-    )
-
-    outcome match {
-      case ExecutedDLCOutcome(fundingTx, cet, _, _) =>
-        DLCFeeTestUtil.validateFees(dlcOffer.dlcTxBuilder,
-                                    fundingTx,
-                                    cet,
-                                    fundingTxSigs = 5)
-        assert(noEmptySPKOutputs(cet))
-        assert(BitcoinScriptUtil.verifyScript(cet, Vector(closingSpendingInfo)))
-      case RefundDLCOutcome(fundingTx, refundTx) =>
-        DLCFeeTestUtil.validateFees(dlcOffer.dlcTxBuilder,
-                                    fundingTx,
-                                    refundTx,
-                                    fundingTxSigs = 5)
-        assert(noEmptySPKOutputs(refundTx))
-        assert(
-          BitcoinScriptUtil.verifyScript(refundTx, Vector(closingSpendingInfo)))
-    }
-  }
-
-  def setupDLC(
-      dlcOffer: TestDLCClient,
-      dlcAccept: TestDLCClient): Future[(SetupDLC, SetupDLC)] = {
-
-    setupDLC(dlcOffer,
-             dlcAccept,
-             _.map(_.fundingTx),
-             _ => Future.successful(()))
-  }
-
-  def constructAndSetupDLC(
-      numOutcomes: Int,
-      isMultiDigit: Boolean,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV] = None): Future[
-    (
-        TestDLCClient,
-        SetupDLC,
-        TestDLCClient,
-        SetupDLC,
-        Vector[DLCOutcomeType])] = {
-    val (offerDLC, acceptDLC, outcomes) =
-      constructDLCClients(numOutcomes,
-                          isMultiDigit,
-                          oracleThreshold,
-                          numOracles,
-                          paramsOpt)
-
-    for {
-      (offerSetup, acceptSetup) <- setupDLC(offerDLC, acceptDLC)
-    } yield (offerDLC, offerSetup, acceptDLC, acceptSetup, outcomes)
-  }
-
-  def executeForCase(
-      outcomeIndex: Long,
-      numOutcomes: Int,
-      isMultiDigit: Boolean,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV] = None): Future[Assertion] = {
-    constructAndSetupDLC(numOutcomes,
-                         isMultiDigit,
-                         oracleThreshold,
-                         numOracles,
-                         paramsOpt)
-      .flatMap {
-        case (dlcOffer, offerSetup, dlcAccept, acceptSetup, outcomes) =>
-          val oracleSigs = genOracleSignatures(numOutcomes,
-                                               isMultiDigit,
-                                               dlcOffer,
-                                               outcomes,
-                                               outcomeIndex,
-                                               paramsOpt)
-
-          for {
-            offerOutcome <-
-              dlcOffer.executeDLC(offerSetup, Future.successful(oracleSigs))
-            acceptOutcome <-
-              dlcAccept.executeDLC(acceptSetup, Future.successful(oracleSigs))
-          } yield {
-            assert(offerOutcome.fundingTx == acceptOutcome.fundingTx)
-
-            validateOutcome(offerOutcome, dlcOffer, dlcAccept)
-            validateOutcome(acceptOutcome, dlcOffer, dlcAccept)
-          }
-      }
-  }
-
-  def executeRefundCase(
-      numOutcomes: Int,
-      isMultiNonce: Boolean,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV] = None): Future[Assertion] = {
-    constructAndSetupDLC(numOutcomes,
-                         isMultiNonce,
-                         oracleThreshold,
-                         numOracles,
-                         paramsOpt)
-      .flatMap { case (dlcOffer, offerSetup, dlcAccept, acceptSetup, _) =>
-        val offerOutcome = dlcOffer.executeRefundDLC(offerSetup)
-        val acceptOutcome = dlcAccept.executeRefundDLC(acceptSetup)
-
-        validateOutcome(offerOutcome, dlcOffer, dlcAccept)
-        validateOutcome(acceptOutcome, dlcOffer, dlcAccept)
-
-        assert(acceptOutcome.fundingTx == offerOutcome.fundingTx)
-        assert(acceptOutcome.refundTx == offerOutcome.refundTx)
-      }
-  }
 
   val enumOracleSchemesToTest: Vector[(Int, Int)] =
     Vector((1, 1), (1, 2), (2, 2), (2, 3), (3, 5), (5, 8))
@@ -407,97 +266,6 @@ class DLCClientTest extends BitcoinSJvmTest with DLCTest {
     assert(!offerVerifier.verifyRefundSig(badOfferCETSigs.refundSig))
     assert(!acceptVerifier.verifyRefundSig(badOfferCETSigs.refundSig))
     assert(!acceptVerifier.verifyRefundSig(badAcceptCETSigs.refundSig))
-  }
-
-  def assertCorrectSigDerivation(
-      offerSetup: SetupDLC,
-      dlcOffer: TestDLCClient,
-      acceptSetup: SetupDLC,
-      dlcAccept: TestDLCClient,
-      oracleSigs: Vector[OracleSignatures],
-      outcome: OracleOutcome): Future[Assertion] = {
-    val aggR = outcome.aggregateNonce
-    val aggS = outcome match {
-      case EnumOracleOutcome(oracles, _) =>
-        assert(oracles.length == oracleSigs.length)
-
-        val sVals = oracleSigs.map {
-          case EnumOracleSignature(oracle, sig) =>
-            assert(oracles.contains(oracle))
-            sig.sig
-          case _: NumericOracleSignatures =>
-            fail("Expected EnumOracleSignature")
-        }
-
-        sVals.reduce(_.add(_))
-      case NumericOracleOutcome(oraclesAndOutcomes) =>
-        assert(oraclesAndOutcomes.length == oracleSigs.length)
-
-        val sVals = oracleSigs.map {
-          case NumericOracleSignatures(oracle, sigs) =>
-            val oracleAndOutcomeOpt = oraclesAndOutcomes.find(_._1 == oracle)
-            assert(oracleAndOutcomeOpt.isDefined)
-            val outcome = oracleAndOutcomeOpt.get._2
-            val sVals = sigs.take(outcome.digits.length).map(_.sig)
-            sVals.reduce(_.add(_))
-          case _: EnumOracleSignature =>
-            fail("Expected NumericOracleSignatures")
-        }
-        sVals.reduce(_.add(_))
-    }
-
-    val aggSig = SchnorrDigitalSignature(aggR, aggS)
-
-    // Must use stored adaptor sigs because adaptor signing nonce is not deterministic (auxRand)
-    val offerRefundSig = dlcOffer.dlcTxSigner.signRefundTx
-    val acceptRefundSig = dlcAccept.dlcTxSigner.signRefundTx
-    val acceptAdaptorSigs = offerSetup.cets.map { case (outcome, info) =>
-      (outcome, info.remoteSignature)
-    }
-    val acceptCETSigs = CETSignatures(acceptAdaptorSigs, acceptRefundSig)
-    val offerAdaptorSigs = acceptSetup.cets.map { case (outcome, info) =>
-      (outcome, info.remoteSignature)
-    }
-    val offerCETSigs = CETSignatures(offerAdaptorSigs, offerRefundSig)
-
-    for {
-      offerFundingSigs <- Future.fromTry(dlcOffer.dlcTxSigner.signFundingTx())
-      offerOutcome <-
-        dlcOffer.executeDLC(offerSetup, Future.successful(oracleSigs))
-      acceptOutcome <-
-        dlcAccept.executeDLC(acceptSetup, Future.successful(oracleSigs))
-    } yield {
-      val builder = DLCTxBuilder(dlcOffer.offer, dlcAccept.accept)
-      val contractId = builder.buildFundingTx.txIdBE.bytes
-        .xor(dlcAccept.accept.tempContractId.bytes)
-
-      val offer = dlcOffer.offer
-      val accept = dlcOffer.accept.withSigs(acceptCETSigs)
-      val sign = DLCSign(offerCETSigs, offerFundingSigs, contractId)
-
-      val (offerOracleSig, offerDLCOutcome) =
-        DLCStatus
-          .calculateOutcomeAndSig(isInitiator = true,
-                                  offer,
-                                  accept,
-                                  sign,
-                                  acceptOutcome.cet)
-          .get
-
-      val (acceptOracleSig, acceptDLCOutcome) =
-        DLCStatus
-          .calculateOutcomeAndSig(isInitiator = false,
-                                  offer,
-                                  accept,
-                                  sign,
-                                  offerOutcome.cet)
-          .get
-
-      assert(offerDLCOutcome == outcome)
-      assert(acceptDLCOutcome == outcome)
-      assert(offerOracleSig == aggSig)
-      assert(acceptOracleSig == aggSig)
-    }
   }
 
   it should "be able to derive oracle signature from remote CET signature" in {
