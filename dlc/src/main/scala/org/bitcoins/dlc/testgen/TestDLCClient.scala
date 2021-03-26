@@ -230,6 +230,13 @@ object TestDLCClient {
       timeouts = timeouts
     )
 
+    val negotiationFields = offerOutcomes match {
+      case _: SingleContractInfo => DLCAccept.NoNegotiationFields
+      case DisjointUnionContractInfo(contracts) =>
+        DLCAccept.NegotiationFieldsV2(
+          contracts.map(_ => DLCAccept.NoNegotiationFields))
+    }
+
     val accept = DLCMessage.DLCAcceptWithoutSigs(
       totalCollateral = acceptInput.satoshis,
       pubKeys = acceptPubKeys,
@@ -237,7 +244,7 @@ object TestDLCClient {
       changeAddress = acceptChangeAddress,
       payoutSerialId = acceptPayoutSerialId,
       changeSerialId = acceptChangeSerialId,
-      negotiationFields = DLCAccept.NoNegotiationFields,
+      negotiationFields = negotiationFields,
       tempContractId = offer.tempContractId
     )
 

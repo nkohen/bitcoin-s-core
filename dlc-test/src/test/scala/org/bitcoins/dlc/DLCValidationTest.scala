@@ -10,12 +10,9 @@ class DLCValidationTest extends BitcoinSJvmTest with DLCTest {
   behavior of "DLC Validation"
 
   it should "fail on invalid funding signatures" in {
-    val (offerClient, acceptClient, _) =
-      constructDLCClients(numOutcomesOrDigits = 3,
-                          isNumeric = false,
-                          oracleThreshold = 1,
-                          numOracles = 1,
-                          paramsOpt = None)
+    val contractParms =
+      EnumContractParams(numOutcomes = 3, oracleThreshold = 1, numOracles = 1)
+    val (offerClient, acceptClient, _) = constructDLCClients(contractParms)
     val builder = offerClient.dlcTxBuilder
     val offerVerifier = DLCSignatureVerifier(builder, isInitiator = true)
     val acceptVerifier = DLCSignatureVerifier(builder, isInitiator = false)
@@ -45,12 +42,10 @@ class DLCValidationTest extends BitcoinSJvmTest with DLCTest {
   }
 
   it should "fail on invalid CET signatures" in {
+    val contractParms =
+      EnumContractParams(numOutcomes = 3, oracleThreshold = 1, numOracles = 1)
     val (offerClient, acceptClient, outcomes) =
-      constructDLCClients(numOutcomesOrDigits = 3,
-                          isNumeric = false,
-                          oracleThreshold = 1,
-                          numOracles = 1,
-                          paramsOpt = None)
+      constructDLCClients(contractParms)
     val builder = offerClient.dlcTxBuilder
     val offerVerifier = DLCSignatureVerifier(builder, isInitiator = true)
     val acceptVerifier = DLCSignatureVerifier(builder, isInitiator = false)

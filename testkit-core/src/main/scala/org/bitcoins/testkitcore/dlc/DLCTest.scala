@@ -26,11 +26,24 @@ import org.bitcoins.dlc.execution.{
 import org.bitcoins.dlc.testgen.{DLCTestUtil, TestDLCClient}
 import org.scalatest.{Assertion, Assertions}
 import org.scalatest.Assertions.{assert, fail, succeed}
+import scodec.bits.BitVector
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
 
 trait DLCTest {
+
+  def tenRandomNums(numDigits: Int): Vector[Long] = {
+    0.until(10).toVector.map { _ =>
+      val randDigits = (0 until numDigits).toVector.map { _ =>
+        scala.util.Random.nextInt(2)
+      }
+
+      BitVector
+        .fromValidBin(randDigits.mkString(""))
+        .toLong(signed = false)
+    }
+  }
 
   val oraclePrivKeys: Vector[ECPrivateKey] =
     (0 until 50).toVector.map(_ => ECPrivateKey.freshPrivateKey)
@@ -249,6 +262,27 @@ trait DLCTest {
 
   val feeRate: SatoshisPerVirtualByte = SatoshisPerVirtualByte(Satoshis(10))
 
+  sealed trait ContractParams
+
+  sealed trait SingleContractParams extends ContractParams
+
+  case class EnumContractParams(
+      numOutcomes: Int,
+      oracleThreshold: Int,
+      numOracles: Int)
+      extends SingleContractParams
+
+  case class NumericContractParams(
+      numDigits: Int,
+      oracleThreshold: Int,
+      numOracles: Int,
+      paramsOpt: Option[OracleParamsV0TLV] = None)
+      extends SingleContractParams
+
+  case class DisjointUnionContractParams(
+      singleParams: Vector[SingleContractParams])
+      extends ContractParams
+
   def constructDLCClientsFromInfos(
       offerInfo: ContractInfo,
       acceptInfo: ContractInfo,
@@ -316,10 +350,39 @@ trait DLCTest {
     (offerDLC, acceptDLC)
   }
 
+  def constructEnumContractInfos(
+      params: EnumContractParams,
+      oracleShift: Int = 0): (SingleContractInfo, SingleContractInfo) = {
+    val outcomeStrs = DLCTestUtil.genOutcomes(params.numOutcomes)
+    val outcomes = outcomeStrs.map(EnumOutcome.apply)
+
+    val announcements =
+      oraclePrivKeys
+        .slice(oracleShift, oracleShift + params.numOracles)
+        .zip(
+          preCommittedRsPerOracle
+            .slice(oracleShift, oracleShift + params.numOracles)
+            .map(_.head))
+        .map { case (privKey, rVal) =>
+          OracleAnnouncementV0TLV.dummyForEventsAndKeys(privKey, rVal, outcomes)
+        }
+    val oracleInfo = if (params.numOracles == 1) {
+      EnumSingleOracleInfo(announcements.head)
+    } else {
+      EnumMultiOracleInfo(params.oracleThreshold, announcements)
+    }
+
+    val (outcomesDesc, otherOutcomesDesc) =
+      DLCTestUtil.genContractDescriptors(outcomeStrs, totalInput)
+
+    val offerInfo = SingleContractInfo(outcomesDesc, oracleInfo)
+    val acceptInfo = SingleContractInfo(otherOutcomesDesc, oracleInfo)
+
+    (offerInfo, acceptInfo)
+  }
+
   def constructEnumDLCClients(
-      numOutcomes: Int,
-      oracleThreshold: Int,
-      numOracles: Int,
+      contractParams: EnumContractParams,
       offerFundingPrivKey: ECPrivateKey = this.offerFundingPrivKey,
       offerPayoutPrivKey: ECPrivateKey = this.offerPayoutPrivKey,
       acceptFundingPrivKey: ECPrivateKey = this.acceptFundingPrivKey,
@@ -335,25 +398,7 @@ trait DLCTest {
       TestDLCClient,
       TestDLCClient,
       Vector[EnumOutcome]) = {
-    val outcomeStrs = DLCTestUtil.genOutcomes(numOutcomes)
-    val outcomes = outcomeStrs.map(EnumOutcome.apply)
-
-    val announcements =
-      oraclePrivKeys.take(numOracles).zip(preCommittedRs.take(numOracles)).map {
-        case (privKey, rVal) =>
-          OracleAnnouncementV0TLV.dummyForEventsAndKeys(privKey, rVal, outcomes)
-      }
-    val oracleInfo = if (numOracles == 1) {
-      EnumSingleOracleInfo(announcements.head)
-    } else {
-      EnumMultiOracleInfo(oracleThreshold, announcements)
-    }
-
-    val (outcomesDesc, otherOutcomesDesc) =
-      DLCTestUtil.genContractDescriptors(outcomeStrs, totalInput)
-
-    val offerInfo = SingleContractInfo(outcomesDesc, oracleInfo)
-    val acceptInfo = SingleContractInfo(otherOutcomesDesc, oracleInfo)
+    val (offerInfo, acceptInfo) = constructEnumContractInfos(contractParams)
 
     val (offerDLC, acceptDLC) = constructDLCClientsFromInfos(
       offerInfo,
@@ -370,14 +415,55 @@ trait DLCTest {
       timeouts
     )
 
+    val outcomes = offerInfo.contractDescriptor
+      .asInstanceOf[EnumContractDescriptor]
+      .outcomeValueMap
+      .map(_._1)
+
     (offerDLC, acceptDLC, outcomes)
   }
 
+  def constructNumericContractInfos(
+      params: NumericContractParams,
+      oracleShift: Int = 0): (SingleContractInfo, SingleContractInfo) = {
+    val (offerDesc, acceptDesc) =
+      DLCTestUtil.genMultiDigitContractInfo(params.numDigits,
+                                            totalInput,
+                                            numRounds = 4)
+
+    val announcements =
+      oraclePrivKeys
+        .slice(oracleShift, oracleShift + params.numOracles)
+        .zip(preCommittedRsPerOracle
+          .slice(oracleShift, oracleShift + params.numOracles))
+        .map { case (privKey, rVals) =>
+          OracleAnnouncementV0TLV.dummyForKeys(privKey,
+                                               rVals.take(params.numDigits))
+        }
+    val oracleInfo = if (params.numOracles == 1) {
+      NumericSingleOracleInfo(announcements.head)
+    } else {
+      params.paramsOpt match {
+        case None =>
+          NumericExactMultiOracleInfo(params.oracleThreshold, announcements)
+        case Some(boundParams) =>
+          NumericMultiOracleInfo(params.oracleThreshold,
+                                 announcements,
+                                 boundParams)
+      }
+    }
+
+    val numericPairOffer = ContractOraclePair.NumericPair(offerDesc, oracleInfo)
+    val numericPairAccept =
+      ContractOraclePair.NumericPair(acceptDesc, oracleInfo)
+    val offerInfo = SingleContractInfo(totalInput.satoshis, numericPairOffer)
+    val acceptInfo = SingleContractInfo(totalInput.satoshis, numericPairAccept)
+
+    (offerInfo, acceptInfo)
+  }
+
   def constructNumericDLCClients(
-      numDigits: Int,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV],
+      contractParams: NumericContractParams,
       offerFundingPrivKey: ECPrivateKey = this.offerFundingPrivKey,
       offerPayoutPrivKey: ECPrivateKey = this.offerPayoutPrivKey,
       acceptFundingPrivKey: ECPrivateKey = this.acceptFundingPrivKey,
@@ -393,33 +479,7 @@ trait DLCTest {
       TestDLCClient,
       TestDLCClient,
       Vector[UnsignedNumericOutcome]) = {
-    val (offerDesc, acceptDesc) =
-      DLCTestUtil.genMultiDigitContractInfo(numDigits,
-                                            totalInput,
-                                            numRounds = 4)
-
-    val announcements =
-      oraclePrivKeys
-        .take(numOracles)
-        .zip(preCommittedRsPerOracle.take(numOracles))
-        .map { case (privKey, rVals) =>
-          OracleAnnouncementV0TLV.dummyForKeys(privKey, rVals.take(numDigits))
-        }
-    val oracleInfo = if (numOracles == 1) {
-      NumericSingleOracleInfo(announcements.head)
-    } else {
-      paramsOpt match {
-        case None => NumericExactMultiOracleInfo(oracleThreshold, announcements)
-        case Some(params) =>
-          NumericMultiOracleInfo(oracleThreshold, announcements, params)
-      }
-    }
-
-    val numericPairOffer = ContractOraclePair.NumericPair(offerDesc, oracleInfo)
-    val numericPairAccept =
-      ContractOraclePair.NumericPair(acceptDesc, oracleInfo)
-    val offerInfo = SingleContractInfo(totalInput.satoshis, numericPairOffer)
-    val acceptInfo = SingleContractInfo(totalInput.satoshis, numericPairAccept)
+    val (offerInfo, acceptInfo) = constructNumericContractInfos(contractParams)
     val outcomes =
       offerInfo.allOutcomes.map(_.asInstanceOf[NumericOracleOutcome].outcome)
 
@@ -441,12 +501,8 @@ trait DLCTest {
     (offerDLC, acceptDLC, outcomes)
   }
 
-  def constructDLCClients(
-      numOutcomesOrDigits: Int,
-      isNumeric: Boolean,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV],
+  def constructDisjointUnionDLCClients(
+      contractParams: DisjointUnionContractParams,
       offerFundingPrivKey: ECPrivateKey = this.offerFundingPrivKey,
       offerPayoutPrivKey: ECPrivateKey = this.offerPayoutPrivKey,
       acceptFundingPrivKey: ECPrivateKey = this.acceptFundingPrivKey,
@@ -462,39 +518,108 @@ trait DLCTest {
       TestDLCClient,
       TestDLCClient,
       Vector[DLCOutcomeType]) = {
-    if (isNumeric) {
-      constructNumericDLCClients(
-        numOutcomesOrDigits,
-        oracleThreshold,
-        numOracles,
-        paramsOpt,
-        offerFundingPrivKey,
-        offerPayoutPrivKey,
-        acceptFundingPrivKey,
-        acceptPayoutPrivKey,
-        offerFundingUtxos,
-        offerFundingInputs,
-        acceptFundingUtxos,
-        acceptFundingInputs,
-        feeRate,
-        timeouts
-      )
-    } else {
-      constructEnumDLCClients(
-        numOutcomesOrDigits,
-        oracleThreshold,
-        numOracles,
-        offerFundingPrivKey,
-        offerPayoutPrivKey,
-        acceptFundingPrivKey,
-        acceptPayoutPrivKey,
-        offerFundingUtxos,
-        offerFundingInputs,
-        acceptFundingUtxos,
-        acceptFundingInputs,
-        feeRate,
-        timeouts
-      )
+    var oraclesSoFar = 0
+    val singleInfosAndOutcomes = contractParams.singleParams.map {
+      case enumParams: EnumContractParams =>
+        val (offerInfo, acceptInfo) =
+          constructEnumContractInfos(enumParams, oraclesSoFar)
+        oraclesSoFar += enumParams.numOracles
+        val outcomes =
+          offerInfo.allOutcomes.map(_.asInstanceOf[EnumOracleOutcome].outcome)
+        (offerInfo, acceptInfo, outcomes)
+      case numericParams: NumericContractParams =>
+        val (offerInfo, acceptInfo) =
+          constructNumericContractInfos(numericParams, oraclesSoFar)
+        oraclesSoFar += numericParams.numOracles
+        val outcomes = offerInfo.allOutcomes.map(
+          _.asInstanceOf[NumericOracleOutcome].outcome)
+        (offerInfo, acceptInfo, outcomes)
+    }
+    val offerInfos = singleInfosAndOutcomes.map(_._1)
+    val acceptInfos = singleInfosAndOutcomes.map(_._2)
+    val outcomes = singleInfosAndOutcomes.flatMap(_._3)
+
+    val offerInfo = DisjointUnionContractInfo(offerInfos)
+    val acceptInfo = DisjointUnionContractInfo(acceptInfos)
+
+    val (offerDLC, acceptDLC) = constructDLCClientsFromInfos(
+      offerInfo,
+      acceptInfo,
+      offerFundingPrivKey,
+      offerPayoutPrivKey,
+      acceptFundingPrivKey,
+      acceptPayoutPrivKey,
+      offerFundingUtxos,
+      offerFundingInputs,
+      acceptFundingUtxos,
+      acceptFundingInputs,
+      feeRate,
+      timeouts
+    )
+
+    (offerDLC, acceptDLC, outcomes)
+  }
+
+  def constructDLCClients(
+      contractParams: ContractParams,
+      offerFundingPrivKey: ECPrivateKey = this.offerFundingPrivKey,
+      offerPayoutPrivKey: ECPrivateKey = this.offerPayoutPrivKey,
+      acceptFundingPrivKey: ECPrivateKey = this.acceptFundingPrivKey,
+      acceptPayoutPrivKey: ECPrivateKey = this.acceptPayoutPrivKey,
+      offerFundingUtxos: Vector[SpendingInfoWithSerialId] =
+        this.offerFundingUtxos,
+      offerFundingInputs: Vector[DLCFundingInput] = this.offerFundingInputs,
+      acceptFundingUtxos: Vector[SpendingInfoWithSerialId] =
+        this.acceptFundingUtxos,
+      acceptFundingInputs: Vector[DLCFundingInput] = this.acceptFundingInputs,
+      feeRate: SatoshisPerVirtualByte = this.feeRate,
+      timeouts: DLCTimeouts = this.timeouts)(implicit ec: ExecutionContext): (
+      TestDLCClient,
+      TestDLCClient,
+      Vector[DLCOutcomeType]) = {
+    contractParams match {
+      case enumParams: EnumContractParams =>
+        constructEnumDLCClients(
+          enumParams,
+          offerFundingPrivKey,
+          offerPayoutPrivKey,
+          acceptFundingPrivKey,
+          acceptPayoutPrivKey,
+          offerFundingUtxos,
+          offerFundingInputs,
+          acceptFundingUtxos,
+          acceptFundingInputs,
+          feeRate,
+          timeouts
+        )
+      case numericParams: NumericContractParams =>
+        constructNumericDLCClients(
+          numericParams,
+          offerFundingPrivKey,
+          offerPayoutPrivKey,
+          acceptFundingPrivKey,
+          acceptPayoutPrivKey,
+          offerFundingUtxos,
+          offerFundingInputs,
+          acceptFundingUtxos,
+          acceptFundingInputs,
+          feeRate,
+          timeouts
+        )
+      case disjointUnionParams: DisjointUnionContractParams =>
+        constructDisjointUnionDLCClients(
+          disjointUnionParams,
+          offerFundingPrivKey,
+          offerPayoutPrivKey,
+          acceptFundingPrivKey,
+          acceptPayoutPrivKey,
+          offerFundingUtxos,
+          offerFundingInputs,
+          acceptFundingUtxos,
+          acceptFundingInputs,
+          feeRate,
+          timeouts
+        )
     }
   }
 
@@ -556,12 +681,7 @@ trait DLCTest {
              _ => Future.successful(()))
   }
 
-  def constructAndSetupDLC(
-      numOutcomes: Int,
-      isMultiDigit: Boolean,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV] = None)(implicit
+  def constructAndSetupDLC(contractParams: ContractParams)(implicit
       ec: ExecutionContext): Future[
     (
         TestDLCClient,
@@ -569,12 +689,7 @@ trait DLCTest {
         TestDLCClient,
         SetupDLC,
         Vector[DLCOutcomeType])] = {
-    val (offerDLC, acceptDLC, outcomes) =
-      constructDLCClients(numOutcomes,
-                          isMultiDigit,
-                          oracleThreshold,
-                          numOracles,
-                          paramsOpt)
+    val (offerDLC, acceptDLC, outcomes) = constructDLCClients(contractParams)
 
     for {
       (offerSetup, acceptSetup) <- setupDLC(offerDLC, acceptDLC)
@@ -597,13 +712,13 @@ trait DLCTest {
 
   def genEnumOracleOutcome(
       chosenOracles: Vector[Int],
-      dlcOffer: TestDLCClient,
+      contractInfo: SingleContractInfo,
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long): EnumOracleOutcome = {
     outcomes(outcomeIndex.toInt) match {
       case outcome: EnumOutcome =>
         val oracles = chosenOracles
-          .map(dlcOffer.offer.oracleInfos.head.singleOracleInfos.apply)
+          .map(contractInfo.oracleInfos.head.singleOracleInfos.apply)
           .map(_.asInstanceOf[EnumSingleOracleInfo])
         EnumOracleOutcome(oracles, outcome)
       case _: NumericDLCOutcomeType =>
@@ -622,17 +737,17 @@ trait DLCTest {
       genEnumOracleSignature(oracle,
                              outcome.outcome.outcome,
                              oraclePrivKeys(index),
-                             preCommittedKs(index))
+                             preCommittedKsPerOracle(index).head)
     }
   }
 
   def genEnumOracleSignatures(
       chosenOracles: Vector[Int],
-      dlcOffer: TestDLCClient,
+      contractInfo: SingleContractInfo,
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long): Vector[EnumOracleSignature] = {
     val outcome =
-      genEnumOracleOutcome(chosenOracles, dlcOffer, outcomes, outcomeIndex)
+      genEnumOracleOutcome(chosenOracles, contractInfo, outcomes, outcomeIndex)
 
     genEnumOracleSignatures(outcome)
   }
@@ -719,20 +834,17 @@ trait DLCTest {
   def genNumericOracleOutcome(
       numDigits: Int,
       chosenOracles: Vector[Int],
-      dlcOffer: TestDLCClient,
+      contractInfo: SingleContractInfo,
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long,
       paramsOpt: Option[OracleParamsV0TLV]): NumericOracleOutcome = {
-    dlcOffer.offer.contractInfo.contracts.head.contractOraclePair match {
+    contractInfo.contractOraclePair match {
       case e: ContractOraclePair.EnumPair =>
         Assertions.fail(s"Expected Numeric Contract, got enum=$e")
       case ContractOraclePair.NumericPair(descriptor, _) =>
         val digits =
           computeNumericOutcome(numDigits, descriptor, outcomes, outcomeIndex)
-        genNumericOracleOutcome(chosenOracles,
-                                dlcOffer.offer.contractInfo,
-                                digits,
-                                paramsOpt)
+        genNumericOracleOutcome(chosenOracles, contractInfo, digits, paramsOpt)
     }
   }
 
@@ -756,13 +868,13 @@ trait DLCTest {
   def genNumericOracleSignatures(
       numDigits: Int,
       chosenOracles: Vector[Int],
-      dlcOffer: TestDLCClient,
+      contractInfo: SingleContractInfo,
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long,
       paramsOpt: Option[OracleParamsV0TLV]): Vector[NumericOracleSignatures] = {
     val outcome = genNumericOracleOutcome(numDigits,
                                           chosenOracles,
-                                          dlcOffer,
+                                          contractInfo,
                                           outcomes,
                                           outcomeIndex,
                                           paramsOpt)
@@ -772,11 +884,11 @@ trait DLCTest {
   def genOracleOutcome(
       numOutcomesOrDigits: Int,
       isNumeric: Boolean,
-      dlcOffer: TestDLCClient,
+      contractInfo: SingleContractInfo,
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long,
       paramsOpt: Option[OracleParamsV0TLV]): OracleOutcome = {
-    val oracleInfo = dlcOffer.offer.oracleInfos.head
+    val oracleInfo = contractInfo.oracleInfos.head
 
     val oracleIndices =
       0.until(oracleInfo.numOracles).toVector
@@ -784,11 +896,11 @@ trait DLCTest {
       Random.shuffle(oracleIndices).take(oracleInfo.threshold).sorted
 
     if (!isNumeric) {
-      genEnumOracleOutcome(chosenOracles, dlcOffer, outcomes, outcomeIndex)
+      genEnumOracleOutcome(chosenOracles, contractInfo, outcomes, outcomeIndex)
     } else {
       genNumericOracleOutcome(numOutcomesOrDigits,
                               chosenOracles,
-                              dlcOffer,
+                              contractInfo,
                               outcomes,
                               outcomeIndex,
                               paramsOpt)
@@ -798,7 +910,7 @@ trait DLCTest {
   def genOracleOutcomeAndSignatures(
       numOutcomesOrDigits: Int,
       isNumeric: Boolean,
-      dlcOffer: TestDLCClient,
+      contractInfo: SingleContractInfo,
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long,
       paramsOpt: Option[OracleParamsV0TLV]): (
@@ -806,7 +918,7 @@ trait DLCTest {
       Vector[OracleSignatures]) = {
     val outcome = genOracleOutcome(numOutcomesOrDigits,
                                    isNumeric,
-                                   dlcOffer,
+                                   contractInfo,
                                    outcomes,
                                    outcomeIndex,
                                    paramsOpt)
@@ -825,13 +937,13 @@ trait DLCTest {
   def genOracleSignatures(
       numOutcomesOrDigits: Int,
       isNumeric: Boolean,
-      dlcOffer: TestDLCClient,
+      contractInfo: SingleContractInfo,
       outcomes: Vector[DLCOutcomeType],
       outcomeIndex: Long,
       paramsOpt: Option[OracleParamsV0TLV]): Vector[OracleSignatures] = {
     val (_, sigs) = genOracleOutcomeAndSignatures(numOutcomesOrDigits,
                                                   isNumeric,
-                                                  dlcOffer,
+                                                  contractInfo,
                                                   outcomes,
                                                   outcomeIndex,
                                                   paramsOpt)
@@ -881,19 +993,17 @@ trait DLCTest {
     }
   }
 
+  def executeForCase(outcomeIndex: Long, contractParams: ContractParams)(
+      implicit ec: ExecutionContext): Future[Assertion] = {
+    executeForCase(contractIndex = 0, outcomeIndex, contractParams)
+  }
+
   def executeForCase(
+      contractIndex: Int,
       outcomeIndex: Long,
-      numOutcomes: Int,
-      isMultiDigit: Boolean,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV] = None)(implicit
+      contractParams: ContractParams)(implicit
       ec: ExecutionContext): Future[Assertion] = {
-    constructAndSetupDLC(numOutcomes,
-                         isMultiDigit,
-                         oracleThreshold,
-                         numOracles,
-                         paramsOpt)
+    constructAndSetupDLC(contractParams)
       .flatMap {
         case (dlcOffer, offerSetup, dlcAccept, acceptSetup, outcomes) =>
           executeForOutcome(outcomeIndex,
@@ -901,32 +1011,34 @@ trait DLCTest {
                             offerSetup,
                             dlcAccept,
                             acceptSetup,
-                            outcomes)
+                            outcomes,
+                            contractIndex)
       }
   }
 
   def executeForCases(
       outcomeIndices: Vector[Long],
-      numOutcomes: Int,
-      isMultiDigit: Boolean,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV] = None)(implicit
+      contractParams: ContractParams)(implicit
       ec: ExecutionContext): Future[Assertion] = {
-    constructAndSetupDLC(numOutcomes,
-                         isMultiDigit,
-                         oracleThreshold,
-                         numOracles,
-                         paramsOpt)
+    executeForCasesInUnion(outcomeIndices.map((0, _)), contractParams)
+  }
+
+  def executeForCasesInUnion(
+      outcomeIndices: Vector[(Int, Long)],
+      contractParams: ContractParams)(implicit
+      ec: ExecutionContext): Future[Assertion] = {
+    constructAndSetupDLC(contractParams)
       .flatMap {
         case (dlcOffer, offerSetup, dlcAccept, acceptSetup, outcomes) =>
-          val testFs = outcomeIndices.map { outcomeIndex =>
-            executeForOutcome(outcomeIndex,
-                              dlcOffer,
-                              offerSetup,
-                              dlcAccept,
-                              acceptSetup,
-                              outcomes)
+          val testFs = outcomeIndices.map {
+            case (contractIndex, outcomeIndex) =>
+              executeForOutcome(outcomeIndex,
+                                dlcOffer,
+                                offerSetup,
+                                dlcAccept,
+                                acceptSetup,
+                                outcomes,
+                                contractIndex)
           }
 
           Future.sequence(testFs).map(_ => succeed)
@@ -939,14 +1051,29 @@ trait DLCTest {
       offerSetup: SetupDLC,
       dlcAccept: TestDLCClient,
       acceptSetup: SetupDLC,
-      outcomes: Vector[DLCOutcomeType])(implicit
+      outcomes: Vector[DLCOutcomeType],
+      contractIndex: Int = 0)(implicit
       ec: ExecutionContext): Future[Assertion] = {
-    val contractDesc = dlcOffer.offer.contractInfo.contractDescriptors.head
+    val contractInfo = dlcOffer.offer.contractInfo
+    val contractSizes = contractInfo.contracts.map { contract =>
+      contract.allOutcomes.length
+    }
+
+    val indexOfOutcomeStart = contractSizes.take(contractIndex).sum
+
+    val singleContractInfo = contractInfo.contracts(contractIndex)
+
+    val possibleOutcomesForContract =
+      outcomes.slice(
+        indexOfOutcomeStart,
+        indexOfOutcomeStart + singleContractInfo.allOutcomes.length)
+
+    val contractDesc = singleContractInfo.contractDescriptor
     val (numOutcomes, isMultiDigit, paramsOpt) = contractDesc match {
       case EnumContractDescriptor(outcomeValueMap) =>
         (outcomeValueMap.length, false, None)
       case NumericContractDescriptor(_, numDigits, _) =>
-        val paramsOpt = dlcOffer.offer.contractInfo.oracleInfos.head match {
+        val paramsOpt = contractInfo.oracleInfos.head match {
           case NumericMultiOracleInfo(_,
                                       _,
                                       maxErrorExp,
@@ -961,8 +1088,8 @@ trait DLCTest {
 
     val oracleSigs = genOracleSignatures(numOutcomes,
                                          isMultiDigit,
-                                         dlcOffer,
-                                         outcomes,
+                                         singleContractInfo,
+                                         possibleOutcomesForContract,
                                          outcomeIndex,
                                          paramsOpt)
 
@@ -979,18 +1106,9 @@ trait DLCTest {
     }
   }
 
-  def executeRefundCase(
-      numOutcomes: Int,
-      isMultiNonce: Boolean,
-      oracleThreshold: Int,
-      numOracles: Int,
-      paramsOpt: Option[OracleParamsV0TLV] = None)(implicit
+  def executeRefundCase(contractParams: ContractParams)(implicit
       ec: ExecutionContext): Future[Assertion] = {
-    constructAndSetupDLC(numOutcomes,
-                         isMultiNonce,
-                         oracleThreshold,
-                         numOracles,
-                         paramsOpt)
+    constructAndSetupDLC(contractParams)
       .map { case (dlcOffer, offerSetup, dlcAccept, acceptSetup, _) =>
         val offerOutcome = dlcOffer.executeRefundDLC(offerSetup)
         val acceptOutcome = dlcAccept.executeRefundDLC(acceptSetup)

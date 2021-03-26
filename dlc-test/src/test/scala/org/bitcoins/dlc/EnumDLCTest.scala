@@ -15,13 +15,11 @@ class EnumDLCTest extends BitcoinSJvmTest with DLCTest {
     runTestsForParam(numEnumOutcomesToTest) { numOutcomes =>
       runTestsForParam(enumOracleSchemesToTest) {
         case (threshold, numOracles) =>
+          val contractParams =
+            EnumContractParams(numOutcomes, threshold, numOracles)
           val outcomes = 0L.until(numOutcomes).toVector
 
-          executeForCases(outcomes,
-                          numOutcomes,
-                          isMultiDigit = false,
-                          threshold,
-                          numOracles)
+          executeForCases(outcomes, contractParams)
       }
     }
   }
@@ -30,10 +28,10 @@ class EnumDLCTest extends BitcoinSJvmTest with DLCTest {
     runTestsForParam(numEnumOutcomesToTest) { numOutcomes =>
       runTestsForParam(enumOracleSchemesToTest) {
         case (threshold, numOracles) =>
-          executeRefundCase(numOutcomes = numOutcomes,
-                            isMultiNonce = false,
-                            oracleThreshold = threshold,
-                            numOracles = numOracles)
+          val contractParams =
+            EnumContractParams(numOutcomes, threshold, numOracles)
+
+          executeRefundCase(contractParams)
       }
     }
   }
@@ -41,17 +39,12 @@ class EnumDLCTest extends BitcoinSJvmTest with DLCTest {
   it should "all work for a 100 outcome DLC" in {
     val numOutcomes = 100
     val outcomes = 0L.until(numOutcomes).toVector
+    val contractParams =
+      EnumContractParams(numOutcomes, oracleThreshold = 1, numOracles = 1)
 
     for {
-      _ <- executeForCases(outcomes,
-                           numOutcomes,
-                           isMultiDigit = false,
-                           oracleThreshold = 1,
-                           numOracles = 1)
-      _ <- executeRefundCase(numOutcomes,
-                             isMultiNonce = false,
-                             oracleThreshold = 1,
-                             numOracles = 1)
+      _ <- executeForCases(outcomes, contractParams)
+      _ <- executeRefundCase(contractParams)
     } yield succeed
   }
 
@@ -61,18 +54,19 @@ class EnumDLCTest extends BitcoinSJvmTest with DLCTest {
     runTestsForParam(numEnumOutcomesToTest) { numOutcomes =>
       runTestsForParam(enumOracleSchemesToTest) {
         case (threshold, numOracles) =>
-          constructAndSetupDLC(numOutcomes,
-                               isMultiDigit = false,
-                               oracleThreshold = threshold,
-                               numOracles = numOracles).flatMap {
+          val contractParams =
+            EnumContractParams(numOutcomes, threshold, numOracles)
+
+          constructAndSetupDLC(contractParams).flatMap {
             case (dlcOffer, offerSetup, dlcAccept, acceptSetup, outcomes) =>
               val (oracleOutcome, sigs) =
-                genOracleOutcomeAndSignatures(numOutcomes,
-                                              isNumeric = false,
-                                              dlcOffer,
-                                              outcomes,
-                                              outcomeIndex,
-                                              paramsOpt = None)
+                genOracleOutcomeAndSignatures(
+                  numOutcomes,
+                  isNumeric = false,
+                  dlcOffer.offer.contractInfo.contracts.head,
+                  outcomes,
+                  outcomeIndex,
+                  paramsOpt = None)
 
               assertCorrectSigDerivation(offerSetup = offerSetup,
                                          dlcOffer = dlcOffer,

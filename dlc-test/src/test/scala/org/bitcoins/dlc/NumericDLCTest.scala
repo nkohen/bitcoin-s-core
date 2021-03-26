@@ -7,7 +7,6 @@ import org.bitcoins.core.protocol.tlv.{
 import org.bitcoins.core.util.NumberUtil
 import org.bitcoins.testkitcore.dlc.DLCTest
 import org.bitcoins.testkitcore.util.BitcoinSJvmTest
-import scodec.bits.BitVector
 
 import scala.util.Random
 
@@ -18,43 +17,26 @@ class NumericDLCTest extends BitcoinSJvmTest with DLCTest {
     Vector((1, 1), (2, 2), (2, 3))
   val numDigitsToTest: Vector[Int] = Vector(4, 5, 10)
 
-  def tenRandomNums(numDigits: Int): Vector[Long] = {
-    0.until(10).toVector.map { _ =>
-      val randDigits = (0 until numDigits).toVector.map { _ =>
-        scala.util.Random.nextInt(2)
-      }
-
-      BitVector
-        .fromValidBin(randDigits.mkString(""))
-        .toLong(signed = false)
-    }
-  }
-
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for the normal numeric case" in {
     runTestsForParam(numDigitsToTest) { numDigits =>
       runTestsForParam(numericOracleSchemesToTest) {
         case (threshold, numOracles) =>
+          val contractParams =
+            NumericContractParams(numDigits, threshold, numOracles)
           val nums = tenRandomNums(numDigits)
 
-          executeForCases(nums,
-                          numDigits,
-                          isMultiDigit = true,
-                          threshold,
-                          numOracles,
-                          None)
+          executeForCases(nums, contractParams)
       }
     }
   }
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for the large numeric case" in {
     val numDigits = 17
+    val contractParams =
+      NumericContractParams(numDigits, oracleThreshold = 1, numOracles = 1)
     val nums = tenRandomNums(numDigits)
 
-    executeForCases(nums,
-                    numDigits,
-                    isMultiDigit = true,
-                    oracleThreshold = 1,
-                    numOracles = 1)
+    executeForCases(nums, contractParams)
   }
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for a normal multi-oracle numeric case with bounded differences allowed" in {
@@ -64,24 +46,21 @@ class NumericDLCTest extends BitcoinSJvmTest with DLCTest {
     val params = OracleParamsV0TLV(maxErrorExp = 4,
                                    minFailExp = 2,
                                    maximizeCoverage = false)
+    val contractParams =
+      NumericContractParams(numDigits, threshold, numOracles, Some(params))
     val nums = tenRandomNums(numDigits)
 
-    executeForCases(nums,
-                    numDigits,
-                    isMultiDigit = true,
-                    threshold,
-                    numOracles,
-                    Some(params))
+    executeForCases(nums, contractParams)
   }
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for the refund numeric case" in {
     runTestsForParam(numDigitsToTest) { numDigits =>
       runTestsForParam(numericOracleSchemesToTest) {
         case (threshold, numOracles) =>
-          executeRefundCase(numDigits,
-                            isMultiNonce = true,
-                            oracleThreshold = threshold,
-                            numOracles = numOracles)
+          val contractParams =
+            NumericContractParams(numDigits, threshold, numOracles)
+
+          executeRefundCase(contractParams)
       }
     }
   }
@@ -106,12 +85,12 @@ class NumericDLCTest extends BitcoinSJvmTest with DLCTest {
               .toVector
               .map(num => (max / num.toDouble).toLong)
               .map(num => NumberUtil.decompose(num, 2, numDigits))
+            val contractParams = NumericContractParams(numDigits,
+                                                       threshold,
+                                                       numOracles,
+                                                       oracleParamsOpt)
 
-            constructAndSetupDLC(numDigits,
-                                 isMultiDigit = true,
-                                 oracleThreshold = threshold,
-                                 numOracles = numOracles,
-                                 paramsOpt = oracleParamsOpt).flatMap {
+            constructAndSetupDLC(contractParams).flatMap {
               case (dlcOffer, offerSetup, dlcAccept, acceptSetup, outcomes) =>
                 runTestsForParam(outcomesToTest) { outcomeToTest =>
                   val possibleOutcomes = outcomes
