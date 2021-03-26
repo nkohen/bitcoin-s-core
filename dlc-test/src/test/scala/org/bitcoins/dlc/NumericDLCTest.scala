@@ -7,10 +7,8 @@ import org.bitcoins.core.protocol.tlv.{
 import org.bitcoins.core.util.NumberUtil
 import org.bitcoins.testkitcore.dlc.DLCTest
 import org.bitcoins.testkitcore.util.BitcoinSJvmTest
-import org.scalatest.Assertion
 import scodec.bits.BitVector
 
-import scala.concurrent.Future
 import scala.util.Random
 
 class NumericDLCTest extends BitcoinSJvmTest with DLCTest {
@@ -20,43 +18,43 @@ class NumericDLCTest extends BitcoinSJvmTest with DLCTest {
     Vector((1, 1), (2, 2), (2, 3))
   val numDigitsToTest: Vector[Int] = Vector(4, 5, 10)
 
-  def runMultiNonceTests(
-      exec: (Long, Int, Boolean, Int, Int, Option[OracleParamsV0TLV]) => Future[
-        Assertion]): Future[Assertion] = {
-    runTestsForParam(numDigitsToTest) { numDigits =>
-      runTestsForParam(numericOracleSchemesToTest) {
-        case (threshold, numOracles) =>
-          val randDigits = (0 until numDigits).toVector.map { _ =>
-            scala.util.Random.nextInt(2)
-          }
-          val num =
-            BitVector
-              .fromValidBin(randDigits.mkString(""))
-              .toLong(signed = false)
-
-          exec(num, numDigits, true, threshold, numOracles, None)
+  def tenRandomNums(numDigits: Int): Vector[Long] = {
+    0.until(10).toVector.map { _ =>
+      val randDigits = (0 until numDigits).toVector.map { _ =>
+        scala.util.Random.nextInt(2)
       }
+
+      BitVector
+        .fromValidBin(randDigits.mkString(""))
+        .toLong(signed = false)
     }
   }
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for the normal numeric case" in {
-    runMultiNonceTests(executeForCase)
+    runTestsForParam(numDigitsToTest) { numDigits =>
+      runTestsForParam(numericOracleSchemesToTest) {
+        case (threshold, numOracles) =>
+          val nums = tenRandomNums(numDigits)
+
+          executeForCases(nums,
+                          numDigits,
+                          isMultiDigit = true,
+                          threshold,
+                          numOracles,
+                          None)
+      }
+    }
   }
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for the large numeric case" in {
     val numDigits = 17
+    val nums = tenRandomNums(numDigits)
 
-    val randDigits = (0 until numDigits).toVector.map { _ =>
-      scala.util.Random.nextInt(2)
-    }
-    val num =
-      BitVector.fromValidBin(randDigits.mkString("")).toLong(signed = false)
-
-    executeForCase(num,
-                   numDigits,
-                   isMultiDigit = true,
-                   oracleThreshold = 1,
-                   numOracles = 1)
+    executeForCases(nums,
+                    numDigits,
+                    isMultiDigit = true,
+                    oracleThreshold = 1,
+                    numOracles = 1)
   }
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for a normal multi-oracle numeric case with bounded differences allowed" in {
@@ -66,21 +64,14 @@ class NumericDLCTest extends BitcoinSJvmTest with DLCTest {
     val params = OracleParamsV0TLV(maxErrorExp = 4,
                                    minFailExp = 2,
                                    maximizeCoverage = false)
+    val nums = tenRandomNums(numDigits)
 
-    val randDigits = (0 until numDigits).toVector.map { _ =>
-      scala.util.Random.nextInt(2)
-    }
-    val num =
-      BitVector
-        .fromValidBin(randDigits.mkString(""))
-        .toLong(signed = false)
-
-    executeForCase(num,
-                   numDigits,
-                   isMultiDigit = true,
-                   threshold,
-                   numOracles,
-                   Some(params))
+    executeForCases(nums,
+                    numDigits,
+                    isMultiDigit = true,
+                    threshold,
+                    numOracles,
+                    Some(params))
   }
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for the refund numeric case" in {

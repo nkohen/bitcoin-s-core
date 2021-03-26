@@ -25,7 +25,7 @@ import org.bitcoins.dlc.execution.{
 }
 import org.bitcoins.dlc.testgen.{DLCTestUtil, TestDLCClient}
 import org.scalatest.{Assertion, Assertions}
-import org.scalatest.Assertions.{assert, fail}
+import org.scalatest.Assertions.{assert, fail, succeed}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
@@ -896,25 +896,87 @@ trait DLCTest {
                          paramsOpt)
       .flatMap {
         case (dlcOffer, offerSetup, dlcAccept, acceptSetup, outcomes) =>
-          val oracleSigs = genOracleSignatures(numOutcomes,
-                                               isMultiDigit,
-                                               dlcOffer,
-                                               outcomes,
-                                               outcomeIndex,
-                                               paramsOpt)
-
-          for {
-            offerOutcome <-
-              dlcOffer.executeDLC(offerSetup, Future.successful(oracleSigs))
-            acceptOutcome <-
-              dlcAccept.executeDLC(acceptSetup, Future.successful(oracleSigs))
-          } yield {
-            assert(offerOutcome.fundingTx == acceptOutcome.fundingTx)
-
-            validateOutcome(offerOutcome, dlcOffer, dlcAccept)
-            validateOutcome(acceptOutcome, dlcOffer, dlcAccept)
-          }
+          executeForOutcome(outcomeIndex,
+                            dlcOffer,
+                            offerSetup,
+                            dlcAccept,
+                            acceptSetup,
+                            outcomes)
       }
+  }
+
+  def executeForCases(
+      outcomeIndices: Vector[Long],
+      numOutcomes: Int,
+      isMultiDigit: Boolean,
+      oracleThreshold: Int,
+      numOracles: Int,
+      paramsOpt: Option[OracleParamsV0TLV] = None)(implicit
+      ec: ExecutionContext): Future[Assertion] = {
+    constructAndSetupDLC(numOutcomes,
+                         isMultiDigit,
+                         oracleThreshold,
+                         numOracles,
+                         paramsOpt)
+      .flatMap {
+        case (dlcOffer, offerSetup, dlcAccept, acceptSetup, outcomes) =>
+          val testFs = outcomeIndices.map { outcomeIndex =>
+            executeForOutcome(outcomeIndex,
+                              dlcOffer,
+                              offerSetup,
+                              dlcAccept,
+                              acceptSetup,
+                              outcomes)
+          }
+
+          Future.sequence(testFs).map(_ => succeed)
+      }
+  }
+
+  def executeForOutcome(
+      outcomeIndex: Long,
+      dlcOffer: TestDLCClient,
+      offerSetup: SetupDLC,
+      dlcAccept: TestDLCClient,
+      acceptSetup: SetupDLC,
+      outcomes: Vector[DLCOutcomeType])(implicit
+      ec: ExecutionContext): Future[Assertion] = {
+    val contractDesc = dlcOffer.offer.contractInfo.contractDescriptors.head
+    val (numOutcomes, isMultiDigit, paramsOpt) = contractDesc match {
+      case EnumContractDescriptor(outcomeValueMap) =>
+        (outcomeValueMap.length, false, None)
+      case NumericContractDescriptor(_, numDigits, _) =>
+        val paramsOpt = dlcOffer.offer.contractInfo.oracleInfos.head match {
+          case NumericMultiOracleInfo(_,
+                                      _,
+                                      maxErrorExp,
+                                      minFailExp,
+                                      maximizeCoverage) =>
+            Some(OracleParamsV0TLV(maxErrorExp, minFailExp, maximizeCoverage))
+          case _: OracleInfo => None
+        }
+
+        (numDigits, true, paramsOpt)
+    }
+
+    val oracleSigs = genOracleSignatures(numOutcomes,
+                                         isMultiDigit,
+                                         dlcOffer,
+                                         outcomes,
+                                         outcomeIndex,
+                                         paramsOpt)
+
+    for {
+      offerOutcome <-
+        dlcOffer.executeDLC(offerSetup, Future.successful(oracleSigs))
+      acceptOutcome <-
+        dlcAccept.executeDLC(acceptSetup, Future.successful(oracleSigs))
+    } yield {
+      assert(offerOutcome.fundingTx == acceptOutcome.fundingTx)
+
+      validateOutcome(offerOutcome, dlcOffer, dlcAccept)
+      validateOutcome(acceptOutcome, dlcOffer, dlcAccept)
+    }
   }
 
   def executeRefundCase(

@@ -1,11 +1,7 @@
 package org.bitcoins.dlc
 
-import org.bitcoins.core.protocol.tlv.OracleParamsV0TLV
 import org.bitcoins.testkitcore.dlc.DLCTest
 import org.bitcoins.testkitcore.util.BitcoinSJvmTest
-import org.scalatest.Assertion
-
-import scala.concurrent.Future
 
 class EnumDLCTest extends BitcoinSJvmTest with DLCTest {
   behavior of "Enum DLC"
@@ -13,23 +9,21 @@ class EnumDLCTest extends BitcoinSJvmTest with DLCTest {
   val enumOracleSchemesToTest: Vector[(Int, Int)] =
     Vector((1, 1), (1, 2), (2, 2), (2, 3), (3, 5), (5, 8))
 
-  val numEnumOutcomesToTest: Vector[Int] = Vector(2, 3, 5, 8)
-
-  def runSingleNonceTests(
-      exec: (Long, Int, Boolean, Int, Int, Option[OracleParamsV0TLV]) => Future[
-        Assertion]): Future[Assertion] = {
-    runTestsForParam(numEnumOutcomesToTest) { numOutcomes =>
-      runTestsForParam(0.until(numOutcomes).toVector) { outcomeIndex =>
-        runTestsForParam(enumOracleSchemesToTest) {
-          case (threshold, numOracles) =>
-            exec(outcomeIndex, numOutcomes, false, threshold, numOracles, None)
-        }
-      }
-    }
-  }
+  val numEnumOutcomesToTest: Vector[Int] = 2.until(10).toVector
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for the normal enum case" in {
-    runSingleNonceTests(executeForCase)
+    runTestsForParam(numEnumOutcomesToTest) { numOutcomes =>
+      runTestsForParam(enumOracleSchemesToTest) {
+        case (threshold, numOracles) =>
+          val outcomes = 0L.until(numOutcomes).toVector
+
+          executeForCases(outcomes,
+                          numOutcomes,
+                          isMultiDigit = false,
+                          threshold,
+                          numOracles)
+      }
+    }
   }
 
   it should "be able to construct and verify with ScriptInterpreter every tx in a DLC for the refund enum case" in {
@@ -46,23 +40,19 @@ class EnumDLCTest extends BitcoinSJvmTest with DLCTest {
 
   it should "all work for a 100 outcome DLC" in {
     val numOutcomes = 100
-    val testFs = (0 until 10).map(_ * 10).map { outcomeIndex =>
-      for {
-        _ <- executeForCase(outcomeIndex,
-                            numOutcomes,
-                            isMultiDigit = false,
-                            oracleThreshold = 1,
-                            numOracles = 1)
-      } yield succeed
-    }
+    val outcomes = 0L.until(numOutcomes).toVector
 
-    Future
-      .sequence(testFs)
-      .flatMap(_ =>
-        executeRefundCase(numOutcomes,
-                          isMultiNonce = false,
-                          oracleThreshold = 1,
-                          numOracles = 1))
+    for {
+      _ <- executeForCases(outcomes,
+                           numOutcomes,
+                           isMultiDigit = false,
+                           oracleThreshold = 1,
+                           numOracles = 1)
+      _ <- executeRefundCase(numOutcomes,
+                             isMultiNonce = false,
+                             oracleThreshold = 1,
+                             numOracles = 1)
+    } yield succeed
   }
 
   it should "be able to derive oracle signature from remote CET signature" in {
