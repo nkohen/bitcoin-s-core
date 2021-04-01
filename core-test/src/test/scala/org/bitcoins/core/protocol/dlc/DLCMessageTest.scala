@@ -42,7 +42,7 @@ class DLCMessageTest extends BitcoinSJvmTest {
   it must "not allow a negative collateral for a DLCOffer" in {
     assertThrows[IllegalArgumentException](
       DLCOffer(
-        contractInfo = ContractInfo.dummy,
+        contractInfo = SingleContractInfo.dummy,
         pubKeys = DLCPublicKeys(dummyPubKey, dummyAddress),
         totalCollateral = Satoshis(-1),
         fundingInputs = Vector.empty,
@@ -58,7 +58,7 @@ class DLCMessageTest extends BitcoinSJvmTest {
   it must "not allow same change and fund output serial id for a DLCOffer" in {
     assertThrows[IllegalArgumentException](
       DLCOffer(
-        contractInfo = ContractInfo.dummy,
+        contractInfo = SingleContractInfo.dummy,
         pubKeys = DLCPublicKeys(dummyPubKey, dummyAddress),
         totalCollateral = Satoshis(-1),
         fundingInputs = Vector.empty,

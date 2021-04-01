@@ -22,6 +22,8 @@ sealed trait ContractInfo extends TLVSerializable[ContractInfoTLV] {
 
   def contracts: Vector[SingleContractInfo]
 
+  require(contracts.nonEmpty, s"Cannot have empty contract: $this")
+
   def totalCollateral: Satoshis
 
   def oracleInfos: Vector[OracleInfo]
@@ -361,7 +363,7 @@ case class DisjointUnionContractInfo(contracts: Vector[SingleContractInfo])
   }
 
   /** @inheritdoc */
-  override val max: Satoshis = contracts.map(_.max).maxBy(_.toLong)
+  override val max: Satoshis = contracts.map(_.max).max
 
   /** @inheritdoc */
   override lazy val allOutcomesAndPayouts: Vector[(OracleOutcome, Satoshis)] = {
