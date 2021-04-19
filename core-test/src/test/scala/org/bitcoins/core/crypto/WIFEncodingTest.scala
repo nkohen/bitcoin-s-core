@@ -21,7 +21,7 @@ class WIFEncodingTest extends BitcoinSUnitTest {
     val privKeyFromWIF = ECPrivateKeyUtil.fromWIFToPrivateKey(wif)
     privKeyFromWIF must be(privKey)
 
-    val privKeyDecompressed = ECPrivateKey.fromHex(hex, isCompressed = false)
+    val privKeyDecompressed = ECPrivateKey.fromHex(hex)
     val wifDecompressed = ECPrivateKeyUtil.toWIF(privKeyDecompressed, TestNet3)
     val privKeyDecompressedFromWIF =
       ECPrivateKeyUtil.fromWIFToPrivateKey(wifDecompressed)
@@ -48,7 +48,7 @@ class WIFEncodingTest extends BitcoinSUnitTest {
   it must "decode a WIF private key corresponding to uncompressed public key" in {
     val wif = "5Kg1gnAjaLfKiwhhPpGS3QfRg2m6awQvaj98JCZBZQ5SuS2F15C"
     val privKey = ECPrivateKeyUtil.fromWIFToPrivateKey(wif)
-    privKey.publicKey.hex must be(
+    privKey.publicKey.decompressedHex must be(
       "045b81f0017e2091e2edcd5eecf10d5bdd120a5514cb3ee65b8447ec18bfc4575c6d5bf415e54e03b1067934a0f0ba76b01c6b9ab227142ee1d543764b69d901e0")
   }
 

@@ -26,58 +26,11 @@ class ECPublicKeyTest extends BitcoinSCryptoTest {
     assert(ECPublicKey() != ECPublicKey())
   }
 
-  it must "decompress keys correctly" in {
-    forAll(CryptoGenerators.privateKey) { privKey =>
-      val pubKey = privKey.publicKey
-
-      assert(privKey.isCompressed)
-      assert(pubKey.isCompressed)
-
-      val decompressedPrivKey =
-        ECPrivateKey(privKey.bytes, isCompressed = false)
-      val decompressedPubKey = pubKey.decompressed
-
-      assert(decompressedPrivKey.publicKey == decompressedPubKey)
-      assert(pubKey.bytes.tail == decompressedPubKey.bytes.splitAt(33)._1.tail)
-    }
-  }
-
   it must "fail if given invalid pubkey" in {
     // 31 bytes
     val badHex =
       "02020202020202020202020202020202020202020202020202020202020202"
     assert(!ECPublicKey.isFullyValid(ByteVector.fromHex(badHex).get))
-  }
-
-  it must "be able to compress/decompress public keys" in {
-    val privkey = ECPrivateKey.freshPrivateKey
-    assert(CryptoUtil.secKeyVerify(privkey.bytes))
-    assert(privkey.isCompressed)
-
-    val notCompressedKey =
-      ECPrivateKey(bytes = privkey.bytes, isCompressed = false)
-    val pubkey = CryptoUtil.toPublicKey(notCompressedKey)
-    assert(CryptoUtil.isValidPubKey(pubkey.bytes))
-    assert(!pubkey.isCompressed)
-
-    val compressed = privkey.publicKey
-    assert(CryptoUtil.isValidPubKey(compressed.bytes))
-    assert(compressed.isCompressed)
-
-    val converted =
-      CryptoUtil.publicKeyConvert(pubkey, compressed = true)
-    assert(CryptoUtil.isValidPubKey(converted.bytes))
-    assert(converted.isCompressed)
-
-    val decompressed =
-      CryptoUtil.publicKeyConvert(compressed, compressed = false)
-    assert(CryptoUtil.isValidPubKey(decompressed.bytes))
-    assert(!decompressed.isCompressed)
-
-    assert(pubkey.bytes != converted.bytes)
-    assert(compressed.bytes == converted.bytes)
-    assert(compressed.bytes != decompressed.bytes)
-    assert(pubkey.bytes == decompressed.bytes)
   }
 
   it must "not be able to add opposite public keys" in {
@@ -94,15 +47,12 @@ class ECPublicKeyTest extends BitcoinSCryptoTest {
       val sumKey = CryptoUtil.add(pubkey1, pubkey2)
       if (sumKey == ECPublicKey.infinity) fail()
     }
-
-    val decompressedPubkey1 =
-      CryptoUtil.publicKeyConvert(pubkey1, compressed = false)
-
-    val decompressedPubkey2 =
-      CryptoUtil.publicKeyConvert(pubkey2, compressed = false)
-
     assertThrows[Exception] {
-      val sumKey = CryptoUtil.add(decompressedPubkey1, decompressedPubkey2)
+      val sumKey = CryptoUtil.add(pubkey1.compressed, pubkey2.compressed)
+      if (sumKey == ECPublicKey.infinity) fail()
+    }
+    assertThrows[Exception] {
+      val sumKey = CryptoUtil.add(pubkey1.decompressed, pubkey2.decompressed)
       if (sumKey == ECPublicKey.infinity) fail()
     }
   }
@@ -113,16 +63,22 @@ class ECPublicKeyTest extends BitcoinSCryptoTest {
       val pubKeyCompressed = pubKey.compressed
       val pubKeyDecompressed = pubKey.decompressed
 
-      if (privKey.isCompressed) {
-        assert(pubKey == pubKeyCompressed)
-      } else {
-        assert(pubKey == pubKeyDecompressed)
-      }
+      assert(!pubKey.isCompressed)
+      assert(pubKeyCompressed.isFullyValid)
+      assert(pubKeyDecompressed.isFullyValid)
 
-      assert(pubKeyCompressed.decompressed == pubKeyDecompressed)
-      assert(pubKeyCompressed.compressed == pubKeyCompressed)
-      assert(pubKeyDecompressed.compressed == pubKeyCompressed)
-      assert(pubKeyDecompressed.decompressed == pubKeyDecompressed)
+      assert(pubKeyCompressed == pubKeyDecompressed)
+      assert(!pubKeyCompressed.decompressed.isCompressed)
+      assert(pubKeyCompressed.compressed.isCompressed)
+      assert(pubKeyDecompressed.compressed.isCompressed)
+      assert(!pubKeyDecompressed.decompressed.isCompressed)
+      assert(pubKeyCompressed == pubKey)
+      assert(pubKeyDecompressed == pubKey)
+      assert(
+        pubKeyCompressed.bytes.tail == pubKeyDecompressed.decompressedBytes
+          .splitAt(33)
+          ._1
+          .tail)
     }
   }
 

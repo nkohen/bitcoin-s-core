@@ -14,10 +14,7 @@ object ECPrivateKeyUtil {
     */
   def toWIF(privKey: ECPrivateKey, network: NetworkParameters): String = {
     val networkByte = network.privateKey
-    //append 1 byte to the end of the priv key byte representation if we need a compressed pub key
-    val fullBytes =
-      if (privKey.isCompressed) networkByte ++ (privKey.bytes ++ ByteVector(1))
-      else networkByte ++ privKey.bytes
+    val fullBytes = networkByte ++ (privKey.bytes ++ ByteVector(1))
     val hash = CryptoUtil.doubleSHA256(fullBytes)
     val checksum = hash.bytes.take(4)
     val encodedPrivKey = fullBytes ++ checksum
@@ -32,9 +29,8 @@ object ECPrivateKeyUtil {
     * @return
     */
   def fromWIFToPrivateKey(WIF: String): ECPrivateKey = {
-    val isCompressed = ECPrivateKeyUtil.isCompressed(WIF)
     val privateKeyBytes = trimFunction(WIF)
-    ECPrivateKey.fromBytes(privateKeyBytes, isCompressed)
+    ECPrivateKey.fromBytes(privateKeyBytes)
   }
 
   /** Takes in WIF private key as a sequence of bytes and determines if it corresponds to a compressed public key.

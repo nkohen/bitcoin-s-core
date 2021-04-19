@@ -315,38 +315,9 @@ trait BitcoinScriptUtil {
   def checkPubKeyEncoding(key: ECPublicKey, flags: Seq[ScriptFlag]): Boolean = {
     if (
       ScriptFlagUtil.requireStrictEncoding(flags) &&
-      !isCompressedOrUncompressedPubKey(key)
+      !key.isFullyValid
     ) false
     else true
-  }
-
-  /** Returns true if the key is compressed or uncompressed, false otherwise
-    * [[https://github.com/bitcoin/bitcoin/blob/master/src/script/interpreter.cpp#L66]]
-    * @param key the public key that is being checked
-    * @return true if the key is compressed/uncompressed otherwise false
-    */
-  def isCompressedOrUncompressedPubKey(key: ECPublicKey): Boolean = {
-    if (key.bytes.size < 33) {
-      //  Non-canonical public key: too short
-      return false
-    }
-    if (key.bytes.head == 0x04) {
-      if (key.bytes.size != 65) {
-        //  Non-canonical public key: invalid length for uncompressed key
-        return false
-      }
-    } else if (isCompressedPubKey(key)) {
-      return true
-    } else {
-      //  Non-canonical public key: neither compressed nor uncompressed
-      return false
-    }
-    true
-  }
-
-  /** Checks if the given public key is a compressed public key */
-  def isCompressedPubKey(key: ECPublicKey): Boolean = {
-    (key.bytes.size == 33) && (key.bytes.head == 0x02 || key.bytes.head == 0x03)
   }
 
   def minimalScriptNumberRepresentation(num: ScriptNumber): ScriptNumber = {
@@ -366,13 +337,12 @@ trait BitcoinScriptUtil {
       flags: Seq[ScriptFlag]): Option[ScriptError] = {
     if (
       ScriptFlagUtil.requireStrictEncoding(flags) &&
-      !BitcoinScriptUtil.isCompressedOrUncompressedPubKey(pubKey)
+      !pubKey.isFullyValid
     ) {
       Some(ScriptErrorPubKeyType)
     } else if (
       ScriptFlagUtil.requireScriptVerifyWitnessPubKeyType(flags) &&
-      !BitcoinScriptUtil.isCompressedPubKey(
-        pubKey) && sigVersion == SigVersionWitnessV0
+      !pubKey.isFullyValid && sigVersion == SigVersionWitnessV0
     ) {
       Some(ScriptErrorWitnessPubKeyType)
     } else None
@@ -589,30 +559,6 @@ trait BitcoinScriptUtil {
   def minimalDummy(asm: Seq[ScriptToken]): Seq[ScriptToken] = {
     if (asm.headOption.contains(OP_0)) ScriptNumber.zero +: asm.tail
     else asm
-  }
-
-  /** Checks that all the [[org.bitcoins.crypto.ECPublicKey ECPublicKey]] in this script
-    * is compressed public keys, this is required for BIP143
-    */
-  def isOnlyCompressedPubKey(spk: ScriptPubKey): Boolean = {
-    spk match {
-      case p2pk: P2PKScriptPubKey => p2pk.publicKey.isCompressed
-      case p2pkWithTimeout: P2PKWithTimeoutScriptPubKey =>
-        p2pkWithTimeout.pubKey.isCompressed && p2pkWithTimeout.timeoutPubKey.isCompressed
-      case m: MultiSignatureScriptPubKey =>
-        m.publicKeys.forall(_.isCompressed)
-      case l: LockTimeScriptPubKey =>
-        isOnlyCompressedPubKey(l.nestedScriptPubKey)
-      case conditional: ConditionalScriptPubKey =>
-        isOnlyCompressedPubKey(conditional.trueSPK) && isOnlyCompressedPubKey(
-          conditional.falseSPK)
-      case _: P2PKHScriptPubKey | _: P2SHScriptPubKey | _: P2WPKHWitnessSPKV0 |
-          _: P2WSHWitnessSPKV0 | _: UnassignedWitnessScriptPubKey |
-          _: NonStandardScriptPubKey | _: WitnessCommitment |
-          EmptyScriptPubKey =>
-        true
-
-    }
   }
 
   def parseScript[T <: Script](

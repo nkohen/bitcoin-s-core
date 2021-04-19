@@ -16,7 +16,7 @@ case class SchnorrPublicKey(bytes: ByteVector) extends NetworkElement {
   }
 
   def computeSigPoint(data: ByteVector, nonce: SchnorrNonce): ECPublicKey = {
-    computeSigPoint(data, nonce, compressed = true)
+    CryptoUtil.schnorrComputeSigPoint(data, nonce, this)
   }
 
   def computeSigPoint(hash: HashDigest, nonce: SchnorrNonce): ECPublicKey = {
@@ -47,13 +47,6 @@ case class SchnorrPublicKey(bytes: ByteVector) extends NetworkElement {
       }
 
     this.publicKey.tweakMultiply(aggHashes.fieldElement).add(aggNonces)
-  }
-
-  def computeSigPoint(
-      data: ByteVector,
-      nonce: SchnorrNonce,
-      compressed: Boolean): ECPublicKey = {
-    CryptoUtil.schnorrComputeSigPoint(data, nonce, this, compressed)
   }
 
   def publicKey: ECPublicKey = {

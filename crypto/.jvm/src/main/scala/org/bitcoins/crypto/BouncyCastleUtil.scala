@@ -23,7 +23,7 @@ object BouncyCastleUtil {
 
   def pubKeyTweakMul(publicKey: ECPublicKey, tweak: ByteVector): ECPublicKey = {
     val point = decodePoint(publicKey).multiply(getBigInteger(tweak))
-    decodePubKey(point, publicKey.isCompressed)
+    decodePubKey(point)
   }
 
   private[crypto] def decodePoint(
@@ -37,9 +37,8 @@ object BouncyCastleUtil {
   }
 
   private[crypto] def decodePubKey(
-      point: org.bouncycastle.math.ec.ECPoint,
-      isCompressed: Boolean = true): ECPublicKey = {
-    val bytes = point.getEncoded(isCompressed)
+      point: org.bouncycastle.math.ec.ECPoint): ECPublicKey = {
+    val bytes = point.getEncoded(false)
     ECPublicKey.fromBytes(ByteVector(bytes))
   }
 
@@ -51,7 +50,7 @@ object BouncyCastleUtil {
 
   def pubKeyTweakMul(pubKey: ECPublicKey, tweak: FieldElement): ECPublicKey = {
     val tweakedPoint = decodePoint(pubKey).multiply(tweak.toBigInteger)
-    decodePubKey(tweakedPoint, pubKey.isCompressed)
+    decodePubKey(tweakedPoint)
   }
 
   def decompressPublicKey(publicKey: ECPublicKey): ECPublicKey = {
@@ -68,26 +67,12 @@ object BouncyCastleUtil {
   def computePublicKey(privateKey: ECPrivateKey): ECPublicKey = {
     val priv = getBigInteger(privateKey.bytes)
     val point = G.multiply(priv)
-    val pubBytes = ByteVector(point.getEncoded(privateKey.isCompressed))
+    val pubBytes = ByteVector(point.getEncoded(false))
     require(
       ECPublicKey.isFullyValid(pubBytes),
       s"Bouncy Castle failed to generate a valid public key, got: ${CryptoBytesUtil
         .encodeHex(pubBytes)}")
     ECPublicKey(pubBytes)
-  }
-
-  def publicKeyConvert(key: ECPublicKey, compressed: Boolean): ECPublicKey = {
-    if (key.isCompressed == compressed) {
-      key
-    } else {
-      val point = decodePoint(key)
-      val pubBytes = ByteVector(point.getEncoded(compressed))
-      require(
-        ECPublicKey.isFullyValid(pubBytes),
-        s"Bouncy Castle failed to generate a valid public key, got: ${CryptoBytesUtil
-          .encodeHex(pubBytes)}")
-      ECPublicKey(pubBytes)
-    }
   }
 
   def sign(

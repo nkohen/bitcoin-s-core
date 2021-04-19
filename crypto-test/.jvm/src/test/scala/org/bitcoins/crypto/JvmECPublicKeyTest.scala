@@ -10,7 +10,7 @@ class JvmECPublicKeyTest extends BitcoinSCryptoTest {
       case _: BouncycastleCryptoRuntime | _: LibSecp256k1CryptoRuntime =>
         forAll(CryptoGenerators.publicKey) { pubKey =>
           val p = BouncyCastleUtil.decodePoint(pubKey)
-          val pub2 = BouncyCastleUtil.decodePubKey(p, pubKey.isCompressed)
+          val pub2 = BouncyCastleUtil.decodePubKey(p)
           assert(pubKey == pub2)
         }
       case _ => succeed

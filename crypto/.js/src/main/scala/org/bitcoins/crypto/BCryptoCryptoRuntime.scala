@@ -58,13 +58,11 @@ trait BCryptoCryptoRuntime extends CryptoRuntime {
   /** Converts a private key -> public key
     *
     * @param privateKey   the private key we want the corresponding public key for
-    * @param isCompressed whether the returned public key should be compressed or not
     */
   override def toPublicKey(privateKey: ECPrivateKey): ECPublicKey = {
     val buffer = CryptoJsUtil.toNodeBuffer(privateKey.bytes)
     val pubKeyBuffer =
-      SECP256k1.publicKeyCreate(key = buffer,
-                                compressed = privateKey.isCompressed)
+      SECP256k1.publicKeyCreate(key = buffer, compressed = false)
     val privKeyByteVec = CryptoJsUtil.toByteVector(pubKeyBuffer)
     ECPublicKey.fromBytes(privKeyByteVec)
   }
@@ -152,7 +150,7 @@ trait BCryptoCryptoRuntime extends CryptoRuntime {
   override def publicKey(privateKey: ECPrivateKey): ECPublicKey = {
     val buffer = CryptoJsUtil.toNodeBuffer(privateKey.bytes)
     val bufferPubKey =
-      SECP256k1.publicKeyCreate(buffer, privateKey.isCompressed)
+      SECP256k1.publicKeyCreate(buffer, compressed = false)
     val byteVec = CryptoJsUtil.toByteVector(bufferPubKey)
     ECPublicKey.fromBytes(byteVec)
   }
@@ -198,20 +196,6 @@ trait BCryptoCryptoRuntime extends CryptoRuntime {
     ECPublicKey.fromBytes(keyByteVec)
   }
 
-  def publicKeyConvert(buffer: ByteVector, compressed: Boolean): ByteVector = {
-    val pubKeyBuffer =
-      publicKeyConvert(CryptoJsUtil.toNodeBuffer(buffer), compressed)
-    CryptoJsUtil.toByteVector(pubKeyBuffer)
-  }
-
-  def publicKeyConvert(buffer: Buffer, compressed: Boolean): Buffer =
-    SECP256k1.publicKeyConvert(buffer, compressed)
-
-  override def publicKeyConvert(
-      key: ECPublicKey,
-      compressed: Boolean): ECPublicKey =
-    ECPublicKey(publicKeyConvert(key.bytes, compressed))
-
   override def add(pk1: ECPublicKey, pk2: ECPublicKey): ECPublicKey = {
     val pk1Buffer = CryptoJsUtil.toNodeBuffer(pk1.bytes)
     val pk2Buffer = CryptoJsUtil.toNodeBuffer(pk2.bytes)
@@ -224,13 +208,8 @@ trait BCryptoCryptoRuntime extends CryptoRuntime {
     } catch {
       case ex: JavaScriptException =>
         // check for infinity
-        val k1: ByteVector =
-          if (pk1.isCompressed) pk1.bytes
-          else publicKeyConvert(pk1.bytes, compressed = true)
-
-        val k2: ByteVector =
-          if (pk2.isCompressed) pk2.bytes
-          else publicKeyConvert(pk2.bytes, compressed = true)
+        val k1 = pk1.bytes
+        val k2 = pk2.bytes
 
         if (
           ((k1.head == 0x02 && k2.head == 0x03) ||

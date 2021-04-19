@@ -73,10 +73,10 @@ class BloomFilterTest extends BitcoinSUnitTest {
     assert(
       privKey.hex == "f49addfd726a59abde172c86452f5f73038a02f4415878dc14934175e8418aff")
     val pubKey = privKey.publicKey
-    val filter1 = filter.insert(pubKey.bytes)
+    val filter1 = filter.insert(pubKey.decompressedBytes)
     //hex is from bitcoin core
     filter1.hex must be("0302c12b080000000000000001")
-    val keyId = CryptoUtil.sha256Hash160(pubKey.bytes)
+    val keyId = CryptoUtil.sha256Hash160(pubKey.decompressedBytes)
     val filter2 = filter1.insert(keyId.bytes)
 
     filter2.hex must be("038fc16b080000000000000001")
@@ -135,7 +135,7 @@ class BloomFilterTest extends BitcoinSUnitTest {
     //insert the pubkey of spendingTx in the bloom filter
     val pubKey = ECPublicKey(
       "046d11fee51b0e60666d5049a9101a72741df480b96ee26488a4d3466b95c9a40ac5eeef87e10a5cd336c19a84565f80fa6c547957b7700ff4dfbdefe76036c339")
-    val filter7 = filter6.insert(pubKey.bytes)
+    val filter7 = filter6.insert(pubKey.decompressedBytes)
     filter7.isRelevant(creditingTx) must be(true)
 
     val filter8 = BloomFilter(10, 0.000001, UInt32.zero, BloomUpdateAll)
@@ -207,7 +207,8 @@ class BloomFilterTest extends BitcoinSUnitTest {
     val pubKey = ECPublicKey(
       "044a656f065871a353f216ca26cef8dde2f03e8c16202d2e8ad769f02032cb86a5eb5e56842e92e19141d60a01928f8dd2c875a390f67c1f6c94cfc617c0ea45af")
     val filter =
-      BloomFilter(1, 0.00001, UInt32.zero, BloomUpdateNone).insert(pubKey.bytes)
+      BloomFilter(1, 0.00001, UInt32.zero, BloomUpdateNone).insert(
+        pubKey.decompressedBytes)
 
     // Match an output from the second transaction (the pubkey for address 1DZTzaBHUDM7T3QvUKBz4qXMRpkg8jsfB5)
     // This should not match the third transaction though it spends the output matched

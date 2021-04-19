@@ -83,11 +83,6 @@ trait CryptoUtil extends CryptoRuntime {
   override def publicKey(privateKey: ECPrivateKey): ECPublicKey =
     cryptoRuntime.publicKey(privateKey)
 
-  override def publicKeyConvert(
-      key: ECPublicKey,
-      compressed: Boolean): ECPublicKey =
-    cryptoRuntime.publicKeyConvert(key, compressed)
-
   override def sign(
       privateKey: ECPrivateKey,
       dataToSign: ByteVector): ECDigitalSignature =
@@ -154,9 +149,8 @@ trait CryptoUtil extends CryptoRuntime {
   override def schnorrComputeSigPoint(
       data: ByteVector,
       nonce: SchnorrNonce,
-      pubKey: SchnorrPublicKey,
-      compressed: Boolean): ECPublicKey =
-    cryptoRuntime.schnorrComputeSigPoint(data, nonce, pubKey, compressed)
+      pubKey: SchnorrPublicKey): ECPublicKey =
+    cryptoRuntime.schnorrComputeSigPoint(data, nonce, pubKey)
 
   override def adaptorSign(
       key: ECPrivateKey,

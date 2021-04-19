@@ -170,11 +170,6 @@ trait CryptoRuntime {
 
   def publicKey(privateKey: ECPrivateKey): ECPublicKey
 
-  /** Converts the given public key from its current representation to compressed/not compressed
-    * depending upon how [[compressed]] is set
-    */
-  def publicKeyConvert(key: ECPublicKey, compressed: Boolean): ECPublicKey
-
   def sign(privateKey: ECPrivateKey, dataToSign: ByteVector): ECDigitalSignature
 
   def signWithEntropy(
@@ -281,21 +276,13 @@ trait CryptoRuntime {
   def schnorrComputeSigPoint(
       data: ByteVector,
       nonce: SchnorrNonce,
-      pubKey: SchnorrPublicKey,
-      compressed: Boolean): ECPublicKey = {
+      pubKey: SchnorrPublicKey): ECPublicKey = {
     val eBytes = sha256SchnorrChallenge(
       nonce.bytes ++ pubKey.bytes ++ data).bytes
 
     val e = FieldElement(eBytes)
 
-    val compressedSigPoint =
-      nonce.publicKey.add(pubKey.publicKey.tweakMultiply(e))
-
-    if (compressed) {
-      compressedSigPoint
-    } else {
-      compressedSigPoint.decompressed
-    }
+    nonce.publicKey.add(pubKey.publicKey.tweakMultiply(e))
   }
 
   def adaptorSign(

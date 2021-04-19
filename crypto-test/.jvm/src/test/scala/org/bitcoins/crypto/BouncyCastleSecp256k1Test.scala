@@ -121,8 +121,7 @@ class BouncyCastleSecp256k1Test extends BitcoinSCryptoTest {
     forAll(CryptoGenerators.schnorrPublicKey,
            CryptoGenerators.schnorrNonce,
            NumberGenerator.bytevector(32)) { case (pubKey, nonce, bytes) =>
-      testCompatibility(
-        _.schnorrComputeSigPoint(bytes, nonce, pubKey, compressed = true))
+      testCompatibility(_.schnorrComputeSigPoint(bytes, nonce, pubKey))
     }
   }
 

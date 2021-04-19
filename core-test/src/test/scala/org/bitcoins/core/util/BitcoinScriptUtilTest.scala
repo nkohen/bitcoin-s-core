@@ -1,17 +1,15 @@
 package org.bitcoins.core.util
 
-import org.bitcoins.core.protocol.script.{SigVersionBase, SigVersionWitnessV0}
+import org.bitcoins.core.protocol.script.SigVersionBase
 import org.bitcoins.core.protocol.transaction.TransactionOutput
 import org.bitcoins.core.script.constant._
 import org.bitcoins.core.script.crypto._
 import org.bitcoins.core.script.flag.ScriptVerifyWitnessPubKeyType
 import org.bitcoins.core.script.locktime.OP_CHECKLOCKTIMEVERIFY
 import org.bitcoins.core.script.reserved.{OP_NOP, OP_RESERVED}
-import org.bitcoins.core.script.result.ScriptErrorWitnessPubKeyType
 import org.bitcoins.crypto.{ECPrivateKey, ECPublicKey}
 import org.bitcoins.testkitcore.gen.ScriptGenerators
-import org.bitcoins.testkitcore.util.TestUtil
-import org.bitcoins.testkitcore.util.BitcoinSUnitTest
+import org.bitcoins.testkitcore.util.{BitcoinSUnitTest, TestUtil}
 import scodec.bits.ByteVector
 
 /** Created by chris on 3/2/16.
@@ -44,7 +42,7 @@ class BitcoinScriptUtilTest extends BitcoinSUnitTest {
     assert(
       BitcoinScriptUtil
         .getDataTokens(scriptPubKey.asm)
-        .map(_.bytes) == Vector(genesisPK.bytes))
+        .map(_.bytes) == Vector(genesisPK.decompressedBytes))
   }
 
   it must "filter out all but the data tokens" in {
@@ -300,17 +298,11 @@ class BitcoinScriptUtilTest extends BitcoinSUnitTest {
   }
 
   it must "determine if a segwit pubkey is compressed" in {
-    val key = ECPrivateKey(false)
+    val key = ECPrivateKey.freshPrivateKey
     val pubKey = key.publicKey
     val flags = Seq(ScriptVerifyWitnessPubKeyType)
-    BitcoinScriptUtil.isValidPubKeyEncoding(pubKey,
-                                            SigVersionWitnessV0,
-                                            flags) must be(
-      Some(ScriptErrorWitnessPubKeyType))
 
-    val key2 = ECPrivateKey(false)
-    val pubKey2 = key2.publicKey
-    BitcoinScriptUtil.isValidPubKeyEncoding(pubKey2,
+    BitcoinScriptUtil.isValidPubKeyEncoding(pubKey,
                                             SigVersionBase,
                                             flags) must be(None)
   }
