@@ -297,7 +297,7 @@ object DLCTLVGen {
 
   def oracleEvent(
       descriptor: EventDescriptorTLV,
-      nonces: Vector[SchnorrNonce] = nonces(),
+      nonces: Vector[SchnorrNonce] = this.nonces(),
       eventMaturity: UInt32 = UInt32.zero,
       eventId: String = "test_event"): OracleEventV0TLV = {
     OracleEventV0TLV(nonces, eventMaturity, descriptor, eventId)
@@ -463,7 +463,8 @@ object DLCTLVGen {
       numRoundingIntervals: Int,
       threshold: Int,
       numOracles: Int,
-      oracleParams: OracleParamsV0TLV = oracleParams()): ContractInfoV0TLV = {
+      oracleParams: OracleParamsV0TLV =
+        this.oracleParams()): ContractInfoV0TLV = {
     ContractInfoV0TLV(
       totalCollateral,
       numericDescriptor(numPoints, numRoundingIntervals),
@@ -618,8 +619,8 @@ object DLCTLVGen {
   def adaptorSig: ECAdaptorSignature = {
     ECAdaptorSignature(
       ECPublicKey.freshPublicKey,
-      ECPrivateKey.freshPrivateKey.fieldElement,
       ECPublicKey.freshPublicKey,
+      ECPrivateKey.freshPrivateKey.fieldElement,
       ECPrivateKey.freshPrivateKey.fieldElement,
       ECPrivateKey.freshPrivateKey.fieldElement
     )
