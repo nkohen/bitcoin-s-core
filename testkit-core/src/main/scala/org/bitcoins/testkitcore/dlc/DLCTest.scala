@@ -312,8 +312,7 @@ trait DLCTest {
       changeSerialId = offerChangeSerialId,
       remoteChangeSPK = acceptChangeSPK,
       remoteChangeSerialId = acceptChangeSerialId,
-      fundOutputSerialId = fundOutputSerialId,
-      network = RegTest
+      fundOutputSerialId = fundOutputSerialId
     )
 
     val acceptDLC = TestDLCClient(
@@ -336,8 +335,7 @@ trait DLCTest {
       changeSerialId = acceptChangeSerialId,
       remoteChangeSPK = offerChangeSPK,
       remoteChangeSerialId = offerChangeSerialId,
-      fundOutputSerialId = fundOutputSerialId,
-      network = RegTest
+      fundOutputSerialId = fundOutputSerialId
     )
 
     (offerDLC, acceptDLC)

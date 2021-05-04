@@ -1,6 +1,6 @@
 package org.bitcoins.dlc.testgen
 
-import org.bitcoins.core.config.{BitcoinNetwork, RegTest}
+import org.bitcoins.core.config.RegTest
 import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.number.UInt64
 import org.bitcoins.core.protocol.dlc.DLCMessage.DLCAccept
@@ -163,13 +163,9 @@ object TestDLCClient {
       changeSerialId: UInt64,
       remoteChangeSPK: ScriptPubKey,
       remoteChangeSerialId: UInt64,
-      fundOutputSerialId: UInt64,
-      network: BitcoinNetwork)(implicit ec: ExecutionContext): TestDLCClient = {
-    val pubKeys = DLCPublicKeys.fromPrivKeys(
-      fundingPrivKey,
-      payoutPrivKey,
-      network
-    )
+      fundOutputSerialId: UInt64)(implicit
+      ec: ExecutionContext): TestDLCClient = {
+    val network = remotePubKeys.payoutAddress.networkParameters
 
     val remoteOutcomes: ContractInfo = {
       val descriptors =
@@ -189,64 +185,13 @@ object TestDLCClient {
       }
     }
 
+    val offerOutcomes = if (isInitiator) outcomes else remoteOutcomes
+
+    val finalAddress =
+      Bech32Address(P2WPKHWitnessSPKV0(payoutPrivKey.publicKey), network)
     val changeAddress = BitcoinAddress.fromScriptPubKey(changeSPK, network)
     val remoteChangeAddress =
       BitcoinAddress.fromScriptPubKey(remoteChangeSPK, network)
-
-    val (offerOutcomes,
-         offerPubKeys,
-         offerPayoutSerialId,
-         offerInput,
-         offerFundingInputs,
-         offerChangeAddress,
-         offerChangeSerialId,
-         acceptPubKeys,
-         acceptPayoutSerialId,
-         acceptInput,
-         acceptFundingInputs,
-         acceptChangeAddress,
-         acceptChangeSerialId) = if (isInitiator) {
-      (outcomes,
-       pubKeys,
-       payoutSerialId,
-       input,
-       fundingUtxos.map(_.toDLCFundingInput),
-       changeAddress,
-       changeSerialId,
-       remotePubKeys,
-       remotePayoutSerialId,
-       remoteInput,
-       remoteFundingInputs,
-       remoteChangeAddress,
-       remoteChangeSerialId)
-    } else {
-      (remoteOutcomes,
-       remotePubKeys,
-       remotePayoutSerialId,
-       remoteInput,
-       remoteFundingInputs,
-       remoteChangeAddress,
-       remoteChangeSerialId,
-       pubKeys,
-       payoutSerialId,
-       input,
-       fundingUtxos.map(_.toDLCFundingInput),
-       changeAddress,
-       changeSerialId)
-    }
-
-    val offer = DLCMessage.DLCOffer(
-      contractInfo = offerOutcomes,
-      pubKeys = offerPubKeys,
-      totalCollateral = offerInput.satoshis,
-      fundingInputs = offerFundingInputs,
-      changeAddress = offerChangeAddress,
-      payoutSerialId = offerPayoutSerialId,
-      changeSerialId = offerChangeSerialId,
-      fundOutputSerialId = fundOutputSerialId,
-      feeRate = feeRate,
-      timeouts = timeouts
-    )
 
     val negotiationFields = offerOutcomes match {
       case _: SingleContractInfo => DLCAccept.NoNegotiationFields
@@ -255,22 +200,41 @@ object TestDLCClient {
           contracts.map(_ => DLCAccept.NoNegotiationFields))
     }
 
-    val accept = DLCMessage.DLCAcceptWithoutSigs(
-      totalCollateral = acceptInput.satoshis,
-      pubKeys = acceptPubKeys,
-      fundingInputs = acceptFundingInputs,
-      changeAddress = acceptChangeAddress,
-      payoutSerialId = acceptPayoutSerialId,
-      changeSerialId = acceptChangeSerialId,
-      negotiationFields = negotiationFields,
-      tempContractId = offer.tempContractId
-    )
+    val dataStore = InMemoryDLCDataStore()
 
-    TestDLCClient(offer,
-                  accept,
-                  isInitiator,
-                  fundingPrivKey,
-                  payoutPrivKey,
-                  fundingUtxos.map(_.spendingInfo))
+    val (localParty, remoteParty) = if (isInitiator) {
+      (dataStore.offer, dataStore.accept)
+    } else {
+      (dataStore.accept, dataStore.offer)
+    }
+
+    dataStore.global.setContractInfo(offerOutcomes)
+    dataStore.local.setIsInitiator(isInitiator)
+    dataStore.local.setFundingPrivKey(fundingPrivKey)
+    localParty.setFundingKey(fundingPrivKey.publicKey)
+    localParty.setFinalAddress(finalAddress)
+    localParty.setPayoutSerialId(payoutSerialId)
+    remoteParty.setFundingKey(remotePubKeys.fundingKey)
+    remoteParty.setFinalAddress(remotePubKeys.payoutAddress)
+    remoteParty.setPayoutSerialId(remotePayoutSerialId)
+    localParty.setCollateral(input.satoshis)
+    remoteParty.setCollateral(remoteInput.satoshis)
+    dataStore.local.setFundingUtxos(fundingUtxos.map(_.spendingInfo))
+    localParty.setFundingInputs(fundingUtxos.map(_.toDLCFundingInput))
+    remoteParty.setFundingInputs(remoteFundingInputs)
+    dataStore.global.setTimeouts(timeouts)
+    dataStore.global.setFeeRate(feeRate)
+    localParty.setChangeAddress(changeAddress)
+    localParty.setChangeSerialId(changeSerialId)
+    remoteParty.setChangeAddress(remoteChangeAddress)
+    remoteParty.setChangeSerialId(remoteChangeSerialId)
+    dataStore.global.setFundOutputSerialId(fundOutputSerialId)
+    dataStore.accept.setNegotiationFields(negotiationFields)
+
+    val offer = dataStore.getter.getOffer
+
+    dataStore.global.setTempContractId(offer.tempContractId)
+
+    TestDLCClient(dataStore)
   }
 }
