@@ -3,16 +3,16 @@ package org.bitcoins.dlc.testgen
 import org.bitcoins.core.config.{BitcoinNetwork, RegTest}
 import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.number.UInt64
-import org.bitcoins.core.protocol.{Bech32Address, BitcoinAddress}
 import org.bitcoins.core.protocol.dlc.DLCMessage.DLCAccept
 import org.bitcoins.core.protocol.dlc._
 import org.bitcoins.core.protocol.script.{P2WPKHWitnessSPKV0, ScriptPubKey}
 import org.bitcoins.core.protocol.transaction.Transaction
+import org.bitcoins.core.protocol.{Bech32Address, BitcoinAddress}
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{InputInfo, ScriptSignatureParams}
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.{DLCFullDataStore, InMemoryDLCDataStore}
+import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.dlc.execution.{
   DLCExecutor,
   ExecutedDLCOutcome,
@@ -25,47 +25,26 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** This case class allows for the construction and execution of
   * Discreet Log Contracts between two parties running on this machine (for tests).
-  *
-  * @param offer The DLCOffer associated with this DLC
-  * @param accept The DLCAccept (without sigs) associated with this DLC
-  * @param isInitiator True if this client sends the offer message
-  * @param fundingPrivKey This client's funding private key for this event
-  * @param payoutPrivKey This client's payout private key for this event
-  * @param fundingUtxos This client's funding BitcoinUTXOSpendingInfo collection
   */
-case class TestDLCClient(
-    offer: DLCMessage.DLCOffer,
-    accept: DLCMessage.DLCAcceptWithoutSigs,
-    isInitiator: Boolean,
-    fundingPrivKey: ECPrivateKey,
-    payoutPrivKey: ECPrivateKey,
-    fundingUtxos: Vector[ScriptSignatureParams[InputInfo]])(implicit
+case class TestDLCClient(dataStore: InMemoryDLCDataStore)(implicit
     ec: ExecutionContext) {
-
-  val dataStore: DLCFullDataStore = InMemoryDLCDataStore()
-  dataStore.writeOffer(offer)
-  dataStore.writeAcceptWithoutSigs(accept)
-  dataStore.local.setIsInitiator(isInitiator)
-  dataStore.local.setFundingPrivKey(fundingPrivKey)
-  dataStore.local.setFundingUtxos(fundingUtxos)
-
-  private val finalAddress =
-    Bech32Address(P2WPKHWitnessSPKV0(payoutPrivKey.publicKey), RegTest)
-  if (isInitiator) {
-    dataStore.offer.setFinalAddress(finalAddress)
-  } else {
-    dataStore.accept.setFinalAddress(finalAddress)
-  }
 
   val dlcTxBuilder: DLCTxBuilder = DLCTxBuilder(dataStore)
 
   val dlcTxSigner: DLCTxSigner = DLCTxSigner(dlcTxBuilder)
 
+  val isInitiator: Boolean = dlcTxSigner.isInitiator
+
+  lazy val fundingPrivKey: AdaptorSign = dataStore.getter.local.fundingPrivKey
+
   private val dlcExecutor = DLCExecutor(dlcTxSigner)
 
-  val messages: Vector[OracleOutcome] = offer.contractInfo.allOutcomes
+  lazy val contractInfo: ContractInfo = dataStore.getter.global.contractInfo
 
-  val timeouts: DLCTimeouts = offer.timeouts
+  val messages: Vector[OracleOutcome] =
+    dataStore.getter.global.contractInfo.allOutcomes
+
+  val timeouts: DLCTimeouts = dataStore.getter.global.timeouts
 
   def fundingTx: Transaction = dlcTxBuilder.buildFundingTx
 
@@ -139,6 +118,33 @@ case class TestDLCClient(
 
 object TestDLCClient {
 
+  def apply(
+      offer: DLCMessage.DLCOffer,
+      accept: DLCMessage.DLCAcceptWithoutSigs,
+      isInitiator: Boolean,
+      fundingPrivKey: ECPrivateKey,
+      payoutPrivKey: ECPrivateKey,
+      fundingUtxos: Vector[ScriptSignatureParams[InputInfo]])(implicit
+      ec: ExecutionContext): TestDLCClient = {
+    val dataStore = InMemoryDLCDataStore()
+    dataStore.writeOffer(offer)
+    dataStore.writeAcceptWithoutSigs(accept)
+    dataStore.local.setIsInitiator(isInitiator)
+    dataStore.local.setFundingPrivKey(fundingPrivKey)
+    dataStore.local.setFundingUtxos(fundingUtxos)
+
+    val finalAddress =
+      Bech32Address(P2WPKHWitnessSPKV0(payoutPrivKey.publicKey), RegTest)
+    if (isInitiator) {
+      dataStore.offer.setFinalAddress(finalAddress)
+    } else {
+      dataStore.accept.setFinalAddress(finalAddress)
+    }
+
+    TestDLCClient(dataStore)
+  }
+
+  // TODO: just directly write to datastore
   def apply(
       outcomes: ContractInfo,
       isInitiator: Boolean,

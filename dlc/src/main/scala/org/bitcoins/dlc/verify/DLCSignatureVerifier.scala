@@ -19,13 +19,18 @@ import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.util.FutureUtil
 import org.bitcoins.crypto.{ECAdaptorSignature, ECPublicKey}
 import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.DLCFullDataStore
 import scodec.bits.ByteVector
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /** Responsible for verifying all DLC signatures */
-case class DLCSignatureVerifier(builder: DLCTxBuilder, isInitiator: Boolean) {
+case class DLCSignatureVerifier(builder: DLCTxBuilder) {
+  val dataStore: DLCFullDataStore = builder.dataStore
+  private val getData = dataStore.getter
+  val isInitiator: Boolean = getData.local.isInitiator
+
   private def fundingTx: Transaction = builder.buildFundingTx
 
   def verifyRemoteFundingSigs(remoteSigs: FundingSignatures): Boolean = {

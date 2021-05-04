@@ -15,18 +15,10 @@ import org.bitcoins.core.util.{BitcoinScriptUtil, FutureUtil, NumberUtil}
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo._
 import org.bitcoins.crypto._
-import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.InMemoryDLCDataStore
-import org.bitcoins.dlc.execution.{
-  CETInfo,
-  DLCOutcome,
-  ExecutedDLCOutcome,
-  RefundDLCOutcome,
-  SetupDLC
-}
+import org.bitcoins.dlc.execution._
 import org.bitcoins.dlc.testgen.{DLCTestUtil, TestDLCClient}
-import org.scalatest.{Assertion, Assertions}
 import org.scalatest.Assertions.{assert, fail, succeed}
+import org.scalatest.{Assertion, Assertions}
 import scodec.bits.BitVector
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -1055,7 +1047,7 @@ trait DLCTest {
       outcomes: Vector[DLCOutcomeType],
       contractIndex: Int = 0)(implicit
       ec: ExecutionContext): Future[Assertion] = {
-    val contractInfo = dlcOffer.offer.contractInfo
+    val contractInfo = dlcOffer.contractInfo
     val contractSizes = contractInfo.contracts.map { contract =>
       contract.allOutcomes.length
     }
@@ -1181,15 +1173,13 @@ trait DLCTest {
       acceptOutcome <-
         dlcAccept.executeDLC(acceptSetup, Future.successful(oracleSigs))
     } yield {
-      val dataStore = InMemoryDLCDataStore()
-      dataStore.writeOffer(dlcOffer.offer)
-      dataStore.writeAcceptWithoutSigs(dlcAccept.accept)
-      val builder = DLCTxBuilder(dataStore)
+      val builder = dlcOffer.dlcTxBuilder
       val contractId = builder.buildFundingTx.txIdBE.bytes
-        .xor(dlcAccept.accept.tempContractId.bytes)
+        .xor(builder.dataStore.getter.global.tempContractId.bytes)
 
-      val offer = dlcOffer.offer
-      val accept = dlcOffer.accept.withSigs(acceptCETSigs)
+      val offer = dlcOffer.dataStore.getter.getOffer
+      val accept =
+        dlcOffer.dataStore.getter.getAcceptWithoutSigs.withSigs(acceptCETSigs)
       val sign = DLCSign(offerCETSigs, offerFundingSigs, contractId)
 
       val (offerOracleSig, offerDLCOutcome) =

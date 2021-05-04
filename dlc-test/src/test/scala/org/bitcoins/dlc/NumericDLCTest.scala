@@ -99,7 +99,7 @@ class NumericDLCTest extends BitcoinSJvmTest with DLCTest {
                   val outcome =
                     possibleOutcomes(Random.nextInt(possibleOutcomes.length))
 
-                  val oracleInfo = dlcOffer.offer.oracleInfos.head
+                  val oracleInfo = dlcOffer.contractInfo.oracleInfos.head
 
                   val oracleIndices =
                     0.until(oracleInfo.numOracles).toVector
@@ -111,7 +111,7 @@ class NumericDLCTest extends BitcoinSJvmTest with DLCTest {
 
                   val oracleOutcome =
                     genNumericOracleOutcome(chosenOracles,
-                                            dlcOffer.offer.contractInfo,
+                                            dlcOffer.contractInfo,
                                             outcome.digits,
                                             oracleParamsOpt)
 

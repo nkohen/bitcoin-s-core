@@ -13,9 +13,8 @@ class DLCValidationTest extends BitcoinSJvmTest with DLCTest {
     val contractParms =
       EnumContractParams(numOutcomes = 3, oracleThreshold = 1, numOracles = 1)
     val (offerClient, acceptClient, _) = constructDLCClients(contractParms)
-    val builder = offerClient.dlcTxBuilder
-    val offerVerifier = DLCSignatureVerifier(builder, isInitiator = true)
-    val acceptVerifier = DLCSignatureVerifier(builder, isInitiator = false)
+    val offerVerifier = DLCSignatureVerifier(offerClient.dlcTxBuilder)
+    val acceptVerifier = DLCSignatureVerifier(acceptClient.dlcTxBuilder)
 
     val offerFundingSigs = offerClient.dlcTxSigner.signFundingTx().get
     val acceptFundingSigs = acceptClient.dlcTxSigner.signFundingTx().get
@@ -46,9 +45,10 @@ class DLCValidationTest extends BitcoinSJvmTest with DLCTest {
       EnumContractParams(numOutcomes = 3, oracleThreshold = 1, numOracles = 1)
     val (offerClient, acceptClient, outcomes) =
       constructDLCClients(contractParms)
-    val builder = offerClient.dlcTxBuilder
-    val offerVerifier = DLCSignatureVerifier(builder, isInitiator = true)
-    val acceptVerifier = DLCSignatureVerifier(builder, isInitiator = false)
+    val offerVerifier = DLCSignatureVerifier(offerClient.dlcTxBuilder)
+    val acceptVerifier = DLCSignatureVerifier(acceptClient.dlcTxBuilder)
+
+    val contractInfo = offerClient.contractInfo
 
     val offerCETSigs = offerClient.dlcTxSigner.createCETSigs()
     val acceptCETSigs = acceptClient.dlcTxSigner.createCETSigs()
@@ -59,7 +59,7 @@ class DLCValidationTest extends BitcoinSJvmTest with DLCTest {
     outcomes.foreach { outcomeUncast =>
       val outcome = outcomeUncast.asInstanceOf[EnumOutcome]
       val oracleInfo =
-        offerClient.offer.oracleInfos.head.asInstanceOf[EnumSingleOracleInfo]
+        contractInfo.oracleInfos.head.asInstanceOf[EnumSingleOracleInfo]
       val oracleOutcome = EnumOracleOutcome(Vector(oracleInfo), outcome)
 
       val oracleSig = genEnumOracleSignature(oracleInfo, outcome.outcome)
@@ -88,7 +88,7 @@ class DLCValidationTest extends BitcoinSJvmTest with DLCTest {
 
     outcomes.foreach { outcomeUncast =>
       val outcome = EnumOracleOutcome(Vector(
-                                        offerClient.offer.oracleInfos.head
+                                        contractInfo.oracleInfos.head
                                           .asInstanceOf[EnumSingleOracleInfo]),
                                       outcomeUncast.asInstanceOf[EnumOutcome])
 
@@ -102,7 +102,7 @@ class DLCValidationTest extends BitcoinSJvmTest with DLCTest {
 
     outcomes.foreach { outcomeUncast =>
       val outcome = EnumOracleOutcome(Vector(
-                                        offerClient.offer.oracleInfos.head
+                                        contractInfo.oracleInfos.head
                                           .asInstanceOf[EnumSingleOracleInfo]),
                                       outcomeUncast.asInstanceOf[EnumOutcome])
 

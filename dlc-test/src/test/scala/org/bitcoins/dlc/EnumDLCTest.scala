@@ -63,7 +63,7 @@ class EnumDLCTest extends BitcoinSJvmTest with DLCTest {
                 genOracleOutcomeAndSignatures(
                   numOutcomes,
                   isNumeric = false,
-                  dlcOffer.offer.contractInfo.contracts.head,
+                  dlcOffer.contractInfo.contracts.head,
                   outcomes,
                   outcomeIndex,
                   paramsOpt = None)

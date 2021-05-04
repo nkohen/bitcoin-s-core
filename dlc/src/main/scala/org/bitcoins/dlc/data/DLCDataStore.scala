@@ -57,6 +57,7 @@ trait DLCFullDataStore extends DLCDataStore {
     global.setFundOutputSerialId(fundOutputSerialId)
     global.setFeeRate(feeRate)
     global.setTimeouts(timeouts)
+    global.setTempContractId(dlcOffer.tempContractId)
   }
 
   def offerOpt: Option[DLCOffer] = {
