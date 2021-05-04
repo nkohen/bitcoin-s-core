@@ -25,6 +25,7 @@ import org.bitcoins.core.wallet.utxo.{
 }
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import play.api.libs.json._
 import scodec.bits.ByteVector
 
@@ -177,7 +178,12 @@ case class ValidTestInputs(
       offer.tempContractId
     )
 
-  def builder: DLCTxBuilder = DLCTxBuilder(offer, accept)
+  def builder: DLCTxBuilder = {
+    val dataStore = InMemoryDLCDataStore()
+    dataStore.writeOffer(offer)
+    dataStore.writeAcceptWithoutSigs(accept)
+    DLCTxBuilder(dataStore)
+  }
 
   def buildTransactions: DLCTransactions = {
     val builder = this.builder

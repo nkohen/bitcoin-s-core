@@ -3,15 +3,16 @@ package org.bitcoins.dlc.testgen
 import org.bitcoins.core.config.{BitcoinNetwork, RegTest}
 import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.number.UInt64
-import org.bitcoins.core.protocol.BitcoinAddress
+import org.bitcoins.core.protocol.{Bech32Address, BitcoinAddress}
 import org.bitcoins.core.protocol.dlc.DLCMessage.DLCAccept
 import org.bitcoins.core.protocol.dlc._
-import org.bitcoins.core.protocol.script.ScriptPubKey
+import org.bitcoins.core.protocol.script.{P2WPKHWitnessSPKV0, ScriptPubKey}
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{InputInfo, ScriptSignatureParams}
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.{DLCFullDataStore, InMemoryDLCDataStore}
 import org.bitcoins.dlc.execution.{
   DLCExecutor,
   ExecutedDLCOutcome,
@@ -40,7 +41,23 @@ case class TestDLCClient(
     payoutPrivKey: ECPrivateKey,
     fundingUtxos: Vector[ScriptSignatureParams[InputInfo]])(implicit
     ec: ExecutionContext) {
-  val dlcTxBuilder: DLCTxBuilder = DLCTxBuilder(offer, accept)
+
+  val dataStore: DLCFullDataStore = InMemoryDLCDataStore()
+  dataStore.writeOffer(offer)
+  dataStore.writeAcceptWithoutSigs(accept)
+  dataStore.local.setIsInitiator(isInitiator)
+  dataStore.local.setFundingPrivKey(fundingPrivKey)
+  dataStore.local.setFundingUtxos(fundingUtxos)
+
+  private val finalAddress =
+    Bech32Address(P2WPKHWitnessSPKV0(payoutPrivKey.publicKey), RegTest)
+  if (isInitiator) {
+    dataStore.offer.setFinalAddress(finalAddress)
+  } else {
+    dataStore.accept.setFinalAddress(finalAddress)
+  }
+
+  val dlcTxBuilder: DLCTxBuilder = DLCTxBuilder(dataStore)
 
   val dlcTxSigner: DLCTxSigner = DLCTxSigner(dlcTxBuilder,
                                              isInitiator,

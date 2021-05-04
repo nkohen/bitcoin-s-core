@@ -88,16 +88,15 @@ trait DLCFullDataStore extends DLCDataStore {
     }
   }
 
-  def writeAccept(dlcAccept: DLCAccept): Unit = {
-    val DLCAccept(collateral,
-                  DLCPublicKeys(fundingKey, finalAddress),
-                  fundingInputs,
-                  changeAddress,
-                  payoutSerialId,
-                  changeSerialId,
-                  cetSigs,
-                  negotiationFields,
-                  tempContractId) = dlcAccept
+  def writeAcceptWithoutSigs(dlcAccept: DLCAcceptWithoutSigs): Unit = {
+    val DLCAcceptWithoutSigs(collateral,
+                             DLCPublicKeys(fundingKey, finalAddress),
+                             fundingInputs,
+                             changeAddress,
+                             payoutSerialId,
+                             changeSerialId,
+                             negotiationFields,
+                             tempContractId) = dlcAccept
 
     accept.setCollateral(collateral)
     accept.setFundingKey(fundingKey)
@@ -106,10 +105,14 @@ trait DLCFullDataStore extends DLCDataStore {
     accept.setChangeAddress(changeAddress)
     accept.setPayoutSerialId(payoutSerialId)
     accept.setChangeSerialId(changeSerialId)
-    val sigStore = if (local.getter.isInitiator) remote else local
-    sigStore.setCetSigs(cetSigs)
     accept.setNegotiationFields(negotiationFields)
     global.setTempContractId(tempContractId) // TODO: Validate
+  }
+
+  def writeAccept(dlcAccept: DLCAccept): Unit = {
+    writeAcceptWithoutSigs(dlcAccept.withoutSigs)
+    val sigStore = if (local.getter.isInitiator) remote else local
+    sigStore.setCetSigs(dlcAccept.cetSigs)
   }
 
   def acceptWithoutSigsOpt: Option[DLCAcceptWithoutSigs] = {

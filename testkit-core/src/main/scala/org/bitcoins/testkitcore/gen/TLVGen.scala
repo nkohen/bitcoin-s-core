@@ -15,6 +15,7 @@ import org.bitcoins.core.protocol.{BigSizeUInt, BlockTimeStamp}
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.crypto.ECPrivateKey
 import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.dlc.testgen.DLCTestUtil
 import org.scalacheck.Gen
 
@@ -428,9 +429,11 @@ trait TLVGen {
       fundingSigs <- fundingSignaturesV0TLV(offer.fundingInputs.length)
     } yield {
       val deserOffer = DLCOffer.fromTLV(offer)
-      val builder =
-        DLCTxBuilder(deserOffer,
-                     DLCAccept.fromTLV(accept, deserOffer).withoutSigs)
+      val dataStore = InMemoryDLCDataStore()
+      dataStore.writeOffer(deserOffer)
+      dataStore.writeAcceptWithoutSigs(
+        DLCAccept.fromTLV(accept, deserOffer).withoutSigs)
+      val builder = DLCTxBuilder(dataStore)
       val fundingTx = builder.buildFundingTx
       val contractId = fundingTx.txIdBE.bytes.xor(accept.tempContractId.bytes)
 

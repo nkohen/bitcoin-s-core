@@ -16,6 +16,7 @@ import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo._
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.dlc.execution.{
   CETInfo,
   DLCOutcome,
@@ -1180,7 +1181,10 @@ trait DLCTest {
       acceptOutcome <-
         dlcAccept.executeDLC(acceptSetup, Future.successful(oracleSigs))
     } yield {
-      val builder = DLCTxBuilder(dlcOffer.offer, dlcAccept.accept)
+      val dataStore = InMemoryDLCDataStore()
+      dataStore.writeOffer(dlcOffer.offer)
+      dataStore.writeAcceptWithoutSigs(dlcAccept.accept)
+      val builder = DLCTxBuilder(dataStore)
       val contractId = builder.buildFundingTx.txIdBE.bytes
         .xor(dlcAccept.accept.tempContractId.bytes)
 

@@ -17,9 +17,13 @@ import org.bitcoins.core.wallet.utxo.{
   P2WSHV0InputInfo
 }
 import org.bitcoins.crypto._
+import org.bitcoins.dlc.data.DLCFullDataStore
 import scodec.bits.ByteVector
 
-case class DLCTxBuilder(offer: DLCOffer, accept: DLCAcceptWithoutSigs) {
+case class DLCTxBuilder(dataStore: DLCFullDataStore) {
+
+  val offer: DLCOffer = dataStore.getter.getOffer
+  val accept: DLCAcceptWithoutSigs = dataStore.getter.getAcceptWithoutSigs
 
   val DLCOffer(_,
                DLCPublicKeys(offerFundingKey: ECPublicKey,
@@ -161,7 +165,7 @@ case class DLCTxBuilder(offer: DLCOffer, accept: DLCAcceptWithoutSigs) {
   }
 
   lazy val calcContractId: ByteVector = {
-    DLCUtil.computeContractId(fundingTx, accept.tempContractId)
+    DLCUtil.computeContractId(fundingTx, tempContractId)
   }
 
   /** Constructs the unsigned Contract Execution Transaction (CET)

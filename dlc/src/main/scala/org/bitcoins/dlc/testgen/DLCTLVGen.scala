@@ -14,6 +14,7 @@ import org.bitcoins.core.util.NumberUtil
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import scodec.bits.ByteVector
 
 object DLCTLVGen {
@@ -472,7 +473,10 @@ object DLCTLVGen {
   }
 
   def dlcSignFromOfferAndAccept(offer: DLCOffer, accept: DLCAccept): DLCSign = {
-    val builder = DLCTxBuilder(offer, accept.withoutSigs)
+    val dataStore = InMemoryDLCDataStore()
+    dataStore.writeOffer(offer)
+    dataStore.writeAcceptWithoutSigs(accept.withoutSigs)
+    val builder = DLCTxBuilder(dataStore)
     val fundingTx = builder.buildFundingTx
     val contractId = fundingTx.txIdBE.bytes.xor(accept.tempContractId.bytes)
 
