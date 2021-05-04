@@ -2,7 +2,12 @@ package org.bitcoins.dlc.data
 
 import org.bitcoins.core.currency.Satoshis
 import org.bitcoins.core.number.UInt64
-import org.bitcoins.core.protocol.dlc.DLCMessage.DLCAccept
+import org.bitcoins.core.protocol.dlc.DLCMessage.{
+  DLCAccept,
+  DLCAcceptWithoutSigs,
+  DLCOffer,
+  DLCSign
+}
 import org.bitcoins.core.protocol.dlc._
 import org.bitcoins.core.protocol.script.ScriptPubKey
 import org.bitcoins.core.protocol.transaction.WitnessTransaction
@@ -12,6 +17,8 @@ import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{InputInfo, ScriptSignatureParams}
 import org.bitcoins.crypto._
 import scodec.bits.ByteVector
+
+import scala.collection.immutable
 
 sealed trait DLCDataStoreGetter[+Store <: DLCDataStore] {
   def store: Store
@@ -29,6 +36,55 @@ case class DLCFullDataStoreGetter(override val store: DLCFullDataStore)
   def remote: DLCRemoteDataStoreGetter = store.remote.getter
   def offer: DLCOfferPartyDataStoreGetter = store.offer.getter
   def accept: DLCAcceptPartyDataStoreGetter = store.accept.getter
+
+  def getOffer: DLCOffer = {
+    DLCOffer(
+      global.contractInfo,
+      DLCPublicKeys(offer.fundingKey, offer.finalAddress),
+      offer.collateral,
+      offer.fundingInputs,
+      offer.changeAddress,
+      offer.payoutSerialId,
+      offer.changeSerialId,
+      global.fundOutputSerialId,
+      global.feeRate,
+      global.timeouts
+    )
+  }
+
+  def getAcceptWithoutSigs: DLCAcceptWithoutSigs = {
+    DLCAcceptWithoutSigs(
+      accept.collateral,
+      DLCPublicKeys(accept.fundingKey, accept.finalAddress),
+      accept.fundingInputs,
+      accept.changeAddress,
+      accept.payoutSerialId,
+      accept.changeSerialId,
+      accept.negotiationFields,
+      global.tempContractId
+    )
+  }
+
+  def getAccept: DLCAccept = {
+    val acceptWithoutSigs = getAcceptWithoutSigs
+    val contractInfo = global.contractInfo
+    val isInitiator = local.isInitiator
+    val acceptGetter = if (isInitiator) remote else local
+    val cetSigs = acceptGetter.cetSigs(contractInfo)
+
+    acceptWithoutSigs.withSigs(cetSigs)
+  }
+
+  def getSign: DLCSign = {
+    val contractId = global.contractId
+    val contractInfo = global.contractInfo
+    val isInitiator = local.isInitiator
+    val offerGetter = if (isInitiator) local else remote
+    val fundingSigs = offerGetter.fundingSigs
+    val cetSigs = offerGetter.cetSigs(contractInfo)
+
+    DLCSign(cetSigs, fundingSigs, contractId)
+  }
 }
 
 case class DLCGlobalDataStoreGetter(override val store: DLCGlobalDataStore)
@@ -90,17 +146,25 @@ case class DLCAcceptPartyDataStoreGetter(
     extends DLCPartyDataStoreGetter
     with DLCDataStoreGetter[DLCAcceptPartyDataStore] {
 
-  def acceptNegotiationFields: DLCAccept.NegotiationFields =
-    get(_.acceptNegotiationFieldsOpt, "acceptNegotiationFields")
+  def negotiationFields: DLCAccept.NegotiationFields =
+    get(_.negotiationFieldsOpt, "negotiationFields")
 }
 
 sealed trait DLCSignatureDataStoreGetter
     extends DLCDataStoreGetter[DLCSignatureDataStore] {
   def fundingSigs: FundingSignatures = get(_.fundingSigsOpt, "fundingSigs")
 
-  def cetSigs: Vector[(ECPublicKey, ECAdaptorSignature)] =
-    get(_.cetSigsOpt, "cetSigs")
+  def cetAdaptorSigs: Vector[(ECPublicKey, ECAdaptorSignature)] =
+    get(_.cetAdaptorSigsOpt, "cetAdaptorSigs")
   def refundSig: PartialSignature = get(_.refundSigOpt, "refundSig")
+
+  def cetSigs(contractInfo: ContractInfo): CETSignatures = {
+    val sigMap = immutable.HashMap.from(cetAdaptorSigs)
+    val cetSigsWithOutcomes = contractInfo.allOutcomes.map { outcome =>
+      outcome -> sigMap(outcome.sigPoint)
+    }
+    CETSignatures(cetSigsWithOutcomes, refundSig)
+  }
 }
 
 case class DLCLocalDataStoreGetter(override val store: DLCLocalDataStore)
