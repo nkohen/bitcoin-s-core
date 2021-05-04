@@ -59,12 +59,7 @@ case class TestDLCClient(
 
   val dlcTxBuilder: DLCTxBuilder = DLCTxBuilder(dataStore)
 
-  val dlcTxSigner: DLCTxSigner = DLCTxSigner(dlcTxBuilder,
-                                             isInitiator,
-                                             fundingPrivKey,
-                                             payoutPrivKey,
-                                             RegTest,
-                                             fundingUtxos)
+  val dlcTxSigner: DLCTxSigner = DLCTxSigner(dlcTxBuilder)
 
   private val dlcExecutor = DLCExecutor(dlcTxSigner)
 

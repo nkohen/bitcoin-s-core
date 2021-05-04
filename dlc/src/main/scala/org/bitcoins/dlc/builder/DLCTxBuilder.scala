@@ -25,6 +25,7 @@ case class DLCTxBuilder(dataStore: DLCFullDataStore) {
   val offer: DLCOffer = dataStore.getter.getOffer
   val accept: DLCAcceptWithoutSigs = dataStore.getter.getAcceptWithoutSigs
 
+  // TODO: separate into individual lazy vals
   val DLCOffer(_,
                DLCPublicKeys(offerFundingKey: ECPublicKey,
                              offerFinalAddress: BitcoinAddress),

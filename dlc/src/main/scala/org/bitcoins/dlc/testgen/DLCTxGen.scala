@@ -10,6 +10,8 @@ import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.protocol.{BitcoinAddress, BlockTimeStamp}
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.crypto.{CryptoUtil, ECPrivateKey, ECPublicKey}
+import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.dlc.sign.DLCTxSigner
 import scodec.bits.ByteVector
 
@@ -221,21 +223,30 @@ object DLCTxGen {
     val offer = inputs.offer
     val acceptWithoutSigs = inputs.accept
 
-    val builder = inputs.builder
-    val offerSigner = DLCTxSigner(
-      builder,
-      isInitiator = true,
-      ConstRandAdaptorSign(inputs.offerParams.fundingPrivKey),
-      inputs.offerParams.payoutAddress,
-      inputs.offerParams.fundingScriptSigParams
-    )
-    val acceptSigner = DLCTxSigner(
-      builder,
-      isInitiator = false,
-      ConstRandAdaptorSign(inputs.acceptParams.fundingPrivKey),
-      inputs.acceptParams.payoutAddress,
-      inputs.acceptParams.fundingScriptSigParams
-    )
+    val offerDataStore = InMemoryDLCDataStore()
+    offerDataStore.writeOffer(offer)
+    offerDataStore.writeAcceptWithoutSigs(acceptWithoutSigs)
+    val offerBuilder = DLCTxBuilder(offerDataStore)
+
+    val acceptDataStore = InMemoryDLCDataStore()
+    acceptDataStore.writeOffer(offer)
+    acceptDataStore.writeAcceptWithoutSigs(acceptWithoutSigs)
+    val acceptBuilder = DLCTxBuilder(acceptDataStore)
+
+    offerDataStore.local.setIsInitiator(true)
+    offerDataStore.local.setFundingPrivKey(
+      ConstRandAdaptorSign(inputs.offerParams.fundingPrivKey))
+    offerDataStore.local.setFundingUtxos(
+      inputs.offerParams.fundingScriptSigParams)
+
+    acceptDataStore.local.setIsInitiator(false)
+    acceptDataStore.local.setFundingPrivKey(
+      ConstRandAdaptorSign(inputs.acceptParams.fundingPrivKey))
+    acceptDataStore.local.setFundingUtxos(
+      inputs.acceptParams.fundingScriptSigParams)
+
+    val offerSigner = DLCTxSigner(offerBuilder)
+    val acceptSigner = DLCTxSigner(acceptBuilder)
 
     val outcomeStr = inputs.params.contractInfo
       .find(_.outcome == inputs.params.realOutcome)

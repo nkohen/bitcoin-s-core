@@ -1,6 +1,5 @@
 package org.bitcoins.dlc.sign
 
-import org.bitcoins.core.config.BitcoinNetwork
 import org.bitcoins.core.crypto.{
   TransactionSignatureCreator,
   TransactionSignatureSerializer
@@ -10,7 +9,6 @@ import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.dlc._
 import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.transaction._
-import org.bitcoins.core.protocol.{Bech32Address, BitcoinAddress}
 import org.bitcoins.core.psbt.InputPSBTRecord.PartialSignature
 import org.bitcoins.core.psbt.PSBT
 import org.bitcoins.core.script.crypto.HashType
@@ -18,6 +16,7 @@ import org.bitcoins.core.wallet.signer.BitcoinSigner
 import org.bitcoins.core.wallet.utxo._
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.DLCFullDataStore
 import scodec.bits.ByteVector
 
 import scala.util.{Failure, Success, Try}
@@ -25,43 +24,38 @@ import scala.util.{Failure, Success, Try}
 /** Responsible for constructing all DLC signatures
   * and signed transactions
   */
-case class DLCTxSigner(
-    builder: DLCTxBuilder,
-    isInitiator: Boolean,
-    fundingKey: AdaptorSign,
-    finalAddress: BitcoinAddress,
-    fundingUtxos: Vector[ScriptSignatureParams[InputInfo]]) {
+case class DLCTxSigner(builder: DLCTxBuilder) {
+  val dataStore: DLCFullDataStore = builder.dataStore
+  private val getData = dataStore.getter
+  val isInitiator: Boolean = getData.local.isInitiator
+  private[dlc] val fundingKey = getData.local.fundingPrivKey
+  private val fundingUtxos = getData.local.fundingUtxos
 
-  private val offer = builder.offer
-  private val accept = builder.accept
-
-  private val remoteFundingPubKey = if (isInitiator) {
-    accept.pubKeys.fundingKey
+  private lazy val remoteFundingPubKey = if (isInitiator) {
+    builder.acceptFundingKey
   } else {
-    offer.pubKeys.fundingKey
+    builder.offerFundingKey
   }
 
   if (isInitiator) {
-    require(fundingKey.publicKey == offer.pubKeys.fundingKey &&
-              finalAddress == offer.pubKeys.payoutAddress,
+    require(fundingKey.publicKey == builder.offerFundingKey,
             "Given keys do not match public key and address in offer")
     val fundingUtxosAsInputs =
-      fundingUtxos.zip(offer.fundingInputs).map { case (utxo, fund) =>
+      fundingUtxos.zip(builder.offerFundingInputs).map { case (utxo, fund) =>
         DLCFundingInput.fromInputSigningInfo(utxo, fund.inputSerialId)
       }
-    require(fundingUtxosAsInputs == offer.fundingInputs,
+    require(fundingUtxosAsInputs == builder.offerFundingInputs,
             "Funding ScriptSignatureParams did not match offer funding inputs")
   } else {
     require(
-      fundingKey.publicKey == accept.pubKeys.fundingKey &&
-        finalAddress == accept.pubKeys.payoutAddress,
+      fundingKey.publicKey == builder.acceptFundingKey,
       "Given keys do not match public key and address in accept"
     )
     val fundingUtxosAsInputs =
-      fundingUtxos.zip(accept.fundingInputs).map { case (utxo, fund) =>
+      fundingUtxos.zip(builder.acceptFundingInputs).map { case (utxo, fund) =>
         DLCFundingInput.fromInputSigningInfo(utxo, fund.inputSerialId)
       }
-    require(fundingUtxosAsInputs == accept.fundingInputs,
+    require(fundingUtxosAsInputs == builder.acceptFundingInputs,
             "Funding ScriptSignatureParams did not match accept funding inputs")
   }
 
@@ -97,8 +91,8 @@ case class DLCTxSigner(
     signFundingTx().flatMap { localSigs =>
       DLCTxSigner.completeFundingTx(localSigs,
                                     remoteSigs,
-                                    offer.fundingInputs,
-                                    accept.fundingInputs,
+                                    builder.offerFundingInputs,
+                                    builder.acceptFundingInputs,
                                     builder.buildFundingTx)
     }
   }
@@ -208,7 +202,11 @@ case class DLCTxSigner(
 
 object DLCTxSigner {
 
-  def apply(
+  def apply(dataStore: DLCFullDataStore): DLCTxSigner = {
+    DLCTxSigner(DLCTxBuilder(dataStore))
+  }
+
+  /*def apply(
       builder: DLCTxBuilder,
       isInitiator: Boolean,
       fundingKey: AdaptorSign,
@@ -218,7 +216,7 @@ object DLCTxSigner {
     val payoutAddr =
       Bech32Address(P2WPKHWitnessSPKV0(payoutPrivKey.publicKey), network)
     DLCTxSigner(builder, isInitiator, fundingKey, payoutAddr, fundingUtxos)
-  }
+  }*/
 
   def buildCETSigningInfo(
       fundOutputIndex: Int,

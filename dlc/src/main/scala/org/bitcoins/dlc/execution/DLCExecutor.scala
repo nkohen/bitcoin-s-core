@@ -6,12 +6,14 @@ import org.bitcoins.core.protocol.transaction.{Transaction, WitnessTransaction}
 import org.bitcoins.core.psbt.InputPSBTRecord.PartialSignature
 import org.bitcoins.crypto.{AdaptorSign, ECPublicKey}
 import org.bitcoins.dlc.builder.DLCTxBuilder
+import org.bitcoins.dlc.data.DLCFullDataStore
 import org.bitcoins.dlc.sign.DLCTxSigner
 
 import scala.util.{Success, Try}
 
 /** Responsible for constructing SetupDLCs and DLCOutcomes */
 case class DLCExecutor(signer: DLCTxSigner) {
+  val dataStore: DLCFullDataStore = signer.dataStore
   val builder: DLCTxBuilder = signer.builder
   val isInitiator: Boolean = signer.isInitiator
 
@@ -109,12 +111,16 @@ case class DLCExecutor(signer: DLCTxSigner) {
 
   def executeRefundDLC(refundSig: PartialSignature): RefundDLCOutcome = {
     val refundTx = signer.completeRefundTx(refundSig)
-    val fundingTx = signer.builder.buildFundingTx
+    val fundingTx = builder.buildFundingTx
     RefundDLCOutcome(fundingTx, refundTx)
   }
 }
 
 object DLCExecutor {
+
+  def apply(dataStore: DLCFullDataStore): DLCExecutor = {
+    DLCExecutor(DLCTxSigner(dataStore))
+  }
 
   /** Given DLC setup data and oracle signatures, computes the OracleOutcome and a fully signed CET.
     *
