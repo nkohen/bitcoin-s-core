@@ -5,6 +5,7 @@ import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.number.UInt64
 import org.bitcoins.core.protocol.dlc.DLCMessage.DLCAccept
 import org.bitcoins.core.protocol.dlc._
+import org.bitcoins.core.protocol.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.core.protocol.script.{P2WPKHWitnessSPKV0, ScriptPubKey}
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.core.protocol.{Bech32Address, BitcoinAddress}
@@ -12,7 +13,6 @@ import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{InputInfo, ScriptSignatureParams}
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.dlc.execution.{
   DLCExecutor,
   ExecutedDLCOutcome,

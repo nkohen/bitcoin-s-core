@@ -1,6 +1,8 @@
 package org.bitcoins.core.protocol.dlc
 
 import org.bitcoins.core.policy.Policy
+import org.bitcoins.core.protocol.dlc.DLCMessage.{DLCAccept, DLCOffer, DLCSign}
+import org.bitcoins.core.protocol.dlc.data.DLCFullDataStore
 import org.bitcoins.core.protocol.script.P2WSHWitnessV0
 import org.bitcoins.core.protocol.transaction.{Transaction, WitnessTransaction}
 import org.bitcoins.crypto.{
@@ -67,6 +69,42 @@ object DLCUtil {
     sigOpt.map { case (outcome, adaptorSig) =>
       (sigFromOutcomeAndSigs(outcome, adaptorSig, completedSig).get, outcome)
     }
+  }
+
+  def calculateOutcomeAndSig(
+      isInitiator: Boolean,
+      offer: DLCOffer,
+      accept: DLCAccept,
+      sign: DLCSign,
+      cet: WitnessTransaction): Option[
+    (SchnorrDigitalSignature, OracleOutcome)] = {
+    val localAdaptorSigs = if (isInitiator) {
+      sign.cetSigs.outcomeSigs
+    } else {
+      accept.cetSigs.outcomeSigs
+    }
+
+    DLCUtil.computeOutcome(isInitiator,
+                           offer.pubKeys.fundingKey,
+                           accept.pubKeys.fundingKey,
+                           offer.contractInfo,
+                           localAdaptorSigs,
+                           cet)
+  }
+
+  def calculateOutcomeAndSig(
+      dataStore: DLCFullDataStore,
+      cet: WitnessTransaction): Option[
+    (SchnorrDigitalSignature, OracleOutcome)] = {
+    val getData = dataStore.getter
+    val contractInfo = getData.global.contractInfo
+
+    computeOutcome(getData.local.isInitiator,
+                   getData.offer.fundingKey,
+                   getData.accept.fundingKey,
+                   contractInfo,
+                   getData.local.cetSigs(contractInfo).outcomeSigs,
+                   cet)
   }
 
   def computeOutcome(

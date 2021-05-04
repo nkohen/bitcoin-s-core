@@ -4,6 +4,7 @@ import org.bitcoins.core.currency.{CurrencyUnit, Satoshis}
 import org.bitcoins.core.number._
 import org.bitcoins.core.protocol.dlc.DLCMessage._
 import org.bitcoins.core.protocol.dlc._
+import org.bitcoins.core.protocol.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.core.protocol.script.{
   ScriptWitness,
   ScriptWitnessV0,
@@ -25,7 +26,6 @@ import org.bitcoins.core.wallet.utxo.{
 }
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import play.api.libs.json._
 import scodec.bits.ByteVector
 

@@ -1177,27 +1177,19 @@ trait DLCTest {
       val contractId = builder.buildFundingTx.txIdBE.bytes
         .xor(builder.dataStore.getter.global.tempContractId.bytes)
 
-      val offer = dlcOffer.dataStore.getter.getOffer
-      val accept =
-        dlcOffer.dataStore.getter.getAcceptWithoutSigs.withSigs(acceptCETSigs)
+      dlcOffer.dataStore.remote.setCetSigs(acceptCETSigs)
+      dlcAccept.dataStore.local.setCetSigs(acceptCETSigs)
       val sign = DLCSign(offerCETSigs, offerFundingSigs, contractId)
+      dlcOffer.dataStore.writeSign(sign)
+      dlcAccept.dataStore.writeSign(sign)
 
-      val (offerOracleSig, offerDLCOutcome) =
-        DLCStatus
-          .calculateOutcomeAndSig(isInitiator = true,
-                                  offer,
-                                  accept,
-                                  sign,
-                                  acceptOutcome.cet)
-          .get
+      val (offerOracleSig, offerDLCOutcome) = DLCUtil
+        .calculateOutcomeAndSig(dlcOffer.dataStore, acceptOutcome.cet)
+        .get
 
       val (acceptOracleSig, acceptDLCOutcome) =
-        DLCStatus
-          .calculateOutcomeAndSig(isInitiator = false,
-                                  offer,
-                                  accept,
-                                  sign,
-                                  offerOutcome.cet)
+        DLCUtil
+          .calculateOutcomeAndSig(dlcAccept.dataStore, offerOutcome.cet)
           .get
 
       assert(offerDLCOutcome == outcome)

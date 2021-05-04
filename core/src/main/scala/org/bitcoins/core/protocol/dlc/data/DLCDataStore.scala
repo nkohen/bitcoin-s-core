@@ -1,4 +1,4 @@
-package org.bitcoins.dlc.data
+package org.bitcoins.core.protocol.dlc.data
 
 import org.bitcoins.core.currency.Satoshis
 import org.bitcoins.core.number.UInt64

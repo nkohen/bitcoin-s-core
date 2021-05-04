@@ -7,6 +7,7 @@ import org.bitcoins.core.crypto.{
 import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.dlc._
+import org.bitcoins.core.protocol.dlc.data.DLCFullDataStore
 import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.psbt.InputPSBTRecord.PartialSignature
@@ -16,7 +17,6 @@ import org.bitcoins.core.wallet.signer.BitcoinSigner
 import org.bitcoins.core.wallet.utxo._
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.DLCFullDataStore
 import scodec.bits.ByteVector
 
 import scala.util.{Failure, Success, Try}

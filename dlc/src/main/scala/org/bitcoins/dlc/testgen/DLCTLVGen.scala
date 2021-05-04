@@ -6,6 +6,7 @@ import org.bitcoins.core.number.{UInt16, UInt32, UInt64}
 import org.bitcoins.core.protocol._
 import org.bitcoins.core.protocol.dlc.DLCMessage._
 import org.bitcoins.core.protocol.dlc._
+import org.bitcoins.core.protocol.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.tlv._
 import org.bitcoins.core.protocol.transaction._
@@ -14,7 +15,6 @@ import org.bitcoins.core.util.NumberUtil
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.crypto._
 import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import scodec.bits.ByteVector
 
 object DLCTLVGen {

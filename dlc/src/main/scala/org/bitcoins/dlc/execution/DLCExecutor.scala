@@ -2,11 +2,11 @@ package org.bitcoins.dlc.execution
 
 import org.bitcoins.core.currency.CurrencyUnit
 import org.bitcoins.core.protocol.dlc._
+import org.bitcoins.core.protocol.dlc.data.DLCFullDataStore
 import org.bitcoins.core.protocol.transaction.{Transaction, WitnessTransaction}
 import org.bitcoins.core.psbt.InputPSBTRecord.PartialSignature
 import org.bitcoins.crypto.{AdaptorSign, ECPublicKey}
 import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.DLCFullDataStore
 import org.bitcoins.dlc.sign.DLCTxSigner
 
 import scala.util.{Success, Try}

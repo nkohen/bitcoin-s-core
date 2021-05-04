@@ -1,8 +1,6 @@
 package org.bitcoins.core.protocol.dlc
 
 import org.bitcoins.core.currency.CurrencyUnit
-import org.bitcoins.core.protocol.dlc.DLCMessage._
-import org.bitcoins.core.protocol.transaction.WitnessTransaction
 import org.bitcoins.core.wallet.fee.FeeUnit
 import org.bitcoins.crypto._
 import scodec.bits.ByteVector
@@ -204,26 +202,5 @@ object DLCStatus {
           _: Refunded =>
         None
     }
-  }
-
-  def calculateOutcomeAndSig(
-      isInitiator: Boolean,
-      offer: DLCOffer,
-      accept: DLCAccept,
-      sign: DLCSign,
-      cet: WitnessTransaction): Option[
-    (SchnorrDigitalSignature, OracleOutcome)] = {
-    val localAdaptorSigs = if (isInitiator) {
-      sign.cetSigs.outcomeSigs
-    } else {
-      accept.cetSigs.outcomeSigs
-    }
-
-    DLCUtil.computeOutcome(isInitiator,
-                           offer.pubKeys.fundingKey,
-                           accept.pubKeys.fundingKey,
-                           offer.contractInfo,
-                           localAdaptorSigs,
-                           cet)
   }
 }

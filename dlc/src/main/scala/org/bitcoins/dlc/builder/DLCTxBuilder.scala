@@ -6,6 +6,7 @@ import org.bitcoins.core.number._
 import org.bitcoins.core.policy.Policy
 import org.bitcoins.core.protocol.dlc.DLCMessage._
 import org.bitcoins.core.protocol.dlc._
+import org.bitcoins.core.protocol.dlc.data.DLCFullDataStore
 import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.core.protocol.{BitcoinAddress, BlockTimeStamp}
@@ -17,7 +18,6 @@ import org.bitcoins.core.wallet.utxo.{
   P2WSHV0InputInfo
 }
 import org.bitcoins.crypto._
-import org.bitcoins.dlc.data.DLCFullDataStore
 import scodec.bits.ByteVector
 
 case class DLCTxBuilder(dataStore: DLCFullDataStore) {

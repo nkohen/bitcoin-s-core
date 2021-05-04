@@ -4,6 +4,7 @@ import org.bitcoins.core.config.Networks
 import org.bitcoins.core.currency.{Bitcoins, CurrencyUnit, Satoshis}
 import org.bitcoins.core.number.{UInt32, UInt64}
 import org.bitcoins.core.protocol.dlc.DLCMessage.{DLCAccept, DLCOffer}
+import org.bitcoins.core.protocol.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.core.protocol.dlc.{
   ContractInfo,
   DLCFundingInputP2WPKHV0,
@@ -15,7 +16,6 @@ import org.bitcoins.core.protocol.{BigSizeUInt, BlockTimeStamp}
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.crypto.ECPrivateKey
 import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.dlc.testgen.DLCTestUtil
 import org.scalacheck.Gen
 

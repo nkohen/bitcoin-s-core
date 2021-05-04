@@ -7,6 +7,7 @@ import org.bitcoins.core.crypto.{
 }
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.policy.Policy
+import org.bitcoins.core.protocol.dlc.data.DLCFullDataStore
 import org.bitcoins.core.protocol.dlc.{
   DLCFundingInput,
   FundingSignatures,
@@ -19,7 +20,6 @@ import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.util.FutureUtil
 import org.bitcoins.crypto.{ECAdaptorSignature, ECPublicKey}
 import org.bitcoins.dlc.builder.DLCTxBuilder
-import org.bitcoins.dlc.data.DLCFullDataStore
 import scodec.bits.ByteVector
 
 import scala.concurrent.{ExecutionContext, Future}

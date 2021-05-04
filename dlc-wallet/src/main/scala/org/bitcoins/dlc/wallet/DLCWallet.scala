@@ -338,7 +338,7 @@ abstract class DLCWallet extends Wallet with AnyDLCHDWalletApi {
             DLCSign(cetSigs, FundingSignatures(fundingSigs), contractId)
           }
 
-          DLCStatus.calculateOutcomeAndSig(isInit, offer, accept, sign, cet).get
+          DLCUtil.calculateOutcomeAndSig(isInit, offer, accept, sign, cet).get
         }
       } yield {
         val (outcomes, oracleInfos) = getOutcomeDbInfo(outcome)

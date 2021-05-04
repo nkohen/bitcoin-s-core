@@ -1,6 +1,7 @@
 package org.bitcoins.dlc.data
 
 import org.bitcoins.core.protocol.dlc.DLCMessage.{DLCAccept, DLCOffer, DLCSign}
+import org.bitcoins.core.protocol.dlc.data.InMemoryDLCDataStore
 import org.bitcoins.testkitcore.gen.{NumberGenerator, TLVGen}
 import org.bitcoins.testkitcore.util.BitcoinSUnitTest
 
