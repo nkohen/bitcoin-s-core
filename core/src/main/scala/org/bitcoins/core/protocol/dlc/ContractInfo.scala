@@ -12,6 +12,7 @@ import org.bitcoins.core.protocol.tlv.{
   TLVSerializable,
   UnsignedNumericOutcome
 }
+import org.bitcoins.core.util.Indexed
 import org.bitcoins.crypto.ECPublicKey
 
 import scala.collection.immutable.HashMap
@@ -133,22 +134,29 @@ case class ContractInfo(
 
   /** Maps adpator points to their corresponding OracleOutcomes (which correspond to CETs) */
   lazy val sigPointMap: Map[ECPublicKey, OracleOutcome] =
-    allOutcomes.map(outcome => outcome.sigPoint -> outcome).toMap
+    adaptorPoints.zip(allOutcomes).toMap
 
   /** Map OracleOutcomes (which correspond to CETs) to their adpator point and payouts */
   lazy val outcomeMap: Map[OracleOutcome, (ECPublicKey, Satoshis, Satoshis)] = {
     val builder =
       HashMap.newBuilder[OracleOutcome, (ECPublicKey, Satoshis, Satoshis)]
 
-    allOutcomesAndPayouts.foreach { case (outcome, offerPayout) =>
-      val acceptPayout = (totalCollateral - offerPayout).satoshis
-      val adaptorPoint = outcome.sigPoint
+    allOutcomesAndPayouts.zip(adaptorPoints).foreach {
+      case ((outcome, offerPayout), adaptorPoint) =>
+        val acceptPayout = (totalCollateral - offerPayout).satoshis
 
-      builder.+=((outcome, (adaptorPoint, offerPayout, acceptPayout)))
+        builder.+=((outcome, (adaptorPoint, offerPayout, acceptPayout)))
     }
 
     builder.result()
   }
+
+  lazy val adaptorPoints: Vector[ECPublicKey] = {
+    DLCAdaptorPointComputer.computeAdaptorPoints(this)
+  }
+
+  lazy val adaptorPointsIndexed: Vector[Indexed[ECPublicKey]] = Indexed(
+    adaptorPoints)
 
   /** Checks if the given OracleSignatures exactly match the given OracleOutcome.
     *
