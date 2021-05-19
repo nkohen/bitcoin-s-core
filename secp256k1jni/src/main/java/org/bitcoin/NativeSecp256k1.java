@@ -456,6 +456,55 @@ public class NativeSecp256k1 {
         return pubArr;
     }
 
+    public static byte[][] pubKeyTableMemoize(byte[][] subSigPoints) throws AssertFailException {
+        int numDigits = subSigPoints.length / 2;
+        checkArgument(numDigits > 0);
+
+        int pubKeyLength = subSigPoints[0].length;
+        checkArgument(pubKeyLength == 33 || pubKeyLength == 65);
+
+        for (byte[] subSigPoint : subSigPoints) {
+            checkArgument(subSigPoint.length == pubKeyLength);
+        }
+
+        ByteBuffer byteBuff = nativeECDSABuffer.get();
+        if (byteBuff == null || byteBuff.capacity() < subSigPoints.length * pubKeyLength) {
+            byteBuff = ByteBuffer.allocateDirect(subSigPoints.length * pubKeyLength);
+            byteBuff.order(ByteOrder.nativeOrder());
+            nativeECDSABuffer.set(byteBuff);
+        }
+
+        safeRewind(byteBuff);
+        for (byte[] subSigPoint : subSigPoints) {
+            byteBuff.put(subSigPoint);
+        }
+
+        byte[][] retByteArray;
+        r.lock();
+        try {
+            retByteArray = secp256k1_ec_pubkey_table_memoize(byteBuff, Secp256k1Context.getContext(), pubKeyLength, numDigits);
+        } finally {
+            r.unlock();
+        }
+
+        int pubLen = (byte) new BigInteger(new byte[] { retByteArray[0][0] }).intValue() & 0xFF;
+        int retVal = new BigInteger(new byte[] { retByteArray[0][1] }).intValue();
+
+        assertEquals(retVal, 1, "Failed return value check.");
+
+        int numSums = (1 << (numDigits + 1)) - 2;
+        assertEquals(retByteArray.length, numSums + 1, "Got unexpected size of tree");
+        byte[][] sigPointTree = new byte[numSums][pubLen];
+
+        for (int i = 0; i < numSums; i++) {
+            byte[] pubArr = retByteArray[i + 1];
+            assertEquals(pubArr.length, pubLen, "Got bad pubkey length.");
+            sigPointTree[i] = pubArr;
+        }
+
+        return sigPointTree;
+    }
+
     /**
      * libsecp256k1 Decompress - Parse and decompress a variable-length pub key
      *
@@ -887,6 +936,8 @@ public class NativeSecp256k1 {
     private static native byte[][] secp256k1_ec_pubkey_create(ByteBuffer byteBuff, long context, boolean compressed);
 
     private static native byte[][] secp256k1_ec_pubkey_combine(ByteBuffer byteBuff, long context, int pubLen, int numKeys, boolean compressed);
+
+    private static native byte[][] secp256k1_ec_pubkey_table_memoize(ByteBuffer byteBuff, long context, int pubLen, int numDigits);
 
     private static native byte[][] secp256k1_ec_pubkey_decompress(ByteBuffer byteBuff, long context, int inputLen);
 

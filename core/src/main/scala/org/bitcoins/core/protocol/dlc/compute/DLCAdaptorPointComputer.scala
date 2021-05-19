@@ -10,6 +10,7 @@ import org.bitcoins.core.protocol.tlv.{
   SignedNumericOutcome,
   UnsignedNumericOutcome
 }
+import org.bitcoins.core.util.NumberUtil
 import org.bitcoins.crypto.{
   CryptoUtil,
   ECPublicKey,
@@ -77,34 +78,47 @@ object DLCAdaptorPointComputer {
         }
       }
 
+    // Oracle -> Tree Index -> Adaptor Point
+    val sigPointTree: Vector[Vector[ECPublicKey]] =
+      contractInfo.contractDescriptor match {
+        case _: EnumContractDescriptor =>
+          preComputeTable.map(_.head)
+        case _: NumericContractDescriptor =>
+          preComputeTable.map { preComputeForOracle =>
+            val inputArr = preComputeForOracle.flatten
+              .map(_.decompressedBytes.toArray)
+              .toArray
+            val outputArr =
+              org.bitcoin.NativeSecp256k1.pubKeyTableMemoize(inputArr)
+            outputArr.toVector.map(ByteVector.apply).map(ECPublicKey.fromBytes)
+          }
+      }
+
     val oraclesAndOutcomes = contractInfo.allOutcomes.map(_.oraclesAndOutcomes)
 
     oraclesAndOutcomes.map { oracleAndOutcome =>
-      // For the given oracleAndOutcome, look up the point in the preComputeTable
-      val subSigPoints = oracleAndOutcome.flatMap { case (info, outcome) =>
+      val oracleSigPoints = oracleAndOutcome.map { case (info, outcome) =>
         val oracleIndex =
           contractInfo.oracleInfo.singleOracleInfos.indexOf(info)
-        val outcomeIndices = outcome match {
+        val outcomeIndex = outcome match {
           case outcome: EnumOutcome =>
-            Vector(
-              contractInfo.contractDescriptor
-                .asInstanceOf[EnumContractDescriptor]
-                .keys
-                .indexOf(outcome)
-            )
-          case UnsignedNumericOutcome(digits) => digits
+            contractInfo.contractDescriptor
+              .asInstanceOf[EnumContractDescriptor]
+              .keys
+              .indexOf(outcome)
+          case UnsignedNumericOutcome(digits) =>
+            val indexInRow =
+              NumberUtil.fromDigits(digits, base, digits.length).toInt
+            (1 << digits.length) - 2 + indexInRow
           case _: SignedNumericOutcome =>
             throw new UnsupportedOperationException(
               "Signed numeric outcomes not supported!")
         }
 
-        outcomeIndices.zipWithIndex.map { case (outcomeIndex, nonceIndex) =>
-          preComputeTable(oracleIndex)(nonceIndex)(outcomeIndex)
-        }
+        sigPointTree(oracleIndex)(outcomeIndex)
       }
 
-      // TODO: Memoization of sub-combinations for further optimization!
-      CryptoUtil.combinePubKeys(subSigPoints)
+      CryptoUtil.combinePubKeys(oracleSigPoints)
     }
   }
 }
