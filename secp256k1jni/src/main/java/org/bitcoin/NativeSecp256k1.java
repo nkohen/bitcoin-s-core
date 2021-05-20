@@ -457,6 +457,61 @@ public class NativeSecp256k1 {
     }
 
     /**
+     * libsecp256k1 PubKey Combine Memoized - Add pubkeys together returning intermediate results
+     *
+     * @param pubkeys array of ECDSA Public key, 33 or 65 bytes each
+     * @param compressed should the output public keys be compressed
+     */
+    public static byte[][] pubKeyCombineMemoized(byte[][] pubkeys, boolean compressed) throws AssertFailException{
+        int numKeys = pubkeys.length;
+        checkArgument(numKeys > 0);
+
+        int pubkeyLength = pubkeys[0].length;
+        checkArgument(pubkeyLength == 33 || pubkeyLength == 65);
+
+        for (byte[] pubkey : pubkeys) {
+            checkArgument(pubkey.length == pubkeyLength);
+        }
+
+        ByteBuffer byteBuff = nativeECDSABuffer.get();
+        if (byteBuff == null || byteBuff.capacity() < numKeys * pubkeyLength) {
+            byteBuff = ByteBuffer.allocateDirect(numKeys * pubkeyLength);
+            byteBuff.order(ByteOrder.nativeOrder());
+            nativeECDSABuffer.set(byteBuff);
+        }
+
+        safeRewind(byteBuff);
+        for (byte[] pubkey : pubkeys) {
+            byteBuff.put(pubkey);
+        }
+
+        byte[][] retByteArray;
+        r.lock();
+        try {
+            retByteArray = secp256k1_ec_pubkey_combine_memoized(byteBuff,Secp256k1Context.getContext(), pubkeyLength, numKeys, compressed);
+        } finally {
+            r.unlock();
+        }
+
+        int pubLen = (byte) new BigInteger(new byte[] { retByteArray[0][0] }).intValue() & 0xFF;
+        int retVal = new BigInteger(new byte[] { retByteArray[0][1] }).intValue();
+
+        assertEquals(retVal, 1, "Failed return value check.");
+
+        assertEquals(retByteArray.length, numKeys + 1, "Got unexpected number of intermediate addition results.");
+
+        byte[][] intermediateSums = new byte[numKeys][pubLen];
+
+        for (int i = 0; i < numKeys; i++) {
+            byte[] pubArr = retByteArray[i + 1];
+            assertEquals(pubArr.length, pubLen, "Got bad pubkey length.");
+            intermediateSums[i] = pubArr;
+        }
+
+        return intermediateSums;
+    }
+
+    /**
      * libsecp256k1 Decompress - Parse and decompress a variable-length pub key
      *
      * @param pubkey ECDSA Public key, 33 or 65 bytes
@@ -887,6 +942,8 @@ public class NativeSecp256k1 {
     private static native byte[][] secp256k1_ec_pubkey_create(ByteBuffer byteBuff, long context, boolean compressed);
 
     private static native byte[][] secp256k1_ec_pubkey_combine(ByteBuffer byteBuff, long context, int pubLen, int numKeys, boolean compressed);
+
+    private static native byte[][] secp256k1_ec_pubkey_combine_memoized(ByteBuffer byteBuff, long context, int pubLen, int numKeys, boolean compressed);
 
     private static native byte[][] secp256k1_ec_pubkey_decompress(ByteBuffer byteBuff, long context, int inputLen);
 

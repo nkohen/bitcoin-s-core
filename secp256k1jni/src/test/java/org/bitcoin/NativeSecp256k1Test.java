@@ -232,6 +232,45 @@ public class NativeSecp256k1Test {
     }
 
     /**
+     * This tests public key memoized addition
+     */
+    @Test
+    public void testPubKeyCombineMemoized() throws AssertFailException {
+        byte[] pub1 = toByteArray("023F75B56D0695CA76261F0BCD0B31B11B86D150AADED8D31AAA86561E52622A99");
+        byte[] pub2 = toByteArray("0341981FEC932450DD70F8BE107BA43F902B9F17923E8D2C487F69026E62703FBA");
+        byte[] pub3 = toByteArray("02BF0298EAFAE04E45789BC5C3419BF718AFDBC7951EDEB1BFE4073CEE06B40C20");
+        byte[][] pubs = { pub1, pub2, pub3 };
+
+        String[] expectedArr = {
+                "023F75B56D0695CA76261F0BCD0B31B11B86D150AADED8D31AAA86561E52622A99",
+                "027FF5A80F30F752EF12B3874E3118670D4825F773A2F3AAE8CDF15DD768FCC8B4",
+                "0236456D9DB1ACC4B3DB73CA77AA760D6BF7163A7432A3B1F189FB5C4EC2344A62"
+        };
+        byte[][] resultArr = NativeSecp256k1.pubKeyCombineMemoized( pubs , true);
+        String[] pubkeyStrings = new String[resultArr.length];
+        for (int i = 0; i < resultArr.length; i++) {
+            pubkeyStrings[i] = toHex(resultArr[i]);
+        }
+        for (int i = 0; i < resultArr.length; i++) {
+            assertEquals(pubkeyStrings[i], expectedArr[i], "testPubKeyCombineMemoized (compressed, " + i + ")");
+        }
+
+        String[] expectedArrCompressed = {
+                "043F75B56D0695CA76261F0BCD0B31B11B86D150AADED8D31AAA86561E52622A99288689A1FC9B27470F0B126F91CB20C1DEC34A5C22A349302ABF15319BB47CE6",
+                "047FF5A80F30F752EF12B3874E3118670D4825F773A2F3AAE8CDF15DD768FCC8B4EBF06E837888D8AC89BD679E8D84DB7659391A2C7A5B49DE78A9DA88C0C77F78",
+                "0436456D9DB1ACC4B3DB73CA77AA760D6BF7163A7432A3B1F189FB5C4EC2344A622DBB33694B9F067C48F09ED860AD68D12E5355B08157C985E11AA016944B3E7E"
+        };
+        byte[][] resultArrCompressed = NativeSecp256k1.pubKeyCombineMemoized( pubs , false);
+        String[] pubkeyStringsCompressed = new String[resultArrCompressed.length];
+        for (int i = 0; i < resultArrCompressed.length; i++) {
+            pubkeyStringsCompressed[i] = toHex(resultArrCompressed[i]);
+        }
+        for (int i = 0; i < resultArrCompressed.length; i++) {
+            assertEquals(pubkeyStringsCompressed[i], expectedArrCompressed[i], "testPubKeyCombineMemoized (" + i + ")");
+        }
+    }
+
+    /**
      * Tests that we can decompress valid public keys
      * @throws AssertFailException
      */
