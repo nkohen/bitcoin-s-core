@@ -9,6 +9,7 @@ import org.bitcoins.core.script.PreExecutionScriptProgram
 import org.bitcoins.core.script.crypto.HashType
 import org.bitcoins.core.script.interpreter.ScriptInterpreter
 import org.bitcoins.core.script.result.ScriptOk
+import org.bitcoins.core.util.FutureUtil
 import org.bitcoins.core.wallet.builder.StandardNonInteractiveFinalizer
 import org.bitcoins.core.wallet.fee.SatoshisPerVirtualByte
 import org.bitcoins.core.wallet.utxo.{ECSignatureParams, P2PKHInputInfo}
@@ -358,7 +359,7 @@ class TransactionSignatureCreatorTest extends BitcoinSJvmTest {
                            TransactionOutput(CurrencyUnits.zero, redeemScript),
                          flags = Policy.standardScriptVerifyFlags)
     val sign: ByteVector => Future[ECDigitalSignature] = { bytes: ByteVector =>
-      Future(privateKey.sign(bytes))
+      FutureUtil.makeAsync(() => privateKey.sign(bytes))
     }
     @nowarn val txSignature =
       TransactionSignatureCreator.createSig(txSignatureComponent,

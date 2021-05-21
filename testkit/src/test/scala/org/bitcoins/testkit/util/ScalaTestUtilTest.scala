@@ -1,5 +1,6 @@
 package org.bitcoins.testkit.util
 
+import org.bitcoins.core.util.FutureUtil
 import org.bitcoins.testkitcore.util.BitcoinSUnitTest
 import org.scalatest.Assertion
 import org.scalatest.exceptions.TestFailedException
@@ -18,7 +19,7 @@ class ScalaTestUtilTest extends BitcoinSUnitTest {
   def f = assert(false)
 
   def futureFail =
-    Future {
+    FutureUtil.makeAsync { () =>
       //sleep for awhile and then eventually fail
       Thread.sleep(1000)
       f

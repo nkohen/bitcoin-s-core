@@ -9,6 +9,7 @@ import org.bitcoins.chain.models.{
 import org.bitcoins.core.api.chain.db.{BlockHeaderDb, CompactFilterHeaderDb}
 import org.bitcoins.core.api.chain.{ChainApi, FilterSyncMarker}
 import org.bitcoins.core.protocol.blockchain.BlockHeader
+import org.bitcoins.core.util.FutureUtil
 import org.bitcoins.crypto.DoubleSha256DigestBE
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,7 +36,7 @@ case class ChainHandlerCached(
 
   /** Gets the best block header from the given [[blockchains]] parameter */
   override def getBestBlockHeader(): Future[BlockHeaderDb] = {
-    Future {
+    FutureUtil.makeAsync { () =>
       getBestBlockHeaderHelper(blockchains)
     }
   }

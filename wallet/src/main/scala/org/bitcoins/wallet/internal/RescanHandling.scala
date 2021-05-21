@@ -292,7 +292,7 @@ private[wallet] trait RescanHandling extends WalletLogger {
         .sequence(filterGroups.map { filterGroup =>
           // We need to wrap in a future here to make sure we can
           // potentially run these matches in parallel
-          Future {
+          FutureUtil.makeAsync { () =>
             // Find any matches in the group and add the corresponding block hashes into the result
             filterGroup
               .foldLeft(Vector.empty[BlockMatchingResponse]) {

@@ -2,6 +2,7 @@ package org.bitcoins.asyncutil
 
 import org.bitcoins.asyncutil.AsyncUtil.scheduler
 import org.bitcoins.core.api.asyncutil.AsyncUtilApi
+import org.bitcoins.core.util.FutureUtil
 
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
@@ -27,7 +28,7 @@ abstract class AsyncUtil extends AsyncUtilApi {
       interval: FiniteDuration = AsyncUtil.DEFAULT_INTERVAL,
       maxTries: Int = DEFAULT_MAX_TRIES)(implicit
       ec: ExecutionContext): Future[Unit] = {
-    val f = () => Future(condition)
+    val f = () => FutureUtil.makeAsync(() => condition)
     retryUntilSatisfiedF(f, interval, maxTries)
   }
 
@@ -127,7 +128,8 @@ abstract class AsyncUtil extends AsyncUtilApi {
     //type hackery here to go from () => Boolean to () => Future[Boolean]
     //to make sure we re-evaluate every time retryUntilSatisfied is called
     def conditionDef: Boolean = condition()
-    val conditionF: () => Future[Boolean] = () => Future(conditionDef)
+    val conditionF: () => Future[Boolean] = () =>
+      FutureUtil.makeAsync(() => conditionDef)
 
     awaitConditionF(conditionF, interval, maxTries)
   }

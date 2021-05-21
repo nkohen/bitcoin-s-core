@@ -21,7 +21,7 @@ import org.bitcoins.core.protocol.transaction.{
   TransactionInput,
   TransactionOutPoint
 }
-import org.bitcoins.core.util.EnvUtil
+import org.bitcoins.core.util.{EnvUtil, FutureUtil}
 import org.bitcoins.crypto.{
   DoubleSha256Digest,
   DoubleSha256DigestBE,
@@ -612,7 +612,7 @@ trait BitcoindRpcTestUtil extends Logging {
     implicit val ec = system.dispatcher
     AsyncUtil
       .retryUntilSatisfiedF(conditionF = { () =>
-                              Future {
+                              FutureUtil.makeAsync { () =>
                                 val dir = client.getDaemon.datadir
                                 FileUtil.deleteTmpDir(dir)
                                 !dir.exists()

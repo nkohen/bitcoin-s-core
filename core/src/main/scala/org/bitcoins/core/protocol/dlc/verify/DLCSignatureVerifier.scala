@@ -62,7 +62,7 @@ case class DLCSignatureVerifier(builder: DLCTxBuilder, isInitiator: Boolean) {
     def runVerify(
         outcomeSigs: Vector[
           (Indexed[ECPublicKey], ECAdaptorSignature)]): Future[Boolean] = {
-      Future {
+      FutureUtil.makeAsync { () =>
         outcomeSigs.foldLeft(true) { case (ret, (outcome, sig)) =>
           ret && verifyCETSig(outcome, sig)
         }
