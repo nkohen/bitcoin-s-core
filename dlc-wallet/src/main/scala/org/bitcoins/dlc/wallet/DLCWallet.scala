@@ -855,18 +855,22 @@ abstract class DLCWallet
     * This is the second step of the initiator
     */
   override def signDLC(accept: DLCAccept): Future[DLCSign] = {
+    println("Register DLC Accept")
     for {
       (dlc, cetSigsDbs) <- registerDLCAccept(accept)
       // .get should be safe now
       contractId = dlc.contractIdOpt.get
 
+      _ = println("Signer from db")
       signer <- signerFromDb(dlc.dlcId)
 
+      _ = println("find sigs")
       mySigs <- dlcSigsDAO.findByDLCId(dlc.dlcId)
       refundSigsDb <- dlcRefundSigDAO.findByDLCId(dlc.dlcId).map(_.get)
       cetSigs <-
         if (mySigs.forall(_.initiatorSig.isEmpty)) {
           logger.info(s"Creating CET Sigs for contract ${contractId.toHex}")
+          println("Create sigs")
           for {
             sigs <- signer.createCETSigsAsync()
 
@@ -875,6 +879,7 @@ abstract class DLCWallet
               .map { case (sig, db) =>
                 db.copy(initiatorSig = Some(sig._2))
               }
+            _ = println("Write sigs")
             _ <- dlcSigsDAO.updateAll(sigsDbs)
           } yield sigs
 
@@ -894,12 +899,14 @@ abstract class DLCWallet
         }
 
       _ = logger.info(s"Creating funding sigs for ${contractId.toHex}")
+      _ = println("Funding signing")
       fundingSigs <- Future.fromTry(signer.signFundingTx())
 
       updatedRefundSigsDb = refundSigsDb.copy(initiatorSig =
         Some(cetSigs.refundSig))
       _ <- dlcRefundSigDAO.update(updatedRefundSigsDb)
 
+      _ = println("Update DLC State")
       _ <- updateDLCState(dlc.contractIdOpt.get, DLCState.Signed)
       _ = logger.info(s"DLC ${contractId.toHex} is signed")
     } yield DLCSign(cetSigs, fundingSigs, contractId)
