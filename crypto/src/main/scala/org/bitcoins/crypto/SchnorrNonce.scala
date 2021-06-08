@@ -5,7 +5,7 @@ import scodec.bits.ByteVector
 case class SchnorrNonce(bytes: ByteVector) extends NetworkElement {
   require(bytes.length == 32, s"Schnorr nonce must be 32 bytes, get $bytes")
 
-  private val schnorrPublicKey: SchnorrPublicKey = new SchnorrPublicKey(bytes)
+  val schnorrPublicKey: SchnorrPublicKey = new SchnorrPublicKey(bytes)
 
   val publicKey: ECPublicKey = schnorrPublicKey.publicKey
 

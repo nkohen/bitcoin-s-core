@@ -68,7 +68,7 @@ sealed trait SingleOracleInfo
   def publicKey: SchnorrPublicKey = announcement.publicKey
 
   /** The oracle's pre-committed nonces, in the correct order */
-  def nonces: Vector[SchnorrNonce] = announcement.eventTLV.nonces
+  def nonces: Vector[SchnorrNonce] = announcement.nonces
 
   /** The order of the given sigs should correspond to the given outcome. */
   def verifySigs(outcome: DLCOutcomeType, sigs: OracleSignatures): Boolean
@@ -124,7 +124,7 @@ case class EnumSingleOracleInfo(announcement: OracleAnnouncementTLV)
             .isInstanceOf[EnumEventDescriptorV0TLV],
           s"Enum OracleInfo requires EnumEventDescriptor, $announcement")
 
-  val nonce: SchnorrNonce = announcement.eventTLV.nonces.head
+  val nonce: SchnorrNonce = announcement.nonces.head
 
   /** @inheritdoc */
   override def verifySigs(

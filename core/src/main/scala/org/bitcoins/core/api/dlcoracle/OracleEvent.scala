@@ -265,7 +265,7 @@ object OracleEvent {
       signingVersion: SigningVersion): Boolean = {
     val tlvOutcomes = attestationTLV.outcomes
     val attestations = attestationTLV.sigs
-    val nonces = announcement.eventTLV.nonces
+    val nonces = announcement.nonces
     if (
       announcement.publicKey != attestationTLV.publicKey ||
       nonces.size != attestations.size ||

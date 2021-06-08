@@ -52,6 +52,19 @@ trait TLVUtil {
     UInt64(sats.toLong).bytes
   }
 
+  protected def list[T](
+      vec: Vector[T],
+      serialize: T => ByteVector,
+      prefix: ByteVector): ByteVector = {
+    vec.foldLeft(prefix) { case (accum, elem) =>
+      accum ++ serialize(elem)
+    }
+  }
+
+  protected def list[T <: NetworkElement](vec: Vector[T]): ByteVector = {
+    list[T](vec, { elem: NetworkElement => elem.bytes }, ByteVector.empty)
+  }
+
   protected def u16Prefix(bytes: ByteVector): ByteVector = {
     UInt16(bytes.length).bytes ++ bytes
   }
@@ -59,9 +72,7 @@ trait TLVUtil {
   protected def u16PrefixedList[T](
       vec: Vector[T],
       serialize: T => ByteVector): ByteVector = {
-    vec.foldLeft(UInt16(vec.length).bytes) { case (accum, elem) =>
-      accum ++ serialize(elem)
-    }
+    list(vec, serialize, prefix = UInt16(vec.length).bytes)
   }
 
   protected def u16PrefixedList[T <: NetworkElement](
@@ -76,9 +87,7 @@ trait TLVUtil {
   protected def bigSizePrefixedList[T](
       vec: Vector[T],
       serialize: T => ByteVector): ByteVector = {
-    vec.foldLeft(BigSizeUInt(vec.length).bytes) { case (accum, elem) =>
-      accum ++ serialize(elem)
-    }
+    list(vec, serialize, prefix = BigSizeUInt(vec.length).bytes)
   }
 
   protected def bigSizePrefixedList[T <: NetworkElement](
@@ -153,7 +162,6 @@ object TLV extends TLVParentFactory[TLV] {
       ErrorTLV,
       PingTLV,
       PongTLV,
-      OracleEventV0TLV,
       RoundingIntervalsV0TLV,
       PayoutFunctionV0TLV,
       OracleParamsV0TLV,
@@ -167,6 +175,8 @@ object TLV extends TLVParentFactory[TLV] {
     ) ++ EventDescriptorTLV.allFactories ++
       ContractDescriptorTLV.allFactories ++
       OracleInfoTLV.allFactories ++
+      OracleEventTimestampTLV.allFactories ++
+      OracleEventTLV.allFactories ++
       OracleAnnouncementTLV.allFactories ++
       OracleAttestmentTLV.allFactories ++
       NegotiationFieldsTLV.allFactories
@@ -260,6 +270,10 @@ sealed trait TLVFactory[+T <: TLV] extends Factory[T] {
       take(numBytes = numBits / 8)
     }
 
+    def takeList[E](takeFunc: () => E, len: Int): Vector[E] = {
+      0.until(len).toVector.map(_ => takeFunc())
+    }
+
     def takeBigSize(): BigSizeUInt = {
       take(BigSizeUInt)
     }
@@ -271,9 +285,7 @@ sealed trait TLVFactory[+T <: TLV] extends Factory[T] {
 
     def takeBigSizePrefixedList[E](takeFunc: () => E): Vector[E] = {
       val len = takeBigSize()
-      0.until(len.toInt).toVector.map { _ =>
-        takeFunc()
-      }
+      takeList(takeFunc, len.toInt)
     }
 
     def takeU16(): UInt16 = {
@@ -287,9 +299,7 @@ sealed trait TLVFactory[+T <: TLV] extends Factory[T] {
 
     def takeU16PrefixedList[E](takeFunc: () => E): Vector[E] = {
       val len = takeU16()
-      0.until(len.toInt).toVector.map { _ =>
-        takeFunc()
-      }
+      takeList(takeFunc, len.toInt)
     }
 
     def takeI32(): Int32 = {
@@ -703,9 +713,36 @@ object DigitDecompositionEventDescriptorV0TLV
 
 sealed trait OracleEventTLV extends TLV {
   def eventDescriptor: EventDescriptorTLV
-  def nonces: Vector[SchnorrNonce]
   def eventId: NormalizedString
-  def eventMaturityEpoch: UInt32
+  def eventTimestamp: OracleEventTimestampTLV
+
+  /** Gets the earliest maturation of the event since epoch */
+  def earliestMaturation: Instant = {
+    eventTimestamp match {
+      case FixedOracleEventTimestampTLV(expectedTime) =>
+        Instant.ofEpochSecond(expectedTime.toLong)
+      case RangeOracleEventTimestampTLV(earliestExpectedTime, _) =>
+        Instant.ofEpochSecond(earliestExpectedTime.toLong)
+    }
+  }
+
+  /** Gets the latest maturation of the event since epoch */
+  def latestMaturation: Instant = {
+    eventTimestamp match {
+      case FixedOracleEventTimestampTLV(expectedTime) =>
+        Instant.ofEpochSecond(expectedTime.toLong)
+      case RangeOracleEventTimestampTLV(_, latestExpectedTime) =>
+        Instant.ofEpochSecond(latestExpectedTime.toLong)
+    }
+  }
+}
+
+object OracleEventTLV extends TLVParentFactory[OracleEventTLV] {
+
+  val allFactories: Vector[TLVFactory[OracleEventTLV]] =
+    Vector(OracleEventV0TLV, OracleEventV1TLV)
+
+  override val typeName: String = "OracleEventTLV"
 }
 
 case class OracleEventV0TLV(
@@ -714,9 +751,11 @@ case class OracleEventV0TLV(
     eventDescriptor: EventDescriptorTLV,
     eventId: NormalizedString
 ) extends OracleEventTLV {
-
   require(eventDescriptor.noncesNeeded == nonces.size,
           "Not enough nonces for this event descriptor")
+
+  override def eventTimestamp: OracleEventTimestampTLV =
+    FixedOracleEventTimestampTLV(eventMaturityEpoch)
 
   override def tpe: BigSizeUInt = OracleEventV0TLV.tpe
 
@@ -725,11 +764,6 @@ case class OracleEventV0TLV(
       eventMaturityEpoch.bytes ++
       eventDescriptor.bytes ++
       strBytes(eventId)
-  }
-
-  /** Gets the maturation of the event since epoch */
-  def maturation: Instant = {
-    Instant.ofEpochSecond(eventMaturityEpoch.toLong)
   }
 }
 
@@ -750,18 +784,105 @@ object OracleEventV0TLV extends TLVFactory[OracleEventV0TLV] {
   override val typeName: String = "OracleEventV0TLV"
 }
 
+sealed trait OracleEventTimestampTLV extends TLV
+
+object OracleEventTimestampTLV
+    extends TLVParentFactory[OracleEventTimestampTLV] {
+
+  val allFactories: Vector[TLVFactory[OracleEventTimestampTLV]] =
+    Vector(FixedOracleEventTimestampTLV, RangeOracleEventTimestampTLV)
+
+  override val typeName: String = "OracleEventTimestampTLV"
+}
+
+case class FixedOracleEventTimestampTLV(expectedTime: UInt32)
+    extends OracleEventTimestampTLV {
+  override def tpe: BigSizeUInt = FixedOracleEventTimestampTLV.tpe
+
+  override val value: ByteVector = expectedTime.bytes
+}
+
+object FixedOracleEventTimestampTLV
+    extends TLVFactory[FixedOracleEventTimestampTLV] {
+  override val tpe: BigSizeUInt = BigSizeUInt(55348)
+
+  override def fromTLVValue(value: ByteVector): FixedOracleEventTimestampTLV = {
+    FixedOracleEventTimestampTLV(UInt32.fromBytes(value))
+  }
+
+  override val typeName: String = "FixedOracleEventTimestampTLV"
+}
+
+case class RangeOracleEventTimestampTLV(
+    earliestExpectedTime: UInt32,
+    latestExpectedTime: UInt32)
+    extends OracleEventTimestampTLV {
+  override def tpe: BigSizeUInt = RangeOracleEventTimestampTLV.tpe
+
+  override val value: ByteVector =
+    earliestExpectedTime.bytes ++ latestExpectedTime.bytes
+}
+
+object RangeOracleEventTimestampTLV
+    extends TLVFactory[RangeOracleEventTimestampTLV] {
+  override val tpe: BigSizeUInt = BigSizeUInt(55350)
+
+  override def fromTLVValue(value: ByteVector): RangeOracleEventTimestampTLV = {
+    val iter = ValueIterator(value)
+
+    val earliest = iter.takeU32()
+    val latest = iter.takeU32()
+
+    RangeOracleEventTimestampTLV(earliest, latest)
+  }
+
+  override val typeName: String = "RangeOracleEventTimestampTLV"
+}
+
+case class OracleEventV1TLV(
+    eventTimestamp: OracleEventTimestampTLV,
+    eventDescriptor: EventDescriptorTLV,
+    eventId: NormalizedString
+) extends OracleEventTLV {
+
+  override def tpe: BigSizeUInt = OracleEventV1TLV.tpe
+
+  override val value: ByteVector = {
+    eventTimestamp.bytes ++
+      eventDescriptor.bytes ++
+      strBytes(eventId)
+  }
+}
+
+object OracleEventV1TLV extends TLVFactory[OracleEventV1TLV] {
+  override val tpe: BigSizeUInt = BigSizeUInt(55352)
+
+  override def fromTLVValue(value: ByteVector): OracleEventV1TLV = {
+    val iter = ValueIterator(value)
+
+    val eventTimestamp = iter.take(OracleEventTimestampTLV)
+    val eventDescriptor = iter.take(EventDescriptorTLV)
+    val eventId = iter.takeString()
+
+    OracleEventV1TLV(eventTimestamp, eventDescriptor, eventId)
+  }
+
+  override val typeName: String = "OracleEventV1TLV"
+}
+
 sealed trait OracleAnnouncementTLV extends TLV {
   def eventTLV: OracleEventTLV
   def announcementSignature: SchnorrDigitalSignature
   def publicKey: SchnorrPublicKey
+  def nonces: Vector[SchnorrNonce]
 
-  def validateSignature: Boolean
+  def validateSignatures: Boolean
 }
 
 object OracleAnnouncementTLV extends TLVParentFactory[OracleAnnouncementTLV] {
 
   val allFactories: Vector[TLVFactory[OracleAnnouncementTLV]] =
-    Vector(OracleAnnouncementV0TLV)
+    Vector(OracleAnnouncementV0TLV, OracleAnnouncementV1TLV)
 
   override val typeName: String = "OracleAnnouncementTLV"
 }
@@ -776,7 +897,9 @@ case class OracleAnnouncementV0TLV(
   override val value: ByteVector =
     announcementSignature.bytes ++ publicKey.bytes ++ eventTLV.bytes
 
-  override def validateSignature: Boolean = {
+  override def nonces: Vector[SchnorrNonce] = eventTLV.nonces
+
+  override def validateSignatures: Boolean = {
     publicKey.verify(CryptoUtil
                        .sha256DLCAnnouncement(eventTLV.bytes)
                        .bytes,
@@ -841,6 +964,174 @@ object OracleAnnouncementV0TLV extends TLVFactory[OracleAnnouncementV0TLV] {
   }
 
   override val typeName: String = "OracleAnnouncementV0TLV"
+}
+
+case class OracleAnnouncementV1TLV(
+    announcementSignature: SchnorrDigitalSignature,
+    attestationSignature: SchnorrDigitalSignature,
+    nonceSignatures: Vector[SchnorrDigitalSignature],
+    announcementPublicKey: SchnorrPublicKey,
+    attestationPublicKey: SchnorrPublicKey,
+    nonces: Vector[SchnorrNonce],
+    eventTLV: OracleEventV1TLV)
+    extends OracleAnnouncementTLV {
+  require(
+    nonces.length == nonceSignatures.length,
+    s"Expected one signature for every nonce, got ${nonces.length} nonces and ${nonceSignatures.length} signatures."
+  )
+  require(
+    eventTLV.eventDescriptor.noncesNeeded == nonces.size,
+    s"Not enough nonces (${nonces.length}) for this event descriptor (requires ${eventTLV.eventDescriptor.noncesNeeded})"
+  )
+
+  override def tpe: BigSizeUInt = OracleAnnouncementV1TLV.tpe
+
+  private val bytesWithoutSigs: ByteVector =
+    announcementPublicKey.bytes ++ attestationPublicKey.bytes ++ list(
+      nonces) ++ eventTLV.bytes
+
+  override val value: ByteVector =
+    announcementSignature.bytes ++ attestationSignature.bytes ++ u16PrefixedList(
+      nonceSignatures) ++ bytesWithoutSigs
+
+  override def publicKey: SchnorrPublicKey = attestationPublicKey
+
+  override def validateSignatures: Boolean = {
+    val pubKeys =
+      Vector(announcementPublicKey, attestationPublicKey) ++ nonces.map(
+        _.schnorrPublicKey)
+    val sigs =
+      Vector(announcementSignature, attestationSignature) ++ nonceSignatures
+
+    val hash = CryptoUtil
+      .sha256DLCAnnouncement(bytesWithoutSigs)
+      .bytes
+
+    pubKeys.zip(sigs).foldLeft(true) { case (result, (pubKey, sig)) =>
+      result && pubKey.verify(hash, sig)
+    }
+  }
+}
+
+object OracleAnnouncementV1TLV extends TLVFactory[OracleAnnouncementV1TLV] {
+  override val tpe: BigSizeUInt = BigSizeUInt(55354)
+
+  override def fromTLVValue(value: ByteVector): OracleAnnouncementV1TLV = {
+    val iter = ValueIterator(value)
+
+    val announcementSig = iter.take(SchnorrDigitalSignature, 64)
+    val attestationSig = iter.take(SchnorrDigitalSignature, 64)
+    val nonceSigs =
+      iter.takeU16PrefixedList(() => iter.take(SchnorrDigitalSignature, 64))
+    val announcementPublicKey = iter.take(SchnorrPublicKey, 32)
+    val attestationPublicKey = iter.take(SchnorrPublicKey, 32)
+    val nonces =
+      iter.takeList(() => iter.take(SchnorrNonce, 32), nonceSigs.length)
+    val eventTLV = iter.take(OracleEventV1TLV)
+
+    OracleAnnouncementV1TLV(announcementSig,
+                            attestationSig,
+                            nonceSigs,
+                            announcementPublicKey,
+                            attestationPublicKey,
+                            nonces,
+                            eventTLV)
+  }
+
+  lazy val dummy: OracleAnnouncementV1TLV = {
+    val priv1 = ECPrivateKey.freshPrivateKey
+    val pub1 = priv1.schnorrPublicKey
+    val priv2 = ECPrivateKey.freshPrivateKey
+    val pub2 = priv2.schnorrPublicKey
+    val priv3 = ECPrivateKey.freshPrivateKey
+    val pub3 = priv3.schnorrNonce
+
+    val event =
+      OracleEventV1TLV(FixedOracleEventTimestampTLV(UInt32.zero),
+                       EnumEventDescriptorV0TLV.dummy,
+                       "dummy")
+    val hash = CryptoUtil
+      .sha256DLCAnnouncement(
+        pub1.bytes ++ pub2.bytes ++ pub3.bytes ++ event.bytes)
+      .bytes
+
+    val sig1 = priv1.schnorrSign(hash)
+    val sig2 = priv2.schnorrSign(hash)
+    val sig3 = priv3.schnorrSign(hash)
+
+    OracleAnnouncementV1TLV(sig1,
+                            sig2,
+                            Vector(sig3),
+                            pub1,
+                            pub2,
+                            Vector(pub3),
+                            event)
+  }
+
+  def dummyForEventsAndKeys(
+      announcementPrivKey: ECPrivateKey,
+      attestationPrivKey: ECPrivateKey,
+      noncePrivKey: ECPrivateKey,
+      events: Vector[EnumOutcome]): OracleAnnouncementTLV = {
+    val event = OracleEventV1TLV(
+      FixedOracleEventTimestampTLV(UInt32.zero),
+      EnumEventDescriptorV0TLV(events.map(outcome => outcome.outcome)),
+      "dummy")
+    val hash = CryptoUtil
+      .sha256DLCAnnouncement(
+        announcementPrivKey.schnorrPublicKey.bytes ++ attestationPrivKey.schnorrPublicKey.bytes ++ noncePrivKey.schnorrNonce.bytes ++ event.bytes)
+      .bytes
+
+    val announcementSig = announcementPrivKey.schnorrSign(hash)
+    val attestationSig = attestationPrivKey.schnorrSign(hash)
+    val nonceSig = noncePrivKey.schnorrSign(hash)
+
+    OracleAnnouncementV1TLV(
+      announcementSig,
+      attestationSig,
+      Vector(nonceSig),
+      announcementPrivKey.schnorrPublicKey,
+      attestationPrivKey.schnorrPublicKey,
+      Vector(noncePrivKey.schnorrNonce),
+      event
+    )
+  }
+
+  def dummyForKeys(
+      announcementPrivKey: ECPrivateKey,
+      attestationPrivKey: ECPrivateKey,
+      nonceKeys: Vector[ECPrivateKey]): OracleAnnouncementTLV = {
+    val eventDescriptor = DigitDecompositionEventDescriptorV0TLV(
+      UInt16(2),
+      isSigned = false,
+      nonceKeys.length,
+      "dummy",
+      Int32.zero)
+    val event = OracleEventV1TLV(FixedOracleEventTimestampTLV(UInt32.zero),
+                                 eventDescriptor,
+                                 "dummy")
+    val hash = CryptoUtil
+      .sha256DLCAnnouncement(
+        announcementPrivKey.schnorrPublicKey.bytes ++ attestationPrivKey.schnorrPublicKey.bytes ++ nonceKeys
+          .map(_.schnorrNonce.bytes)
+          .reduce(_ ++ _) ++ event.bytes)
+      .bytes
+
+    val announcementSig = announcementPrivKey.schnorrSign(hash)
+    val attestationSig = attestationPrivKey.schnorrSign(hash)
+    val nonceSigs = nonceKeys.map(_.schnorrSign(hash))
+    OracleAnnouncementV1TLV(
+      announcementSig,
+      attestationSig,
+      nonceSigs,
+      announcementPrivKey.schnorrPublicKey,
+      attestationPrivKey.schnorrPublicKey,
+      nonceKeys.map(_.schnorrNonce),
+      event
+    )
+  }
+
+  override val typeName: String = "OracleAnnouncementV1TLV"
 }
 
 sealed trait OracleAttestmentTLV extends TLV {
