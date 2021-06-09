@@ -78,7 +78,7 @@ class TLVTest extends BitcoinSUnitTest {
     forAll(TLVGen.oracleEventV0TLV) { tlv =>
       val oracleEvent = OracleEventV0TLV(tlv.bytes)
       assert(oracleEvent == tlv)
-      assert(oracleEvent.maturation == tlv.maturation)
+      assert(oracleEvent.eventMaturityEpoch == tlv.eventMaturityEpoch)
       assert(TLV(tlv.bytes) == tlv)
     }
   }

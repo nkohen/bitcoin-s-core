@@ -193,7 +193,7 @@ class DLCOracleTest extends DLCOracleFixture {
 
         eventOpt <- dlcOracle.findEvent(announcement.eventTLV)
       } yield {
-        assert(announcement.validateSignature)
+        assert(announcement.validateSignatures)
         assert(eventOpt.isDefined)
         val event = eventOpt.get
 
@@ -283,7 +283,7 @@ class DLCOracleTest extends DLCOracleFixture {
                                             unit = "units",
                                             precision = Int32.zero)
 
-      _ = assert(announcement.validateSignature)
+      _ = assert(announcement.validateSignatures)
 
       eventTLV = announcement.eventTLV
 
@@ -360,7 +360,7 @@ class DLCOracleTest extends DLCOracleFixture {
                                               unit = "units",
                                               precision = Int32.zero)
 
-        _ = assert(announcement.validateSignature)
+        _ = assert(announcement.validateSignatures)
 
         eventTLV = announcement.eventTLV
 
@@ -438,7 +438,7 @@ class DLCOracleTest extends DLCOracleFixture {
                                               unit = "units",
                                               precision = Int32.zero)
 
-        _ = assert(announcement.validateSignature)
+        _ = assert(announcement.validateSignatures)
 
         eventTLV = announcement.eventTLV
 
@@ -643,7 +643,7 @@ class DLCOracleTest extends DLCOracleFixture {
                                                 Int32(0))
 
       for {
-        announcement: OracleAnnouncementTLV <-
+        announcement <-
           dlcOracle.createNewEvent(eventName, maturationTime, descriptor)
         event <-
           dlcOracle
@@ -672,7 +672,7 @@ class DLCOracleTest extends DLCOracleFixture {
                                                   Int32(0))
 
       for {
-        announcement: OracleAnnouncementTLV <-
+        announcement <-
           dlcOracle.createNewEvent(eventName, maturationTime, descriptor)
         event <-
           dlcOracle
@@ -702,16 +702,12 @@ class DLCOracleTest extends DLCOracleFixture {
                                                   Int32(0))
 
       for {
-        announcement1: OracleAnnouncementTLV <-
+        announcement1 <-
           dlcOracle.createNewEvent(eventName1, maturationTime, descriptor)
-        announcement2: OracleAnnouncementTLV <-
+        announcement2 <-
           dlcOracle.createNewEvent(eventName2, maturationTime, descriptor)
-        event1 <-
-          dlcOracle
-            .signDigits(announcement1.eventTLV, 2)
-        event2 <-
-          dlcOracle
-            .signDigits(announcement2.eventTLV, 1)
+        event1 <- dlcOracle.signDigits(announcement1.eventTLV, 2)
+        event2 <- dlcOracle.signDigits(announcement2.eventTLV, 1)
       } yield {
         assert(event1.isInstanceOf[CompletedDigitDecompositionV0OracleEvent])
         val attestations1 = event1

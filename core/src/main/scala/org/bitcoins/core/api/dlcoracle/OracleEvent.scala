@@ -45,6 +45,8 @@ sealed trait OracleEvent {
     eventTLV match {
       case v0TLV: OracleEventV0TLV =>
         OracleAnnouncementV0TLV(announcementSignature, pubkey, v0TLV)
+      case _: OracleEventV1TLV =>
+        throw new IllegalArgumentException("OracleEventV1TLV not yet supported")
     }
   }
 }

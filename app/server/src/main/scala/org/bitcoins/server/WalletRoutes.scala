@@ -303,7 +303,7 @@ case class WalletRoutes(wallet: AnyDLCHDWalletApi)(implicit
               case OracleInfoV1TLV(_, announcements)    => announcements
               case OracleInfoV2TLV(_, announcements, _) => announcements
             }
-            if (!announcements.forall(_.validateSignature)) {
+            if (!announcements.forall(_.validateSignatures)) {
               throw new RuntimeException(
                 s"Received Oracle announcement with invalid signature! ${announcements
                   .map(_.hex)}")

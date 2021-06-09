@@ -83,9 +83,7 @@ class DLCMultiOracleExactNumericExecutionTest extends BitcoinSDualWalletTest {
             val hash = CryptoUtil.sha256DLCAttestation(num.toString).bytes
             priv.schnorrSignWithNonce(hash, kValue)
           }
-          val eventId = oracleInfo.announcement.eventTLV match {
-            case v0: OracleEventV0TLV => v0.eventId
-          }
+          val eventId = oracleInfo.announcement.eventTLV.eventId
 
           OracleAttestmentV0TLV(eventId,
                                 priv.schnorrPublicKey,
@@ -123,9 +121,7 @@ class DLCMultiOracleExactNumericExecutionTest extends BitcoinSDualWalletTest {
             val hash = CryptoUtil.sha256DLCAttestation(num.toString).bytes
             priv.schnorrSignWithNonce(hash, kValue)
           }
-          val eventId = oracleInfo.announcement.eventTLV match {
-            case v0: OracleEventV0TLV => v0.eventId
-          }
+          val eventId = oracleInfo.announcement.eventTLV.eventId
 
           OracleAttestmentV0TLV(eventId,
                                 priv.schnorrPublicKey,

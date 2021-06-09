@@ -291,7 +291,9 @@ abstract class DLCWallet
       refundLocktime: UInt32): Future[DLCOffer] = {
     logger.info("Creating DLC Offer")
     val announcements =
-      contractInfo.oracleInfo.singleOracleInfos.map(_.announcement)
+      contractInfo.oracleInfo.singleOracleInfos.map(
+        _.announcement.asInstanceOf[OracleAnnouncementV0TLV]
+      ) // todo allow usage of OracleAnnouncementV1TLV
 
     //hack for now to get around https://github.com/bitcoin-s/bitcoin-s/issues/3127
     //filter announcements that we already have in the db
@@ -443,7 +445,10 @@ abstract class DLCWallet
           .map(account => (dlcDb, account.get))
       case None =>
         val announcements =
-          offer.contractInfo.oracleInfo.singleOracleInfos.map(_.announcement)
+          offer.contractInfo.oracleInfo.singleOracleInfos
+            .map(
+              _.announcement.asInstanceOf[OracleAnnouncementV0TLV]
+            ) // todo allow usage of OracleAnnouncementV1TLV
 
         //filter announcements that we already have in the db
         val groupedAnnouncementsF: Future[AnnouncementGrouping] = {
@@ -1377,7 +1382,7 @@ abstract class DLCWallet
     * @param announcementDataDbs
     */
   private def groupByExistingAnnouncements(
-      announcementTLVs: Vector[OracleAnnouncementTLV]): Future[
+      announcementTLVs: Vector[OracleAnnouncementV0TLV]): Future[
     AnnouncementGrouping] = {
 
     val announcementSignatures: Vector[SchnorrDigitalSignature] = {

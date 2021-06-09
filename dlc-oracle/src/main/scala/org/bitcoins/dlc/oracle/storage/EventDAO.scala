@@ -5,7 +5,8 @@ import org.bitcoins.core.protocol.dlc.compute.SigningVersion
 import org.bitcoins.core.protocol.tlv.{
   EventDescriptorTLV,
   OracleEventTLV,
-  OracleEventV0TLV
+  OracleEventV0TLV,
+  OracleEventV1TLV
 }
 import org.bitcoins.crypto._
 import org.bitcoins.db.{CRUD, DbCommonsColumnMappers, SlickUtil}
@@ -65,6 +66,8 @@ case class EventDAO()(implicit
     val query = oracleEvent match {
       case v0: OracleEventV0TLV =>
         table.filter(_.nonce.inSet(v0.nonces))
+      case _: OracleEventV1TLV =>
+        throw new IllegalArgumentException("OracleEventV1TLV not yet supported")
     }
 
     safeDatabase.runVec(query.result.transactionally)
