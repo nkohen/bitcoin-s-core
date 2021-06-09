@@ -133,7 +133,7 @@ class DLCOracle(private[this] val extPrivateKey: ExtPrivateKeyHardened)(implicit
       isSigned: Boolean,
       numDigits: Int,
       unit: String,
-      precision: Int32): Future[OracleAnnouncementTLV] = {
+      precision: Int32): Future[OracleAnnouncementV0TLV] = {
     require(base > UInt16.zero,
             s"base cannot be less than 1, got ${base.toInt}")
     require(numDigits > 0, s"numDigits cannot be less than 1, got $numDigits")
@@ -150,7 +150,7 @@ class DLCOracle(private[this] val extPrivateKey: ExtPrivateKeyHardened)(implicit
   override def createNewEnumEvent(
       eventName: String,
       maturationTime: Instant,
-      outcomes: Vector[String]): Future[OracleAnnouncementTLV] = {
+      outcomes: Vector[String]): Future[OracleAnnouncementV0TLV] = {
     require(outcomes.nonEmpty, "Cannot make an event with no outcomes")
     require(outcomes.distinct.size == outcomes.size,
             s"Cannot have duplicate outcomes, got $outcomes")
@@ -165,7 +165,7 @@ class DLCOracle(private[this] val extPrivateKey: ExtPrivateKeyHardened)(implicit
       maturationTime: Instant,
       descriptor: EventDescriptorTLV,
       signingVersion: SigningVersion = SigningVersion.latest): Future[
-    OracleAnnouncementTLV] = {
+    OracleAnnouncementV0TLV] = {
     require(maturationTime.isAfter(TimeUtil.now),
             s"Event cannot mature in the past, got $maturationTime")
 
@@ -221,7 +221,12 @@ class DLCOracle(private[this] val extPrivateKey: ExtPrivateKeyHardened)(implicit
       _ <- eventDAO.createAll(eventDbs)
       _ <- eventOutcomeDAO.createAll(eventOutcomeDbs)
     } yield {
-      OracleEvent.fromEventDbs(eventDbs).announcementTLV
+      OracleEvent.fromEventDbs(eventDbs).announcementTLV match {
+        case tlv: OracleAnnouncementV0TLV => tlv
+        case _: OracleAnnouncementV1TLV =>
+          throw new IllegalArgumentException(
+            "OracleAnnouncementV1TLV not yet supported")
+      }
     }
   }
 
@@ -308,12 +313,18 @@ class DLCOracle(private[this] val extPrivateKey: ExtPrivateKeyHardened)(implicit
       eventOpt <- findEvent(eventName)
       _ = require(eventOpt.isDefined,
                   s"No event found by event name $eventName")
-      res <- signDigits(eventOpt.get.announcementTLV.eventTLV, num)
+      eventTLV = eventOpt.get.announcementTLV match {
+        case OracleAnnouncementV0TLV(_, _, eventTLV) => eventTLV
+        case _: OracleAnnouncementV1TLV =>
+          throw new IllegalArgumentException(
+            "OracleAnnouncementV1TLV not yet supported")
+      }
+      res <- signDigits(eventTLV, num)
     } yield res
   }
 
   override def signDigits(
-      oracleEventTLV: OracleEventTLV,
+      oracleEventTLV: OracleEventV0TLV,
       num: Long): Future[OracleEvent] = {
 
     val eventDescriptorTLV: DigitDecompositionEventDescriptorV0TLV = {

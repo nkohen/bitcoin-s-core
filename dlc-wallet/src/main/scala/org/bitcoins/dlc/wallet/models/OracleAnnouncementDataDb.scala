@@ -22,14 +22,19 @@ case class OracleAnnouncementDataDb(
 object OracleAnnouncementDbHelper {
 
   def fromAnnouncement(tlv: OracleAnnouncementTLV): OracleAnnouncementDataDb = {
-    OracleAnnouncementDataDb(None,
-                             tlv.announcementSignature,
-                             tlv.publicKey,
-                             tlv.publicKey,
-                             tlv.eventTLV.eventId,
-                             tlv.eventTLV.eventDescriptor,
-                             tlv.eventTLV.eventMaturityEpoch)
-
+    tlv match {
+      case tlv: OracleAnnouncementV0TLV =>
+        OracleAnnouncementDataDb(None,
+                                 tlv.announcementSignature,
+                                 tlv.publicKey,
+                                 tlv.publicKey,
+                                 tlv.eventTLV.eventId,
+                                 tlv.eventTLV.eventDescriptor,
+                                 tlv.eventTLV.eventMaturityEpoch)
+      case _: OracleAnnouncementV1TLV =>
+        throw new IllegalArgumentException(
+          "OracleAnnouncementV1TLV not yet supported")
+    }
   }
 
   def fromAnnouncements(

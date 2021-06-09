@@ -62,7 +62,9 @@ trait DLCOracleApi {
 
   def signDigits(eventName: String, num: Long): Future[OracleEvent]
 
-  def signDigits(oracleEventTLV: OracleEventTLV, num: Long): Future[OracleEvent]
+  def signDigits(
+      oracleEventTLV: OracleEventV0TLV,
+      num: Long): Future[OracleEvent]
 
   /** Deletes attestations for the given event
     *

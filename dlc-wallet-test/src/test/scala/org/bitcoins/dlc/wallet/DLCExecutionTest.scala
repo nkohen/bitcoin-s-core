@@ -19,6 +19,7 @@ import org.bitcoins.core.protocol.tlv.{
   OracleAttestmentTLV,
   OracleAttestmentV0TLV,
   OracleEventV0TLV,
+  OracleEventV1TLV,
   OracleInfoV0TLV
 }
 import org.bitcoins.core.script.interpreter.ScriptInterpreter
@@ -72,6 +73,8 @@ class DLCExecutionTest extends BitcoinSDualWalletTest {
     val publicKey = DLCWalletUtil.oraclePrivKey.schnorrPublicKey
     val eventId = DLCWalletUtil.sampleOracleInfo.announcement.eventTLV match {
       case v0: OracleEventV0TLV => v0.eventId
+      case _: OracleEventV1TLV =>
+        throw new IllegalArgumentException("OracleEventV1TLV not yet supported")
     }
 
     (OracleAttestmentV0TLV(eventId,

@@ -79,7 +79,7 @@ trait EventDbUtil {
         eventName = eventName,
         numOutcomes = nonces.size,
         signingVersion = signingVersion,
-        maturationTime = oracleAnnouncementV0TLV.eventTLV.maturation,
+        maturationTime = oracleAnnouncementV0TLV.eventTLV.earliestMaturation,
         attestationOpt = None,
         outcomeOpt = None,
         announcementSignature = oracleAnnouncementV0TLV.announcementSignature,
